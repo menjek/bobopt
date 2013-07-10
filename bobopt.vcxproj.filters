@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="methods">
+      <UniqueIdentifier>{9707a916-b976-4a97-ad4a-fdd97f42f505}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="clang">
+      <UniqueIdentifier>{d3f78a17-61a9-48ce-93cc-cc150abc1ec1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="methods\bobopt_prefetch.cpp">
+      <Filter>methods</Filter>
+    </ClCompile>
+    <ClCompile Include="bobopt_method_factory.cpp" />
+    <ClCompile Include="bobopt_optimizer.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="methods\bobopt_yield_complex.cpp">
+      <Filter>methods</Filter>
+    </ClCompile>
+    <ClCompile Include="bobopt_method.cpp" />
+    <ClCompile Include="clang\bobopt_clang_utils.cpp">
+      <Filter>clang</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="methods\bobopt_prefetch.hpp">
+      <Filter>methods</Filter>
+    </ClInclude>
+    <ClInclude Include="bobopt_debug.hpp" />
+    <ClInclude Include="bobopt_inline.hpp" />
+    <ClInclude Include="bobopt_language.hpp" />
+    <ClInclude Include="bobopt_macros.hpp" />
+    <ClInclude Include="bobopt_method.hpp" />
+    <ClInclude Include="bobopt_method_factory.hpp" />
+    <ClInclude Include="bobopt_optimizer.hpp" />
+    <ClInclude Include="methods\bobopt_yield_complex.hpp">
+      <Filter>methods</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\bobopt_clang_epilog.hpp">
+      <Filter>clang</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\bobopt_clang_prolog.hpp">
+      <Filter>clang</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\bobopt_clang_utils.hpp">
+      <Filter>clang</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\bobopt_control_flow_search.hpp">
+      <Filter>clang</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="bobopt_empty.inl" />
+    <None Include="bobopt_optimizer.inl" />
+    <None Include="bobopt_method.inl" />
+  </ItemGroup>
+</Project>

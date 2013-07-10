@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{C9909243-3091-4E02-971D-697DD605FB81}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>bobopt</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120_CTP_Nov2012</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\Projects\clang\build\tools\clang\include;D:\Projects\clang\build\include;D:\Projects\clang\llvm\include;D:\Projects\clang\llvm\tools\clang\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d:\Projects\clang\build\lib\Debug\clangBasic.lib;d:\Projects\clang\build\lib\Debug\clangASTMatchers.lib;d:\Projects\clang\build\lib\Debug\clangTooling.lib;d:\Projects\clang\build\lib\Debug\LLVMSupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);C:\Projects\clang\build\tools\clang\include;C:\Projects\clang\build\include;C:\Projects\clang\llvm\include;C:\Projects\clang\llvm\tools\clang\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ShowIncludes>false</ShowIncludes>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>C:\Projects\clang\build\lib\Debug\clangAnalysis.lib;C:\Projects\clang\build\lib\Debug\clangARCMigrate.lib;C:\Projects\clang\build\lib\Debug\clangAST.lib;C:\Projects\clang\build\lib\Debug\clangASTMatchers.lib;C:\Projects\clang\build\lib\Debug\clangBasic.lib;C:\Projects\clang\build\lib\Debug\clangCodeGen.lib;C:\Projects\clang\build\lib\Debug\clangDriver.lib;C:\Projects\clang\build\lib\Debug\clangDynamicASTMatchers.lib;C:\Projects\clang\build\lib\Debug\clangEdit.lib;C:\Projects\clang\build\lib\Debug\clangFormat.lib;C:\Projects\clang\build\lib\Debug\clangFrontend.lib;C:\Projects\clang\build\lib\Debug\clangFrontendTool.lib;C:\Projects\clang\build\lib\Debug\clangLex.lib;C:\Projects\clang\build\lib\Debug\clangParse.lib;C:\Projects\clang\build\lib\Debug\clangRewriteCore.lib;C:\Projects\clang\build\lib\Debug\clangRewriteFrontend.lib;C:\Projects\clang\build\lib\Debug\clangSema.lib;C:\Projects\clang\build\lib\Debug\clangSerialization.lib;C:\Projects\clang\build\lib\Debug\clangStaticAnalyzerCore.lib;C:\Projects\clang\build\lib\Debug\clangStaticAnalyzerFrontend.lib;C:\Projects\clang\build\lib\Debug\clangStaticAnalyzerCheckers.lib;C:\Projects\clang\build\lib\Debug\clangTooling.lib;C:\Projects\clang\build\lib\Debug\libclang.lib;C:\Projects\clang\build\lib\Debug\llvm_headers_do_not_build.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64AsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64AsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64CodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64Desc.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64Disassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64Info.lib;C:\Projects\clang\build\lib\Debug\LLVMAArch64Utils.lib;C:\Projects\clang\build\lib\Debug\LLVMAnalysis.lib;C:\Projects\clang\build\lib\Debug\LLVMArchive.lib;C:\Projects\clang\build\lib\Debug\LLVMARMAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMARMAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMARMCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMARMDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMARMDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMARMInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMBitReader.lib;C:\Projects\clang\build\lib\Debug\LLVMBitWriter.lib;C:\Projects\clang\build\lib\Debug\LLVMCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMCore.lib;C:\Projects\clang\build\lib\Debug\LLVMCppBackendCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMCppBackendInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMDebugInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMExecutionEngine.lib;C:\Projects\clang\build\lib\Debug\LLVMHexagonAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMHexagonCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMHexagonDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMHexagonInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMInstCombine.lib;C:\Projects\clang\build\lib\Debug\LLVMInstrumentation.lib;C:\Projects\clang\build\lib\Debug\LLVMInterpreter.lib;C:\Projects\clang\build\lib\Debug\LLVMipa.lib;C:\Projects\clang\build\lib\Debug\LLVMipo.lib;C:\Projects\clang\build\lib\Debug\LLVMIRReader.lib;C:\Projects\clang\build\lib\Debug\LLVMJIT.lib;C:\Projects\clang\build\lib\Debug\LLVMLinker.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMMBlazeInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMMC.lib;C:\Projects\clang\build\lib\Debug\LLVMMCDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMMCJIT.lib;C:\Projects\clang\build\lib\Debug\LLVMMCParser.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMMipsInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMMSP430AsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMMSP430CodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMMSP430Desc.lib;C:\Projects\clang\build\lib\Debug\LLVMMSP430Info.lib;C:\Projects\clang\build\lib\Debug\LLVMNVPTXAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMNVPTXCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMNVPTXDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMNVPTXInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMObjCARCOpts.lib;C:\Projects\clang\build\lib\Debug\LLVMObject.lib;C:\Projects\clang\build\lib\Debug\LLVMOption.lib;C:\Projects\clang\build\lib\Debug\LLVMPowerPCAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMPowerPCAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMPowerPCCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMPowerPCDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMPowerPCInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMR600AsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMR600CodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMR600Desc.lib;C:\Projects\clang\build\lib\Debug\LLVMR600Info.lib;C:\Projects\clang\build\lib\Debug\LLVMRuntimeDyld.lib;C:\Projects\clang\build\lib\Debug\LLVMScalarOpts.lib;C:\Projects\clang\build\lib\Debug\LLVMSelectionDAG.lib;C:\Projects\clang\build\lib\Debug\LLVMSparcCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMSparcDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMSparcInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMSupport.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZAsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMSystemZInfo.lib;C:\Projects\clang\build\lib\Debug\LLVMTableGen.lib;C:\Projects\clang\build\lib\Debug\LLVMTarget.lib;C:\Projects\clang\build\lib\Debug\LLVMTransformUtils.lib;C:\Projects\clang\build\lib\Debug\LLVMVectorize.lib;C:\Projects\clang\build\lib\Debug\LLVMX86AsmParser.lib;C:\Projects\clang\build\lib\Debug\LLVMX86AsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMX86CodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMX86Desc.lib;C:\Projects\clang\build\lib\Debug\LLVMX86Disassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMX86Info.lib;C:\Projects\clang\build\lib\Debug\LLVMX86Utils.lib;C:\Projects\clang\build\lib\Debug\LLVMXCoreAsmPrinter.lib;C:\Projects\clang\build\lib\Debug\LLVMXCoreCodeGen.lib;C:\Projects\clang\build\lib\Debug\LLVMXCoreDesc.lib;C:\Projects\clang\build\lib\Debug\LLVMXCoreDisassembler.lib;C:\Projects\clang\build\lib\Debug\LLVMXCoreInfo.lib;C:\Projects\clang\build\lib\Debug\profile_rt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="bobopt_method.cpp" />
+    <ClCompile Include="bobopt_method_factory.cpp" />
+    <ClCompile Include="bobopt_optimizer.cpp">
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
+    </ClCompile>
+    <ClCompile Include="clang\bobopt_clang_utils.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="methods\bobopt_prefetch.cpp">
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
+    </ClCompile>
+    <ClCompile Include="methods\bobopt_yield_complex.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="bobopt_method.hpp" />
+    <ClInclude Include="bobopt_inline.hpp" />
+    <ClInclude Include="bobopt_language.hpp" />
+    <ClInclude Include="bobopt_macros.hpp" />
+    <ClInclude Include="bobopt_method_factory.hpp" />
+    <ClInclude Include="bobopt_optimizer.hpp" />
+    <ClInclude Include="bobopt_debug.hpp" />
+    <ClInclude Include="clang\bobopt_clang_epilog.hpp" />
+    <ClInclude Include="clang\bobopt_clang_prolog.hpp" />
+    <ClInclude Include="clang\bobopt_clang_utils.hpp" />
+    <ClInclude Include="clang\bobopt_control_flow_search.hpp" />
+    <ClInclude Include="methods\bobopt_prefetch.hpp" />
+    <ClInclude Include="methods\bobopt_yield_complex.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="bobopt_empty.inl" />
+    <None Include="bobopt_method.inl" />
+    <None Include="bobopt_optimizer.inl" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
