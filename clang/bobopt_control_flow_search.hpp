@@ -1,5 +1,6 @@
-/// \file bobopt_control_flow_search.hpp File contains definition of class responsible for search and collecting
-/// values in particular part of code on "must visit" paths and base policies definitions.
+/// \file bobopt_control_flow_search.hpp File contains definition of class responsible
+/// for search and collecting values in particular part of code on "must visit" paths
+/// and base policies definitions.
 
 #ifndef BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
 #define BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
@@ -23,7 +24,7 @@
 
 namespace bobopt {
 
-	// clone_policy definition.
+	// heap_policy definition.
 	//==============================================================================
 
 	/// \brief Policy that creates Derived class instance from prototype
@@ -42,7 +43,7 @@ namespace bobopt {
 		typedef heap_policy<Derived> policy_type;
 		typedef Derived derived_type;
 
-		/// \brief Proxy returned by created_instance() member function.
+		/// \brief Proxy returned by \c create_instance() member function.
 		class proxy
 		{
 		public:
@@ -63,12 +64,14 @@ namespace bobopt {
 		/// \brief Abstract member function for creation of another instance of prototype.
 		virtual derived_type* prototype() const = 0;
 
-	protected:
-		~heap_policy();
-
 		// instance creation/destruction:
 		instance_type create_instance() const;
 		void destroy_instance(instance_type& instance) const;
+
+	protected:
+
+		// protection:
+		~heap_policy();
 	};
 
 	// heap_policy implementation.
@@ -126,6 +129,7 @@ namespace bobopt {
 		instance.instance_ = nullptr;
 	}
 
+
 	// value_policy definition.
 	//==============================================================================
 
@@ -168,19 +172,20 @@ namespace bobopt {
 
 		typedef proxy instance_type;
 
-	protected:
-		~value_policy();
-		
 		// instance creation/destruction:
 		instance_type create_instance() const;
 		void destroy_instance(instance_type& instance) const;
+
+	protected:
+
+		// protection:
+		~value_policy();
 
 	private:
 		// access derived:
 		derived_type& get_derived();
 		const derived_type& get_derived() const;
 	};
-
 
 	// value_policy implementation.
 	//==============================================================================
@@ -250,6 +255,141 @@ namespace bobopt {
 	{
 		return *static_cast<const derived_type*>(this);
 	}
+
+
+	// scoped_prototype definition.
+	//==============================================================================
+
+	/// \brief Programmer/exception protection for prototype instances using policies.
+	///
+	/// Paired functions \c create_instance() and \c destroy_instance() indicates
+	/// that there are place in code when instance doesn't have owner that will
+	/// be able to release it in case of exception or programming mistake, and can
+	/// cause leaks.
+	///
+	/// Usage:
+	/// \code
+	/// class example : public heap_policy<example> {
+	/// ...
+	/// void function()
+	/// {
+	///     scoped_prototype<example> instance(*this);
+	///     ...
+	///     // will be destroyed at the end of scope.
+	///     // or in case of exception.
+	/// }
+	/// ...
+	/// };
+	/// \endcode
+	///
+	/// \tparam Derived Curiously recurring template pattern (CRTP).
+	template<typename Derived>
+	class scoped_prototype
+	{
+	public:
+
+		// typedefs:
+		typedef Derived derived_type;
+		typedef typename Derived::instance_type instance_type;
+
+		// create/destroy.
+		explicit scoped_prototype(derived_type& derived, bool create_valid = true);
+		~scoped_prototype();
+
+		// proxy:
+		derived_type& get();
+		const derived_type& get() const;
+		bool valid() const;
+
+		// manipulate:
+		void create();
+		void destroy();
+
+		// raw:
+		const instance_type& raw() const;
+
+	private:
+
+		// protection:
+		scoped_prototype();
+		BOBOPT_NONCOPYMOVABLE(scoped_prototype);
+
+		// data members:
+		derived_type& derived_;
+		instance_type instance_;
+	};
+
+	// scoped_prototype implementation.
+	//==============================================================================
+
+	/// \brief Can be constructed only on valid \c Derived object.
+	///
+	/// \param derived Reference to derived object.
+	/// \param create_valid Whether instance should be created together with object construction.
+	template<typename Derived>
+	scoped_prototype<Derived>::scoped_prototype(derived_type& derived, bool create_valid)
+		: derived_(derived)
+		, instance_()
+	{
+		if (create_valid)
+		{
+			create();
+		}
+	}
+
+	/// \brief Destructor always destroys instance even when it is invalid.
+	template<typename Derived>
+	scoped_prototype<Derived>::~scoped_prototype()
+	{
+		destroy();
+	}
+
+	/// \brief \b Proxy for \c instance_type. Access to derived object by non-const reference.
+	template<typename Derived>
+	BOBOPT_INLINE Derived& scoped_prototype<Derived>::get()
+	{
+		return instance_.get();
+	}
+
+	/// \brief \b Proxy for \c instance_type. Access to derived object by const reference.
+	template<typename Derived>
+	BOBOPT_INLINE const Derived& scoped_prototype<Derived>::get() const
+	{
+		return instance_.get();
+	}
+
+	/// \brief \b Proxy for \c instance_type. Indicates whether instance is valid.
+	template<typename Derived>
+	BOBOPT_INLINE bool scoped_prototype<Derived>::valid() const
+	{
+		return instance_.valid();
+	}
+
+	/// \brief Create new prototyped instance.
+	///
+	/// Precondition: Current instance must be invalid. It can either be created as invalid
+	///               destroyed in lifetime using \c destroy() member function.
+	template<typename Derived>
+	BOBOPT_INLINE void scoped_prototype<Derived>::create()
+	{
+		BOBOPT_ASSERT(!valid());
+		instance_ = derived_.create_instance();
+	}
+
+	/// \brief Destroy instance. No preconditions.
+	template<typename Derived>
+	BOBOPT_INLINE void scoped_prototype<Derived>::destroy()
+	{
+		derived_.destroy_instance(instance_);
+	}
+
+	/// \brief Raw access to \c instance_type.
+	template<typename Derived>
+	BOBOPT_INLINE const typename scoped_prototype<Derived>::instance_type& scoped_prototype<Derived>::raw() const
+	{
+		return instance_;
+	}
+
 
 	// control_flow_search.
 	//==============================================================================
@@ -409,25 +549,25 @@ namespace bobopt {
 		clang::Expr* cond_expr = if_stmt->getCond();
 		BOBOPT_ASSERT(cond_expr != nullptr);
 
-		instance_type cond_visitor = prototype_type::create_instance();
+		scoped_prototype<control_flow_search> cond_visitor(*this);
  		cond_visitor.get().TraverseStmt(cond_expr);
 
 		// Then branch.
-		instance_type then_visitor;
+		scoped_prototype<control_flow_search> then_visitor(*this, false);
 		clang::Stmt* then_stmt = if_stmt->getThen();
 		if (then_stmt != nullptr)
 		{
-			then_visitor = prototype_type::create_instance();
+			then_visitor.create();
 			BOBOPT_ASSERT(then_visitor.valid());
 			then_visitor.get().TraverseStmt(then_stmt);
 		}
 
 		// Else branch.
-		instance_type else_visitor;
+		scoped_prototype<control_flow_search> else_visitor(*this, false);
 		clang::Stmt* else_stmt = if_stmt->getElse();
 		if (else_stmt != nullptr)
 		{
-			else_visitor = prototype_type::create_instance();
+			else_visitor.create();
 			BOBOPT_ASSERT(else_visitor.valid());
 			else_visitor.get().TraverseStmt(else_stmt);
 		}
@@ -459,14 +599,9 @@ namespace bobopt {
 			}
 		}
 
-		append_values_locations(values, cond_visitor);
-		append_values_locations(values, then_visitor);
-		append_values_locations(values, else_visitor);
-
-		// Cleanup.
-		prototype_type::destroy_instance(cond_visitor);
-		prototype_type::destroy_instance(then_visitor);
-		prototype_type::destroy_instance(else_visitor);
+		append_values_locations(values, cond_visitor.raw());
+		append_values_locations(values, then_visitor.raw());
+		append_values_locations(values, else_visitor.raw());
 
 		return true;
 	}
@@ -488,33 +623,33 @@ namespace bobopt {
 	{
 		// Init statement.
 		clang::Stmt* init_stmt = for_stmt->getInit();
-		instance_type init_visitor;
+		scoped_prototype<control_flow_search> init_visitor(*this, false);
 		if (init_stmt != nullptr)
 		{
-			init_visitor = prototype_type::create_instance();
+			init_visitor.create();
 			BOBOPT_ASSERT(init_visitor.valid());
 			init_visitor.get().TraverseStmt(init_stmt);
 		}
 
 		// Condition expression.
 		clang::Expr* cond_expr = for_stmt->getCond();
-		instance_type cond_visitor;
+		scoped_prototype<control_flow_search> cond_visitor(*this, false);
 		if (cond_expr != nullptr)
 		{
-			cond_visitor = prototype_type::create_instance();
+			cond_visitor.create();
 			BOBOPT_ASSERT(cond_visitor.valid());
 			cond_visitor.get().TraverseStmt(cond_expr);
 		}
 
 		// Deeper analysis.
-		instance_type incr_visitor;
-		instance_type body_visitor;
+		scoped_prototype<control_flow_search> incr_visitor(*this, false);
+		scoped_prototype<control_flow_search> body_visitor(*this, false);
 		if (should_traverse_body(cond_expr))
 		{
 			clang::Stmt* body_stmt = for_stmt->getBody();
 			if (body_stmt != nullptr)
 			{
-				body_visitor = prototype_type::create_instance();
+				body_visitor.create();
 				BOBOPT_ASSERT(body_visitor.valid());
 				body_visitor.get().TraverseStmt(body_stmt);
 			}
@@ -522,23 +657,17 @@ namespace bobopt {
 			clang::Expr* incr_expr = for_stmt->getInc();
 			if (incr_expr != nullptr)
 			{
-				incr_visitor = prototype_type::create_instance();
+				incr_visitor.create();
 				BOBOPT_ASSERT(incr_visitor.valid());
 				incr_visitor.get().TraverseStmt(incr_expr);
 			}
 		}
 
 		// Collect values.
-		append_values(init_visitor);
-		append_values(cond_visitor);
-		append_values(incr_visitor);
-		append_values(body_visitor);
-
-		// Cleanup.
-		prototype_type::destroy_instance(init_visitor);
-		prototype_type::destroy_instance(cond_visitor);
-		prototype_type::destroy_instance(incr_visitor);
-		prototype_type::destroy_instance(body_visitor);
+		append_values(init_visitor.raw());
+		append_values(cond_visitor.raw());
+		append_values(incr_visitor.raw());
+		append_values(body_visitor.raw());
 
 		return true;
 	}
@@ -558,34 +687,30 @@ namespace bobopt {
 	{
 		// Condition expression.
 		clang::Expr* cond_expr = while_stmt->getCond();
-		instance_type cond_visitor;
+		scoped_prototype<control_flow_search> cond_visitor(*this, false);
 		if (cond_expr != nullptr)
 		{
-			cond_visitor = prototype_type::create_instance();
+			cond_visitor.create();
 			BOBOPT_ASSERT(cond_visitor.valid());
 			cond_visitor.get().TraverseStmt(cond_expr);
 		}
 
 		// Deeper analysis.
-		instance_type body_visitor;
+		scoped_prototype<control_flow_search> body_visitor(*this, false);
 		if (should_traverse_body(cond_expr))
 		{
 			clang::Stmt* body_stmt = while_stmt->getBody();
 			if (body_stmt != nullptr)
 			{
-				body_visitor = prototype_type::create_instance();
+				body_visitor.create();
 				BOBOPT_ASSERT(body_visitor.valid());
 				body_visitor.get().TraverseStmt(body_stmt);
 			}
 		}
 
 		// Collect values.
-		append_values(cond_visitor);
-		append_values(body_visitor);
-
-		// Cleanup.
-		prototype_type::destroy_instance(cond_visitor);
-		prototype_type::destroy_instance(body_visitor);
+		append_values(cond_visitor.raw());
+		append_values(body_visitor.raw());
 
 		return true;
 	}
@@ -608,13 +733,11 @@ namespace bobopt {
 		clang::Expr* cond_expr = switch_stmt->getCond();
 		BOBOPT_ASSERT(cond_expr != nullptr);
 
-		instance_type cond_visitor = prototype_type::create_instance();
+		scoped_prototype<control_flow_search> cond_visitor(*this);
 		BOBOPT_ASSERT(cond_visitor.valid());
 		cond_visitor.get().TraverseStmt(cond_expr);
 
-		append_values(cond_visitor);
-			
-		prototype_type::destroy_instance(cond_visitor);
+		append_values(cond_visitor.raw());
 
 		return true;
 	}
@@ -636,13 +759,11 @@ namespace bobopt {
 		clang::Stmt* try_block = try_stmt->getTryBlock();
 		if (try_block != nullptr)
 		{
-			instance_type block_visitor = prototype_type::create_instance();
+			scoped_prototype<control_flow_search> block_visitor(*this);
 			BOBOPT_ASSERT(block_visitor.valid());
 			block_visitor.get().TraverseStmt(try_block);
 
-			append_values(block_visitor);
-
-			prototype_type::destroy_instance(block_visitor);
+			append_values(block_visitor.raw());
 		}
 
 		return true;
@@ -672,11 +793,11 @@ namespace bobopt {
 			clang::Expr* lhs_expr = binary_operator->getLHS();
 			BOBOPT_ASSERT(lhs_expr != nullptr);
 
-			instance_type lhs_visitor = prototype_type::create_instance();
+			scoped_prototype<control_flow_search> lhs_visitor(*this);
 			BOBOPT_ASSERT(lhs_visitor.valid());
 			lhs_visitor.get().TraverseStmt(lhs_expr);
 
-			append_values(lhs_visitor);
+			append_values(lhs_visitor.raw());
 		}
 
 		return true;

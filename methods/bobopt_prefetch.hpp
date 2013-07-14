@@ -81,10 +81,7 @@ namespace bobopt {
 		///   Rationale: \c init_impl() is defined elsewhere in inheritance tree and likely can prefetch inputs. Example: bobox::dummy_box base.
 		/// - (global.3) Method can't access definition of \c init_impl() overriden function.
 		///   Rationale: There's body definition somewhere, but method won't be able to put anything there + ODR.
-		/// - (global.4) There's no overriden \c sync_mach_etwas() function.
-		///   Rationale: Nothing to optimize.
-		/// - (global.5) Method can't access definition of \c sync_mach_etwas() overriden function.
-		///   Rationale: There's body definition somewhere, but method can't analyze what to prefetch. Nothing to optimize.
+		/// - (global.4) 
 		///
 		/// Method doesn't optimize \b single input if:
 		/// - (single.1) ...
@@ -107,28 +104,20 @@ namespace bobopt {
 			typedef std::vector<std::string> named_inputs_type;
 
 			typedef clang::CXXMethodDecl* init_function_type;
+			typedef clang::CXXMethodDecl* sync_function_type;
 			typedef clang::CXXMethodDecl* body_function_type;
 			typedef std::vector<clang::CXXMethodDecl*> init_functions_type;
 			typedef std::vector<clang::CXXMethodDecl*> body_functions_type;
 
 			// helpers:
-
-			/// \brief Helper to glue together name of function and fully qualified name
-			/// of topmost overriden function parent.
-			struct bobox_method_info
-			{
-				std::string name;
-				std::string top_overriden_parent;
-			};
-
 			void pre_optimize();
 			
 			void collect_inputs();
 			void collect_functions();
 
 			bool analyze_init(internal::prefetched_collector& prefetched) const;
-			bool analyze_init_method(internal::prefetched_collector& prefetched, clang::CXXMethodDecl* init_decl) const;
-			bool analyze_body_method(internal::should_prefetch_collector& should_prefetch, clang::CXXMethodDecl* body_decl) const;
+			bool analyze_sync(internal::should_prefetch_collector& should_prefetch) const;
+			bool analyze_body(internal::should_prefetch_collector& should_prefetch) const;
 			void add_prefetch(const named_inputs_type& to_prefetch, const internal::should_prefetch_collector& should_prefetch);
 
 			bool overrides(clang::CXXMethodDecl* method_decl, const std::string& parent_name) const;
@@ -140,19 +129,16 @@ namespace bobopt {
 
 			inputs_type inputs_;
 			init_function_type init_;
-			init_functions_type init_functions_;
+			sync_function_type sync_;
 			body_function_type body_;
-			body_functions_type body_functions_;
 
 			// constants:
-			static const size_t BOX_INIT_FUNCTIONS_COUNT = 1;
-			static const bobox_method_info BOX_INIT_FUNCTIONS[BOX_INIT_FUNCTIONS_COUNT];
-
-			static const size_t BOX_BODY_FUNCTIONS_COUNT = 3;
-			static const bobox_method_info BOX_BODY_FUNCTIONS[BOX_BODY_FUNCTIONS_COUNT];
-
 			static const std::string BOX_INIT_FUNCTION_NAME;
+			static const std::string BOX_INIT_OVERRIDEN_PARENT_NAME;
+			static const std::string BOX_SYNC_FUNCTION_NAME;
+			static const std::string BOX_SYNC_OVERRIDEN_PARENT_NAME;
 			static const std::string BOX_BODY_FUNCTION_NAME;
+			static const std::string BOX_BODY_OVERRIDEN_PARENT_NAME;
 		};
 
 	} // namespace methods

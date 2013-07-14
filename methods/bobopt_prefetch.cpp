@@ -591,8 +591,22 @@ namespace bobopt {
 			{
 				collect_functions();
 
+				internal::prefetched_collector prefetched;
+				if (!analyze_init(prefetched))
+				{
+					// Don't optimize.
+					return;
+				}
+
 				internal::should_prefetch_collector should_prefetch(basic_method::get_ast_context());
-				if (!analyze_body_method(should_prefetch, body_))
+				if (!analyze_sync(should_prefetch))
+				{
+					// Don't optimize.
+					return;
+				}
+
+				// Do not analyze body if there's sync.
+				if ((sync_ == nullptr) && !analyze_body(should_prefetch))
 				{
 					// Don't optimize.
 					return;
@@ -602,13 +616,6 @@ namespace bobopt {
 				if (should_prefetch_names.empty())
 				{
 					// Nothing to optimize.
-					return;
-				}
-
-				internal::prefetched_collector prefetched;
-				if (!analyze_init_method(prefetched, init_))
-				{
-					// Don't optimize.
 					return;
 				}
 
@@ -638,12 +645,8 @@ namespace bobopt {
 		{
 			inputs_.clear();
 			init_ = nullptr;
+			sync_ = nullptr;
 			body_ = nullptr;
-
-			init_functions_.clear();
-			init_functions_.resize(BOX_INIT_FUNCTIONS_COUNT, nullptr);
-			body_functions_.clear();
-			body_functions_.resize(BOX_BODY_FUNCTIONS_COUNT, nullptr);
 		}
 
 		/// \brief Collect declarations of inputs from box definition.
@@ -661,7 +664,7 @@ namespace bobopt {
 			}
 		}
 
-		/// \brief Collect \c init_impl() and \c sync_mach_etwas() function declarations from box definition.
+		/// \brief Collect \c init_impl() and \c sync_mach_etwas() and \c sync_body() function sdeclarations from box definition.
 		void prefetch::collect_functions()
 		{
 			BOBOPT_ASSERT(box_ != nullptr);
@@ -670,31 +673,9 @@ namespace bobopt {
 			{
 				CXXMethodDecl* method = *method_it;
 
-				for (size_t i = 0; i < BOX_INIT_FUNCTIONS_COUNT; ++i)
+				if (method->getNameAsString() == BOX_INIT_FUNCTION_NAME)
 				{
-					const auto& method_info = BOX_INIT_FUNCTIONS[i];
-					if ((method->getNameAsString() == method_info.name) && overrides(method, method_info.top_overriden_parent))
-					{
-						BOBOPT_ASSERT(i < init_functions_.size());
-						BOBOPT_ASSERT(init_functions_[i] == nullptr);
-						init_functions_[i] = method;
-					}
-				}
-
-				for (size_t i = 0; i < BOX_BODY_FUNCTIONS_COUNT; ++i)
-				{
-					const auto& method_info = BOX_BODY_FUNCTIONS[i];
-					if ((method->getNameAsString() == method_info.name) && overrides(method, method_info.top_overriden_parent))
-					{
-						BOBOPT_ASSERT(i < body_functions_.size());
-						BOBOPT_ASSERT(body_functions_[i] == nullptr);
-						body_functions_[i] = method;
-					}
-				}
-
-				if (method_it->getNameAsString() == BOX_INIT_FUNCTION_NAME)
-				{
-					if (overrides(method, string("bobox::box")))
+					if (overrides(method, BOX_INIT_OVERRIDEN_PARENT_NAME))
 					{
 						BOBOPT_ASSERT(init_ == nullptr);
 						init_ = method;
@@ -703,9 +684,20 @@ namespace bobopt {
 					continue;
 				}
 
-				if (method_it->getNameAsString() == BOX_BODY_FUNCTION_NAME)
+				if (method->getNameAsString() == BOX_SYNC_FUNCTION_NAME)
 				{
-					if (overrides(method, string("bobox::basic_box")))
+					if (overrides(method, BOX_SYNC_OVERRIDEN_PARENT_NAME))
+					{
+						BOBOPT_ASSERT(sync_ == nullptr);
+						sync_ = method;
+					}
+
+					continue;
+				}
+
+				if (method->getNameAsString() == BOX_BODY_FUNCTION_NAME)
+				{
+					if (overrides(method, BOX_BODY_OVERRIDEN_PARENT_NAME))
 					{
 						BOBOPT_ASSERT(body_ == nullptr);
 						body_ = method;
@@ -714,41 +706,27 @@ namespace bobopt {
 			}
 		}
 
-		/// \brief Analyze all overriden init virtual functions.
-		bool prefetch::analyze_init(internal::prefetched_collector& prefetched) const
-		{
-			for (auto init_decl : init_functions_)
-			{
-				if (init_decl != nullptr)
-				{
-					analyze_init_method(prefetched, init_decl);
-				}
-			}
-
-			return true;
-		}
-
 		/// \brief Analyze \c init_impl() member function.
 		///
 		/// \param prefetched Reference to internal \link intenral::prefetched_collector prefetched_collector \endlink object.
 		/// \return Returns whether optimization process should continue.
-		bool prefetch::analyze_init_method(internal::prefetched_collector& prefetched, clang::CXXMethodDecl* init_decl) const
+		bool prefetch::analyze_init(internal::prefetched_collector& prefetched) const
 		{
-			if (init_decl == nullptr)
+			if (init_ == nullptr)
 			{
 				// (global.2) There's no overriden init_impl() function.
 				// Do not optimize.
 				return false;
 			}
 
-			if (!init_decl->hasBody())
+			if (!init_->hasBody())
 			{
 				// (global.3) Method can't access definition of init_impl() overriden function.
 				// Do not optimize.
 				return false;
 			}
 
-			if (prefetched.TraverseStmt(init_decl->getBody()))
+			if (prefetched.TraverseStmt(init_->getBody()))
 			{
 				// Finished everything OK.
 				// Optimize.
@@ -764,23 +742,45 @@ namespace bobopt {
 		///
 		/// \param should_prefetch Reference to internal \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
 		/// \return Returns whether optimization process should continue.
-		bool prefetch::analyze_body_method(internal::should_prefetch_collector& should_prefetch, clang::CXXMethodDecl* body_decl) const
+		bool prefetch::analyze_sync(internal::should_prefetch_collector& should_prefetch) const
 		{
-			if (body_decl == nullptr)
+			if (!sync_->hasBody())
 			{
-				// (global.4) There's no overriden sync_mach_etwas() function.
-				// Do not optimize.
-				return false;
-			}
-
-			if (!body_decl->hasBody())
-			{
-				// (global.5) Method can't access definition of sync_mach_etwas() overriden function.
 				// Do not optimize.
 				return false;
 			}
 			
-			if (should_prefetch.TraverseStmt(body_decl->getBody()))
+			if (should_prefetch.TraverseStmt(sync_->getBody()))
+			{
+				// Finished everything OK.
+				// Optimize.
+				return true;
+			}
+
+			// Unexpected traversal ending.
+			// Do not optimize.
+			return false;
+		}
+
+		/// \brief Analyze \c sync_body() member function.
+		///
+		/// \param should_prefetch Reference to internal \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
+		/// \return Returns whether optimization process should continue.
+		bool prefetch::analyze_body(internal::should_prefetch_collector& should_prefetch) const
+		{
+			if (body_ == nullptr)
+			{
+				// Do not optimize.
+				return false;
+			}
+
+			if (!body_->hasBody())
+			{
+				// Do not optimize.
+				return false;
+			}
+			
+			if (should_prefetch.TraverseStmt(body_->getBody()))
 			{
 				// Finished everything OK.
 				// Optimize.
@@ -866,27 +866,20 @@ namespace bobopt {
 			return nullptr;
 		}
 
-		/// \brief Hardcoded constant array of bobox box initialization virtual member functions
-		/// together with fully qualified names of topmost overriden parents.
-		const prefetch::bobox_method_info prefetch::BOX_INIT_FUNCTIONS[BOX_INIT_FUNCTIONS_COUNT] =
-		{
-			{ "init_impl", "bobox::box" }
-		};
-
-		/// \brief Hardcoded constant array of bobox box body virtual member functions
-		/// together with fully qualified names of topmost overriden parents.
-		const prefetch::bobox_method_info prefetch::BOX_BODY_FUNCTIONS[BOX_BODY_FUNCTIONS_COUNT] =
-		{
-			{ "sync_body", "bobox::basic_box" },
-			{ "sync_mach_etwas", "bobox::basic_box" },
-			{ "async_mach_etwas", "bobox::basic_box" }
-		};
-
 		/// \brief Name of bobox box initialization virtual member function to be overriden. 
 		const string prefetch::BOX_INIT_FUNCTION_NAME("init_impl");
+		/// \brief Name of parent overriden functions for init. Just to check if it is not overloaded virtual.
+		const string prefetch::BOX_INIT_OVERRIDEN_PARENT_NAME("bobox::box");
+
+		/// \brief Name of bobox box sync virtual member function to be overriden.
+		const string prefetch::BOX_SYNC_FUNCTION_NAME("sync_mach_etwas");
+		/// \brief Name of parent overriden functions for sync. Just to check if it is not overloaded virtual.
+		const string prefetch::BOX_SYNC_OVERRIDEN_PARENT_NAME("bobox::basic_box");
 
 		/// \brief Name of bobox box body virtual member function to be overriden.
-		const string prefetch::BOX_BODY_FUNCTION_NAME("sync_mach_etwas");
+		const string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
+		/// \brief Name of parent overriden functions for body. Just to check if it is not overloaded virtual.
+		const string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
 	
 	} // namespace methods
 
