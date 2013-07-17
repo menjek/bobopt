@@ -448,6 +448,10 @@ namespace bobopt {
 		bool TraverseBinaryOperator(clang::BinaryOperator* binary_operator);
 		bool VisitBinaryOperator(clang::BinaryOperator* binary_operator);
 
+		bool VisitBreakStmt(clang::BreakStmt* break_stmt);
+		bool VisitContinueStmt(clang::ContinueStmt* continue_stmt);
+		bool VisitReturnStmt(clang::ReturnStmt* return_stmt);
+
 	protected:
 
 		// create/destroy:
@@ -460,6 +464,16 @@ namespace bobopt {
 		void remove_value(const value_type& val);
 
 	private:
+
+		// helpers:
+
+		/// \brief Flags for handling traversal situations.
+		enum cff_flags
+		{
+			cff_break = 1 << 0,
+			cff_continue = 1 << 1,
+			cff_return = 1 << 2
+		};
 
 		// typedefs:
 		typedef std::map<Value, locations_type> container_type;
@@ -477,6 +491,7 @@ namespace bobopt {
 		static values_type make_union(values_type lhs, const values_type& rhs);
 
 		container_type values_map_;
+		int flags_;
 	};
 
 	// control_flow_search implementation.
@@ -803,10 +818,35 @@ namespace bobopt {
 		return true;
 	}
 
+	/// \brief Handles \c break; statement by finishing traversal and setting flag.
+	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
+	bool control_flow_search<Derived, Value, PrototypePolicy>::VisitBreakStmt(clang::BreakStmt*)
+	{
+		flags_ |= cff_break;
+		return false;
+	}
+
+	/// \brief Handles \c continue; statement by finishing traversal and setting flag.
+	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
+	bool control_flow_search<Derived, Value, PrototypePolicy>::VisitContinueStmt(clang::ContinueStmt*)
+	{
+		flags_ |= cff_continue;
+		return false;
+	}
+
+	/// \brief Handles \c return; statement by finishing traversal and setting flag.
+	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
+	bool control_flow_search<Derived, Value, PrototypePolicy>::VisitReturnStmt(clang::ReturnStmt*)
+	{
+		flags_ |= cff_return;
+		return false;
+	}
+
 	/// \brief Don't create instances of base.
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE control_flow_search<Derived, Value, PrototypePolicy>::control_flow_search()
 		: values_map_()
+		, flags_(0)
 	{}
 
 	/// \brief Don't delete through pointer to base.
