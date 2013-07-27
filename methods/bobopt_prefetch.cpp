@@ -1,9 +1,10 @@
+#include <methods/bobopt_prefetch.hpp>
+
 #include <bobopt_debug.hpp>
 #include <bobopt_language.hpp>
 #include <bobopt_macros.hpp>
 #include <clang/bobopt_clang_utils.hpp>
 #include <clang/bobopt_control_flow_search.hpp>
-#include <methods/bobopt_prefetch.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/Casting.h"
@@ -726,21 +727,13 @@ namespace bobopt {
 				return false;
 			}
 
-			if (prefetched.TraverseStmt(init_->getBody()))
-			{
-				// Finished everything OK.
-				// Optimize.
-				return true;
-			}
-
-			// Unexpected traversal ending.
-			// Do not optimize.
-			return false;
+			prefetched.TraverseStmt(init_->getBody());
+			return true;
 		}
 
 		/// \brief Analyze \c sync_mach_etwas() member function.
 		///
-		/// \param should_prefetch Reference to internal \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
+		/// \param should_prefetch Reference to internal \link internal::should_prefetch_collector should_prefetch_collector \endlink object.
 		/// \return Returns whether optimization process should continue.
 		bool prefetch::analyze_sync(internal::should_prefetch_collector& should_prefetch) const
 		{
@@ -750,16 +743,8 @@ namespace bobopt {
 				return false;
 			}
 			
-			if (should_prefetch.TraverseStmt(sync_->getBody()))
-			{
-				// Finished everything OK.
-				// Optimize.
-				return true;
-			}
-
-			// Unexpected traversal ending.
-			// Do not optimize.
-			return false;
+			should_prefetch.TraverseStmt(sync_->getBody());
+			return true;
 		}
 
 		/// \brief Analyze \c sync_body() member function.
@@ -780,16 +765,8 @@ namespace bobopt {
 				return false;
 			}
 			
-			if (should_prefetch.TraverseStmt(body_->getBody()))
-			{
-				// Finished everything OK.
-				// Optimize.
-				return true;
-			}
-
-			// Unexpected traversal ending.
-			// Do not optimize.
-			return false;
+			should_prefetch.TraverseStmt(body_->getBody());
+			return true;
 		}
 
 		/// \brief Insert prefetch calls to \c init_impl() overriden member function.
@@ -837,21 +814,6 @@ namespace bobopt {
 			}
 		}
 		
-		/// \brief Tests whether member function overrides bobox basic box virtual member function.
-		bool prefetch::overrides(CXXMethodDecl* method_decl, const string& parent_name) const
-		{
-			for (auto it = method_decl->begin_overridden_methods(); it != method_decl->end_overridden_methods(); ++it)
-			{
-				const CXXMethodDecl* overridden = *it;
-				if (overridden->getParent()->getQualifiedNameAsString() == parent_name)
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
 		/// \brief Access input member function declaration to access input by name.
 		CXXMethodDecl* prefetch::get_input(const string& name) const
 		{

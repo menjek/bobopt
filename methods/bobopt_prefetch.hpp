@@ -91,7 +91,7 @@ namespace bobopt {
 
 			// create/destroy:
 			prefetch();
-			virtual ~prefetch();
+			virtual ~prefetch() BOBOPT_OVERRIDE;
 
 			// optimization:
 			virtual void optimize(clang::CXXRecordDecl* box, clang::tooling::Replacements* replacements);
@@ -120,7 +120,6 @@ namespace bobopt {
 			bool analyze_body(internal::should_prefetch_collector& should_prefetch) const;
 			void add_prefetch(const named_inputs_type& to_prefetch, const internal::should_prefetch_collector& should_prefetch);
 
-			bool overrides(clang::CXXMethodDecl* method_decl, const std::string& parent_name) const;
 			clang::CXXMethodDecl* get_input(const std::string& name) const;
 
 			// data members:

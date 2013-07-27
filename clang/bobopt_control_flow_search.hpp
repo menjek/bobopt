@@ -480,6 +480,7 @@ namespace bobopt {
 
 		// traversal helpers:
 		bool should_traverse_body(clang::Expr* expr) const;
+		bool should_continue() const;
 
 		// value helpers:
 		void append_values(const instance_type& visitor);
@@ -548,7 +549,7 @@ namespace bobopt {
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseIfStmt(clang::IfStmt* if_stmt)
 	{
-		return VisitIfStmt(if_stmt);
+		return VisitIfStmt(if_stmt) && should_continue();
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of if statement.
@@ -566,6 +567,7 @@ namespace bobopt {
 
 		scoped_prototype<control_flow_search> cond_visitor(*this);
  		cond_visitor.get().TraverseStmt(cond_expr);
+		flags_ |= cond_visitor.get().flags_;
 
 		// Then branch.
 		scoped_prototype<control_flow_search> then_visitor(*this, false);
@@ -575,6 +577,7 @@ namespace bobopt {
 			then_visitor.create();
 			BOBOPT_ASSERT(then_visitor.valid());
 			then_visitor.get().TraverseStmt(then_stmt);
+			flags_ |= then_visitor.get().flags_;
 		}
 
 		// Else branch.
@@ -585,6 +588,7 @@ namespace bobopt {
 			else_visitor.create();
 			BOBOPT_ASSERT(else_visitor.valid());
 			else_visitor.get().TraverseStmt(else_stmt);
+			flags_ |= else_visitor.get().flags_;
 		}
 
 		// Store results of recursive traversal.
@@ -625,7 +629,9 @@ namespace bobopt {
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseForStmt(clang::ForStmt* for_stmt)
 	{
-		return VisitForStmt(for_stmt);
+		bool result = VisitForStmt(for_stmt);
+		result &= ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of for statement.
@@ -644,6 +650,7 @@ namespace bobopt {
 			init_visitor.create();
 			BOBOPT_ASSERT(init_visitor.valid());
 			init_visitor.get().TraverseStmt(init_stmt);
+			flags_ |= init_visitor.get().flags_;
 		}
 
 		// Condition expression.
@@ -654,6 +661,7 @@ namespace bobopt {
 			cond_visitor.create();
 			BOBOPT_ASSERT(cond_visitor.valid());
 			cond_visitor.get().TraverseStmt(cond_expr);
+			flags_ |= cond_visitor.get().flags_;
 		}
 
 		// Deeper analysis.
@@ -667,6 +675,7 @@ namespace bobopt {
 				body_visitor.create();
 				BOBOPT_ASSERT(body_visitor.valid());
 				body_visitor.get().TraverseStmt(body_stmt);
+				flags_ |= body_visitor.get().flags_;
 			}
 
 			clang::Expr* incr_expr = for_stmt->getInc();
@@ -675,6 +684,7 @@ namespace bobopt {
 				incr_visitor.create();
 				BOBOPT_ASSERT(incr_visitor.valid());
 				incr_visitor.get().TraverseStmt(incr_expr);
+				flags_ |= incr_visitor.get().flags_;
 			}
 		}
 
@@ -691,7 +701,9 @@ namespace bobopt {
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseWhileStmt(clang::WhileStmt* while_stmt)
 	{
-		return VisitWhileStmt(while_stmt);
+		bool result = VisitWhileStmt(while_stmt);
+		result &= ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of while statement.
@@ -708,6 +720,7 @@ namespace bobopt {
 			cond_visitor.create();
 			BOBOPT_ASSERT(cond_visitor.valid());
 			cond_visitor.get().TraverseStmt(cond_expr);
+			flags_ |= cond_visitor.get().flags_;
 		}
 
 		// Deeper analysis.
@@ -720,6 +733,7 @@ namespace bobopt {
 				body_visitor.create();
 				BOBOPT_ASSERT(body_visitor.valid());
 				body_visitor.get().TraverseStmt(body_stmt);
+				flags_ |= body_visitor.get().flags_;
 			}
 		}
 
@@ -734,7 +748,9 @@ namespace bobopt {
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseSwitchStmt(clang::SwitchStmt* switch_stmt)
 	{
-		return VisitSwitchStmt(switch_stmt);
+		bool result = VisitSwitchStmt(switch_stmt);
+		result &= ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of switch statement.
@@ -751,6 +767,7 @@ namespace bobopt {
 		scoped_prototype<control_flow_search> cond_visitor(*this);
 		BOBOPT_ASSERT(cond_visitor.valid());
 		cond_visitor.get().TraverseStmt(cond_expr);
+		flags_ |= cond_visitor.get().flags_;
 
 		append_values(cond_visitor.raw());
 
@@ -761,7 +778,9 @@ namespace bobopt {
 	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseCXXTryStmt(clang::CXXTryStmt* try_stmt)
 	{
-		return VisitCXXTryStmt(try_stmt);
+		bool result = VisitCXXTryStmt(try_stmt);
+		result &= ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of try statement.
@@ -777,6 +796,7 @@ namespace bobopt {
 			scoped_prototype<control_flow_search> block_visitor(*this);
 			BOBOPT_ASSERT(block_visitor.valid());
 			block_visitor.get().TraverseStmt(try_block);
+			flags_ |= block_visitor.get().flags_;
 
 			append_values(block_visitor.raw());
 		}
@@ -793,7 +813,9 @@ namespace bobopt {
 			return base_type::TraverseBinaryOperator(binary_operator);
 		}
 
-		return VisitBinaryOperator(binary_operator);
+		bool result = VisitBinaryOperator(binary_operator);
+		result = ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Function will handle recursive traversal and value evaluation of for statement.
@@ -811,6 +833,7 @@ namespace bobopt {
 			scoped_prototype<control_flow_search> lhs_visitor(*this);
 			BOBOPT_ASSERT(lhs_visitor.valid());
 			lhs_visitor.get().TraverseStmt(lhs_expr);
+			flags_ |= lhs_visitor.get().flags_;
 
 			append_values(lhs_visitor.raw());
 		}
@@ -898,6 +921,17 @@ namespace bobopt {
 	{
 		BOBOPT_UNUSED_EXPRESSION(expr);
 		return false;
+	}
+
+	/// \brief Function indicates whether traversal should continue based on flags.
+	template<typename Derived, typename Value, template <typename> class PrototypePolicy>
+	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::should_continue() const
+	{
+		bool result = true;
+		result &= ((flags_ & cff_break) == 0);
+		result &= ((flags_ & cff_continue) == 0);
+		result &= ((flags_ & cff_return) == 0);
+		return result;
 	}
 
 	/// \brief Apppend values from instance to this visitor instance.

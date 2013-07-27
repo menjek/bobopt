@@ -22,12 +22,16 @@ namespace clang {
 	class Stmt;
 	class Type;
 	class Rewriter;
+	class CXXMethodDecl;
 }
 
 namespace bobopt {
 
 	/// \brief Flushes all changes in rewriter object.
 	void flush_rewriter(clang::Rewriter& rewriter);
+	
+	/// \brief Tests whether member function overrides bobox basic box virtual member function.
+	bool overrides(clang::CXXMethodDecl* method_decl, const std::string& parent_name);
 
 	/// \brief Handles AST traversal and match finding.
 	///
