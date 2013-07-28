@@ -164,6 +164,7 @@
     <ClInclude Include="bobopt_method_factory.hpp" />
     <ClInclude Include="bobopt_optimizer.hpp" />
     <ClInclude Include="bobopt_debug.hpp" />
+    <ClInclude Include="bobopt_utils.hpp" />
     <ClInclude Include="clang\bobopt_clang_epilog.hpp" />
     <ClInclude Include="clang\bobopt_clang_prolog.hpp" />
     <ClInclude Include="clang\bobopt_clang_utils.hpp" />

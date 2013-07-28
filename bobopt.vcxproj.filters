@@ -49,6 +49,7 @@
     <ClInclude Include="clang\bobopt_control_flow_search.hpp">
       <Filter>clang</Filter>
     </ClInclude>
+    <ClInclude Include="bobopt_utils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bobopt_empty.inl" />
