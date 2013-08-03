@@ -103,7 +103,7 @@ namespace bobopt {
 			complexity_tree_node_pointer search_and_create_call(clang::Stmt* stmt) const;
 
 			complexity_tree_node_pointer build_complexity_tree(clang::CompoundStmt* compound_stmt) const;
-			void insert_yields(const complexity_tree_node_pointer& root) const;
+			void insert_yields(clang::CompoundStmt* body, const complexity_tree_node_pointer& root) const;
 
 			// data members:
 			clang::CXXRecordDecl* box_;

@@ -24,213 +24,268 @@ namespace bobopt {
 		
 		namespace internal {
 
+			// code_complexity_visitor defininition.
+			//==============================================================================
+
+			/// \brief AST visitor to calculate complexity of statement.
+			///
+			/// If there's \c clang::CallExpr inside statement and it has body, visitor
+			/// recursively (if possible) evaluates complexity of callee.
 			class code_complexity_visitor : public RecursiveASTVisitor<code_complexity_visitor>
 			{
 			public:
+
+				// create:
 				code_complexity_visitor();
 
+				// RCTP:
 				bool VisitCallExpr(CallExpr* call_expr);
 
-				bool call_presented() const;
+				// access result:
+				bool has_callexpr() const;
 				size_t get_complexity() const;
 
 			private:
-				void analyze_call(CallExpr* call_expr)
-				{
-					BOBOPT_ASSERT(call_expr != nullptr);
-					
-					FunctionDecl* callee = call_expr->getDirectCallee();
-					if (callee != nullptr)
-					{
-						Stmt* body = callee->getBody();
-						if (!analyze_compound(body))
-						{
-							analyze_recursive(body);
-						}
-					}
-				}
 
-				void analyze_recursive(Stmt* stmt)
-				{
-					if (stmt != nullptr)
-					{
-						code_complexity_visitor visitor;
-						visitor.TraverseStmt(stmt);
-						call_presented_ |= visitor.call_presented_;
-						complexity_ += visitor.complexity_;
-					}
-				}
-
-				bool analyze_compound(Stmt* stmt)
-				{
-					CompoundStmt* compound_stmt = llvm::dyn_cast_or_null<CompoundStmt>(stmt);
-					if (compound_stmt == nullptr)
-					{
-						return false;
-					}
-
-					for (auto stmt_it = compound_stmt->body_begin(); stmt_it != compound_stmt->body_end(); ++stmt_it)
-					{
-						Stmt* stmt = *stmt_it;
-
-						if (analyze_if(stmt) || analyze_for(stmt) || analyze_while(stmt) || analyze_switch(stmt) || analyze_try(stmt) || analyze_compound(stmt))
-						{
-							continue;
-						}
-
-						analyze_recursive(stmt);
-					}
-
-					return true;
-				}
-
-				bool analyze_if(Stmt* stmt)
-				{
-					IfStmt* if_stmt = llvm::dyn_cast_or_null<IfStmt>(stmt);
-					if (if_stmt == nullptr)
-					{
-						return false;
-					}
-
-					Stmt* cond_stmt = if_stmt->getCond();
-					code_complexity_visitor cond_visitor;
-					cond_visitor.TraverseStmt(cond_stmt);
-
-					code_complexity_visitor then_visitor;
-					Stmt* then_stmt = if_stmt->getThen();
-					if (then_stmt != nullptr)
-					{
-						then_visitor.TraverseStmt(then_stmt);
-					}
-
-					code_complexity_visitor else_visitor;
-					Stmt* else_stmt = if_stmt->getElse();
-					if (else_stmt != nullptr)
-					{
-						else_visitor.TraverseStmt(else_stmt);
-					}
-
-					call_presented_ |= cond_visitor.call_presented_ || then_visitor.call_presented_ || else_visitor.call_presented_;
-					complexity_ += max(cond_visitor.complexity_, max(then_visitor.complexity_, else_visitor.complexity_));
-					
-					return true;
-				}
-
-				bool analyze_for(Stmt* stmt)
-				{
-					ForStmt* for_stmt = llvm::dyn_cast_or_null<ForStmt>(stmt);
-					if (for_stmt == nullptr)
-					{
-						return false;
-					}
-
-					analyze_recursive(for_stmt->getInit());
-					analyze_recursive(for_stmt->getCond());
-					analyze_recursive(for_stmt->getInc());
-
-					Stmt* body = for_stmt->getBody();
-					if (!analyze_compound(body))
-					{
-						analyze_recursive(body);
-					}
-
-					return true;
-				}
-
-				bool analyze_while(Stmt* stmt)
-				{
-					WhileStmt* while_stmt = llvm::dyn_cast_or_null<WhileStmt>(stmt);
-					if (while_stmt == nullptr)
-					{
-						return false;
-					}
-
-					analyze_recursive(while_stmt->getCond());
-
-					Stmt* body = while_stmt->getBody();
-					if (!analyze_compound(body))
-					{
-						analyze_recursive(body);
-					}
-
-					return true;
-				}
-
-				bool analyze_switch(Stmt* stmt)
-				{
-					SwitchStmt* switch_stmt = llvm::dyn_cast_or_null<SwitchStmt>(stmt);
-					if (switch_stmt == nullptr)
-					{
-						return false;
-					}
-
-					analyze_recursive(switch_stmt->getCond());
-
-					size_t complexity = 0;
-
-					SwitchCase* switch_case = switch_stmt->getSwitchCaseList();
-					while (switch_case != nullptr)
-					{
-						code_complexity_visitor visitor;
-						visitor.TraverseStmt(switch_case->getSubStmt());
-						call_presented_ |= visitor.call_presented_;
-						complexity = max(complexity, visitor.complexity_);
-
-						switch_case = switch_case->getNextSwitchCase();
-					}
-
-					complexity_ += complexity;
-					return true;
-				}
-
-				bool analyze_try(Stmt* stmt)
-				{
-					CXXTryStmt* try_stmt = llvm::dyn_cast_or_null<CXXTryStmt>(stmt);
-					if (try_stmt == nullptr)
-					{
-						return false;
-					}
-
-					BOBOPT_CHECK(analyze_compound(try_stmt->getTryBlock()));
-					return true;
-				}
-
+				// analyze AST nodes:
+				void analyze_call(CallExpr* call_expr);
+				void analyze_recursive(Stmt* stmt);
+				bool analyze_compound(Stmt* stmt);
+				bool analyze_if(Stmt* stmt);
+				bool analyze_for(Stmt* stmt);
+				bool analyze_while(Stmt* stmt);
+				bool analyze_switch(Stmt* stmt);
+				bool analyze_try(Stmt* stmt);
+				
+				// data members:
 				bool call_presented_;
 				size_t complexity_;
+				size_t max_complexity_;
 			};
 
+			// code_complexity_visitor implementation.
+			//==============================================================================
+
+			/// \brief Default constructed visitor with complexity equal to 1.
 			BOBOPT_INLINE code_complexity_visitor::code_complexity_visitor()
 				: call_presented_(false)
-				, complexity_(1)
+				, complexity_(0)
+				, max_complexity_(1)
 			{}
 
+			/// \brief Visit call expression and update maximal complexity.
 			BOBOPT_INLINE bool code_complexity_visitor::VisitCallExpr(CallExpr* call_expr)
 			{
 				call_presented_ = true;
+				complexity_ = 0;
 				analyze_call(call_expr);
+				max_complexity_ = max(complexity_, max_complexity_);
 				return true;
 			}
 
-			BOBOPT_INLINE bool code_complexity_visitor::call_presented() const
+			/// \brief Whether visitor found at least one call expression.
+			BOBOPT_INLINE bool code_complexity_visitor::has_callexpr() const
 			{
 				return call_presented_;
 			}
 
+			/// \brief Access complexity of code statement.
 			BOBOPT_INLINE size_t code_complexity_visitor::get_complexity() const
 			{
-				return complexity_;
+				return max_complexity_;
+			}
+
+			/// \brief Analyze call expression if function can access body of callee.
+			void code_complexity_visitor::analyze_call(CallExpr* call_expr)
+			{
+				BOBOPT_ASSERT(call_expr != nullptr);
+					
+				FunctionDecl* callee = call_expr->getDirectCallee();
+				if (callee != nullptr)
+				{
+					Stmt* body = callee->getBody();
+					if (!analyze_compound(body))
+					{
+						analyze_recursive(body);
+					}
+				}
+			}
+
+			/// \brief Analyze complexity of statement using another instance of visitor.
+			void code_complexity_visitor::analyze_recursive(Stmt* stmt)
+			{
+				if (stmt != nullptr)
+				{
+					code_complexity_visitor visitor;
+					visitor.TraverseStmt(stmt);
+					call_presented_ |= visitor.call_presented_;
+					complexity_ += visitor.complexity_;
+				}
+			}
+
+			/// \brief Analyze statement \c clang::CompoundStmt.
+			/// \return Returns whether \c stmt was type of \c clang::CompoundStmt.
+			bool code_complexity_visitor::analyze_compound(Stmt* stmt)
+			{
+				CompoundStmt* compound_stmt = llvm::dyn_cast_or_null<CompoundStmt>(stmt);
+				if (compound_stmt == nullptr)
+				{
+					return false;
+				}
+
+				for (auto stmt_it = compound_stmt->body_begin(); stmt_it != compound_stmt->body_end(); ++stmt_it)
+				{
+					Stmt* stmt = *stmt_it;
+
+					if (analyze_if(stmt) || analyze_for(stmt) || analyze_while(stmt) || analyze_switch(stmt) || analyze_try(stmt) || analyze_compound(stmt))
+					{
+						continue;
+					}
+
+					analyze_recursive(stmt);
+				}
+
+				return true;
+			}
+
+			/// \brief Analyze statement \c clang::IfStmt.
+			/// \return Returns whether \c stmt was type of \c clang::IfStmt.
+			bool code_complexity_visitor::analyze_if(Stmt* stmt)
+			{
+				IfStmt* if_stmt = llvm::dyn_cast_or_null<IfStmt>(stmt);
+				if (if_stmt == nullptr)
+				{
+					return false;
+				}
+
+				Stmt* cond_stmt = if_stmt->getCond();
+				code_complexity_visitor cond_visitor;
+				cond_visitor.TraverseStmt(cond_stmt);
+
+				code_complexity_visitor then_visitor;
+				Stmt* then_stmt = if_stmt->getThen();
+				if (then_stmt != nullptr)
+				{
+					then_visitor.TraverseStmt(then_stmt);
+				}
+
+				code_complexity_visitor else_visitor;
+				Stmt* else_stmt = if_stmt->getElse();
+				if (else_stmt != nullptr)
+				{
+					else_visitor.TraverseStmt(else_stmt);
+				}
+
+				call_presented_ |= cond_visitor.call_presented_ || then_visitor.call_presented_ || else_visitor.call_presented_;
+				complexity_ += max(cond_visitor.complexity_, max(then_visitor.complexity_, else_visitor.complexity_));
+					
+				return true;
+			}
+
+			/// \brief Analyze statement \c clang::ForStmt.
+			/// \return Returns whether \c stmt was type of \c clang::ForStmt.
+			bool code_complexity_visitor::analyze_for(Stmt* stmt)
+			{
+				ForStmt* for_stmt = llvm::dyn_cast_or_null<ForStmt>(stmt);
+				if (for_stmt == nullptr)
+				{
+					return false;
+				}
+
+				analyze_recursive(for_stmt->getInit());
+				analyze_recursive(for_stmt->getCond());
+				analyze_recursive(for_stmt->getInc());
+
+				Stmt* body = for_stmt->getBody();
+				if (!analyze_compound(body))
+				{
+					analyze_recursive(body);
+				}
+
+				return true;
+			}
+			
+			/// \brief Analyze statement \c clang::WhileStmt.
+			/// \return Returns whether \c stmt was type of \c clang::WhileStmt.
+			bool code_complexity_visitor::analyze_while(Stmt* stmt)
+			{
+				WhileStmt* while_stmt = llvm::dyn_cast_or_null<WhileStmt>(stmt);
+				if (while_stmt == nullptr)
+				{
+					return false;
+				}
+
+				analyze_recursive(while_stmt->getCond());
+
+				Stmt* body = while_stmt->getBody();
+				if (!analyze_compound(body))
+				{
+					analyze_recursive(body);
+				}
+
+				return true;
+			}
+
+			/// \brief Analyze statement \c clang::SwitchStmt.
+			/// \return Returns whether \c stmt was type of \c clang::SwitchStmt.
+			bool code_complexity_visitor::analyze_switch(Stmt* stmt)
+			{
+				SwitchStmt* switch_stmt = llvm::dyn_cast_or_null<SwitchStmt>(stmt);
+				if (switch_stmt == nullptr)
+				{
+					return false;
+				}
+
+				analyze_recursive(switch_stmt->getCond());
+
+				size_t complexity = 0;
+
+				SwitchCase* switch_case = switch_stmt->getSwitchCaseList();
+				while (switch_case != nullptr)
+				{
+					code_complexity_visitor visitor;
+					visitor.TraverseStmt(switch_case->getSubStmt());
+					call_presented_ |= visitor.call_presented_;
+					complexity = max(complexity, visitor.complexity_);
+
+					switch_case = switch_case->getNextSwitchCase();
+				}
+
+				complexity_ += complexity;
+				return true;
+			}
+
+			/// \brief Analyze statement \c clang::CXXTryStmt.
+			/// \return Returns whether \c stmt was type of \c clang::CXXTryStmt.
+			bool code_complexity_visitor::analyze_try(Stmt* stmt)
+			{
+				CXXTryStmt* try_stmt = llvm::dyn_cast_or_null<CXXTryStmt>(stmt);
+				if (try_stmt == nullptr)
+				{
+					return false;
+				}
+
+				BOBOPT_CHECK(analyze_compound(try_stmt->getTryBlock()));
+				return true;
 			}
 
 		} // namespace internal
 
+		// yield_complex implementation.
+		//==============================================================================
+
+		/// \brief Create default constructed unusable object.
 		yield_complex::yield_complex()
 			: box_(nullptr)
 			, replacements_(nullptr)
 		{}
 
+		/// \brief Deletable through pointer to base.
 		yield_complex::~yield_complex()
 		{}
 
+		/// \brief Inherited optimization member function.
+		/// It just checks and stores optmization parameters and forwards job to dedicated member function.
 		void yield_complex::optimize(clang::CXXRecordDecl* box, clang::tooling::Replacements* replacements)
 		{
 			BOBOPT_ASSERT(box != nullptr);
@@ -242,6 +297,8 @@ namespace bobopt {
 			optimize_methods();
 		}
 
+		/// \brief Main optimization pass.
+		/// Function iterates through box methods and if it matches method in array it calls dedicated function to optimizer single method.
 		void yield_complex::optimize_methods()
 		{
 			BOBOPT_ASSERT(box_ != nullptr);
@@ -260,6 +317,10 @@ namespace bobopt {
 			}
 		}
 
+		/// \brief Main optimization pass for single method.
+		/// Optimization is done in 2 steps:
+		///   - Create complexity tree.
+		///   - Insert yield calls by analyzing complexity tree.
 		void yield_complex::optimize_method(exec_function_type method)
 		{
 			BOBOPT_ASSERT(method != nullptr);
@@ -276,9 +337,11 @@ namespace bobopt {
 			}
 
 			complexity_tree_node_pointer root = build_complexity_tree(body);
-			insert_yields(root);
+			insert_yields(body, root);
 		}
 
+		/// \brief Analyze for statement.
+		/// Functions tries to find how many loops will for statement 
 		size_t yield_complex::analyze_for(Stmt* init_stmt, Stmt* cond_stmt) const
 		{
 			BOBOPT_UNUSED_EXPRESSION(init_stmt);
@@ -286,6 +349,7 @@ namespace bobopt {
 			return FOR_UNKNOWN_LOOP_COUNT;
 		}
 
+		/// \brief Create node for \c clang::IfStmt in complexity tree.
 		yield_complex::complexity_tree_node_pointer yield_complex::create_if(IfStmt* if_stmt) const
 		{
 			complexity_tree_node_pointer if_root = make_unique<complexity_tree_node>();
@@ -353,6 +417,7 @@ namespace bobopt {
 			return if_root;
 		}
 
+		/// \brief Create node for \c clang::ForStmt in complexity tree.
 		yield_complex::complexity_tree_node_pointer yield_complex::create_for(ForStmt* for_stmt) const
 		{
 			complexity_tree_node_pointer for_node = make_unique<complexity_tree_node>();
@@ -385,6 +450,7 @@ namespace bobopt {
 			return for_node;
 		}
 
+		/// \brief Create node for \c clang::WhileStmt in complexity tree.
 		yield_complex::complexity_tree_node_pointer yield_complex::create_while(WhileStmt* while_stmt) const
 		{
 			complexity_tree_node_pointer while_node = make_unique<complexity_tree_node>();
@@ -408,6 +474,7 @@ namespace bobopt {
 			return while_node;
 		}
 
+		/// \brief Create node for \c clang::SwitchStmt in complexity tree.
 		yield_complex::complexity_tree_node_pointer yield_complex::create_switch(SwitchStmt* switch_stmt) const
 		{
 			complexity_tree_node_pointer switch_node = make_unique<complexity_tree_node>();
@@ -433,6 +500,7 @@ namespace bobopt {
 			return switch_node;
 		}
 
+		/// \brief Create node for \c clang::CXXTryStmt in complexity tree.
 		yield_complex::complexity_tree_node_pointer yield_complex::create_try(CXXTryStmt* try_stmt) const
 		{
 			complexity_tree_node_pointer try_node = make_unique<complexity_tree_node>();
@@ -452,11 +520,13 @@ namespace bobopt {
 			return try_node;
 		}
 
+		/// \brief Search for \c clang::CallExpr in statement subtree and if there's at least one call expression
+		/// the create node for this statement with maximal complexity of all call expressions inside this subtree.
 		yield_complex::complexity_tree_node_pointer yield_complex::search_and_create_call(Stmt* stmt) const
 		{
 			internal::code_complexity_visitor visitor;
 			visitor.TraverseStmt(stmt);
-			if (visitor.call_presented())
+			if (visitor.has_callexpr())
 			{
 				complexity_tree_node_pointer stmt_node = make_unique<complexity_tree_node>();
 				stmt_node->node = DynTypedNode::create(*stmt);
@@ -467,6 +537,7 @@ namespace bobopt {
 			return nullptr;
 		}
 
+		/// \brief Create complexity tree for function body.
 		yield_complex::complexity_tree_node_pointer yield_complex::build_complexity_tree(clang::CompoundStmt* compound_stmt) const
 		{
 			unique_ptr<complexity_tree_node> root = make_unique<complexity_tree_node>();
@@ -537,8 +608,10 @@ namespace bobopt {
 			return root;
 		}
 
-		void yield_complex::insert_yields(const complexity_tree_node_pointer& root) const
+		/// \brief Based on complexity tree insert yields into code.
+		void yield_complex::insert_yields(clang::CompoundStmt* body, const complexity_tree_node_pointer& root) const
 		{
+			BOBOPT_ASSERT(body == nullptr);
 			BOBOPT_UNUSED_EXPRESSION(root);
 		}
 
