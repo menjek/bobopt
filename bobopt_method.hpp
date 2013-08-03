@@ -10,7 +10,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 namespace clang {
-	class ASTContext;
+	class CompilerInstance;
 	class CXXRecordDecl;
 }
 
@@ -22,13 +22,13 @@ public:
 	basic_method();
 	virtual ~basic_method();
 
-	BOBOPT_INLINE void set_ast_context(clang::ASTContext* context);
-	BOBOPT_INLINE clang::ASTContext* get_ast_context() const;
+	BOBOPT_INLINE void set_compiler(clang::CompilerInstance* compiler);
+	BOBOPT_INLINE clang::CompilerInstance* get_compiler() const;
 
 	virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
 
 private:
-	clang::ASTContext* context_;
+	clang::CompilerInstance* compiler_;
 };
 
 } // namespace

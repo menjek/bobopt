@@ -18,6 +18,7 @@
 // Forward declaration(s).
 namespace clang {
 	class CXXRecordDecl;
+	class CompilerInstance;
 }
 
 namespace bobopt {
@@ -56,6 +57,9 @@ namespace bobopt {
 		BOBOPT_INLINE void disable_method(method_type method);
 		BOBOPT_INLINE bool is_method_enabled(method_type method) const;
 
+		BOBOPT_INLINE clang::CompilerInstance* get_compiler() const;
+		BOBOPT_INLINE void set_compiler(clang::CompilerInstance* compiler);
+
 		virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
 
 	private:
@@ -72,6 +76,7 @@ namespace bobopt {
 				
 		static method_iterator_pair get_level_methods(level_type level);
 
+		clang::CompilerInstance* compiler_;
 		clang::tooling::Replacements* replacements_;
 		std::array<basic_method*, OM_COUNT> methods_;
 	};

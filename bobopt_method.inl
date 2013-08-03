@@ -1,13 +1,13 @@
 namespace bobopt {
 
-	BOBOPT_INLINE void basic_method::set_ast_context(clang::ASTContext* context)
+	BOBOPT_INLINE void basic_method::set_compiler(clang::CompilerInstance* compiler)
 	{
-		context_ = context;
+		compiler_ = compiler;
 	}
 
-	BOBOPT_INLINE clang::ASTContext* basic_method::get_ast_context() const
+	BOBOPT_INLINE clang::CompilerInstance* basic_method::get_compiler() const
 	{
-		return context_;
+		return compiler_;
 	}
 
 } // namespace

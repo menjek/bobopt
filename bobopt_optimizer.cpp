@@ -25,7 +25,8 @@ namespace bobopt {
 	{}
 
 	optimizer::optimizer(Replacements* replacements, level_type level)
-		: replacements_(replacements)
+		: compiler_(nullptr)
+		, replacements_(replacements)
 	{
 		BOBOPT_ASSERT(replacements != nullptr);
 
@@ -99,7 +100,7 @@ namespace bobopt {
 		{
 			if (method != nullptr)
 			{
-				method->set_ast_context(context);
+				method->set_compiler(compiler_);
 				method->optimize(box_declaration, replacements_);
 			}
 		}

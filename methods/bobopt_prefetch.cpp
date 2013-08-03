@@ -14,6 +14,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
@@ -599,7 +600,7 @@ namespace bobopt {
 					return;
 				}
 
-				internal::should_prefetch_collector should_prefetch(basic_method::get_ast_context());
+				internal::should_prefetch_collector should_prefetch(&(basic_method::get_compiler()->getASTContext()));
 				if (!analyze_sync(should_prefetch))
 				{
 					// Don't optimize.
@@ -782,12 +783,12 @@ namespace bobopt {
 			CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
 			if (body != nullptr)
 			{
-				ASTContext* context = basic_method::get_ast_context();
-				Rewriter rewriter(context->getSourceManager(), context->getLangOpts());
+				ASTContext& context = basic_method::get_compiler()->getASTContext();
+				Rewriter rewriter(context.getSourceManager(), context.getLangOpts());
 
 				cout << "[prefetch] optimization of: " << box_->getNameAsString() << endl;
 
-				string box_location_text = box_->getLocation().printToString(context->getSourceManager());
+				string box_location_text = box_->getLocation().printToString(context.getSourceManager());
 				cout << "declared here: " << box_location_text << endl;
 
 				for (auto named_input : to_prefetch)

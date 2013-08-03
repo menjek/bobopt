@@ -81,7 +81,6 @@ namespace bobopt {
 		///   Rationale: \c init_impl() is defined elsewhere in inheritance tree and likely can prefetch inputs. Example: bobox::dummy_box base.
 		/// - (global.3) Method can't access definition of \c init_impl() overriden function.
 		///   Rationale: There's body definition somewhere, but method won't be able to put anything there + ODR.
-		/// - (global.4) 
 		///
 		/// Method doesn't optimize \b single input if:
 		/// - (single.1) ...

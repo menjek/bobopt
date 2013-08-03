@@ -39,4 +39,14 @@ namespace bobopt {
 		return (methods_[method] != nullptr);
 	}
 
+	BOBOPT_INLINE void optimizer::set_compiler(clang::CompilerInstance* compiler)
+	{
+		compiler_ = compiler;
+	}
+
+	BOBOPT_INLINE clang::CompilerInstance* optimizer::get_compiler() const
+	{
+		return compiler_;
+	}
+
 } // namespace

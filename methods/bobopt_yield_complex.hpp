@@ -1,3 +1,15 @@
+/// \file bobopt_yield_complex.hpp Definition of optimizing bobox complex member
+/// functions execution.
+///
+/// Complex member functions can hold execution of single bobox pipeline and
+/// block execution of other boxes that block execution of other boxes and so
+/// on. It basically hold down paralelism.
+///
+/// Method statically analyzes code of such member function and if it finds it
+/// too complex, it statically inserts \c bobox::basic_box::yield() to give up
+/// CPU or dynamically injects code that reacts on holding CPU for long time and
+/// potentially calls \c bobox::basic_box::yield().
+
 #ifndef BOBOPT_METHODS_BOBOPT_YIELD_COMPLEX_HPP_GUARD_
 #define BOBOPT_METHODS_BOBOPT_YIELD_COMPLEX_HPP_GUARD_
 
@@ -29,6 +41,15 @@ namespace bobopt {
 
 	namespace methods {
 
+		/// \brief Definition of method to optimize complex bobox member functions.
+		/// 
+		/// Method creates its own AST related tree which holds only nodes that are
+		/// potentially going to be expensive and so their execution will be yield.
+		/// Such nodes are loops, compound statements, if, call expressions and
+		/// try blocks. All rest statements are counted as with complexity is equal
+		/// to one.
+		///
+		/// TODO: description of finding places to insert yield();
 		class yield_complex : public basic_method
 		{
 		public:
@@ -42,24 +63,29 @@ namespace bobopt {
 
 		private:
 			
-			// helpers:
+			// helper structures:
+
+			/// \brief Structure that holds information about member function and name of parent it overrides.
 			struct method_override
 			{
 				std::string method_name;
 				std::string parent_name;
 			};
 
-			struct complexity_tree_node;
-			typedef std::unique_ptr<complexity_tree_node> complexity_tree_node_pointer;
-
+			/// \brief Structure that holds information about single node of complexity tree.
 			struct complexity_tree_node
 			{
+				// typedefs:
+				typedef std::unique_ptr<complexity_tree_node> complexity_tree_node_pointer;
+
+				// data members:
 				clang::ast_type_traits::DynTypedNode node;
 				size_t complexity;
 				std::vector<complexity_tree_node_pointer> children;
 			};
 
 			// typedefs:
+			typedef complexity_tree_node::complexity_tree_node_pointer complexity_tree_node_pointer;
 			typedef clang::CXXMethodDecl* exec_function_type;
 
 			// helpers:
@@ -84,8 +110,8 @@ namespace bobopt {
 			clang::tooling::Replacements* replacements_;
 
 			// constants.
-			static const size_t FOR_UNKNOWN_LOOP_COUNT = static_cast<size_t>(-1);
-			static const size_t FOR_RUNTIME_ANALYSIS_TRESHOLD = 50;
+			static const size_t FOR_UNKNOWN_LOOP_COUNT;
+			static const size_t FOR_RUNTIME_ANALYSIS_TRESHOLD;
 			static const size_t BOX_EXEC_METHOD_COUNT = 3;
 			static const method_override BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT];
 		};

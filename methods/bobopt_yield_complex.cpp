@@ -543,6 +543,13 @@ namespace bobopt {
 		}
 
 		// constants:
+
+		/// \brief Constant that represents for loop with undetected number of body executions.
+		const size_t yield_complex::FOR_UNKNOWN_LOOP_COUNT = static_cast<size_t>(-1);
+
+		/// \brief Complexity of "too complex" for loop body, that will be using dynamic detection of complexity.
+		const size_t yield_complex::FOR_RUNTIME_ANALYSIS_TRESHOLD = 300;
+
 		const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT] =
 		{
 			{ {"sync_mach_etwas"}, {"bobox::basic_box"} },
