@@ -24,7 +24,7 @@ namespace clang {
 namespace bobopt {
 
 	/// \brief Optimization level type.
-	enum level_type
+	enum levels
 	{
 		OL_NONE = 0,
 		OL_BASIC = 1,
@@ -33,6 +33,14 @@ namespace bobopt {
 		OL_COUNT
 	};
 
+	/// \brief Optimization modes.
+	enum modes
+	{
+		MODE_DIAGNOSTIC,
+		MODE_INTERACTIVE,
+		MODE_BUILD
+	};
+	
 	/// \brief Base class for bobox optimizations.
 	///
 	/// Inherited from clang ast match finder callback. It also contains
@@ -43,22 +51,23 @@ namespace bobopt {
 
 		static const clang::ast_matchers::DeclarationMatcher BOX_MATCHER;
 
-		explicit optimizer(clang::tooling::Replacements* replacements);
-		optimizer(clang::tooling::Replacements* replacements, level_type level);
+		optimizer(modes mode, clang::tooling::Replacements* replacements);
+		optimizer(modes mode, clang::tooling::Replacements* replacements, levels level);
 
 		template<typename InputIterator>
 		optimizer(clang::tooling::Replacements* replacements, InputIterator first, InputIterator last);
 
 		~optimizer();
 
-		void set_level(level_type level);
+		void set_level(levels level);
+		modes get_mode() const;
 		
-		BOBOPT_INLINE void enable_method(method_type method);
-		BOBOPT_INLINE void disable_method(method_type method);
-		BOBOPT_INLINE bool is_method_enabled(method_type method) const;
+		void enable_method(method_type method);
+		void disable_method(method_type method);
+		bool is_method_enabled(method_type method) const;
 
-		BOBOPT_INLINE clang::CompilerInstance* get_compiler() const;
-		BOBOPT_INLINE void set_compiler(clang::CompilerInstance* compiler);
+		clang::CompilerInstance* get_compiler() const;
+		void set_compiler(clang::CompilerInstance* compiler);
 
 		virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
 
@@ -72,10 +81,11 @@ namespace bobopt {
 		void create_method(method_type method);
 		void destroy_method(method_type method);
 
-		void apply_methods(clang::CXXRecordDecl* box_declaration, clang::ASTContext* context) const;
+		void apply_methods(clang::CXXRecordDecl* box_declaration) const;
 				
-		static method_iterator_pair get_level_methods(level_type level);
+		static method_iterator_pair get_level_methods(levels level);
 
+		modes mode_;
 		clang::CompilerInstance* compiler_;
 		clang::tooling::Replacements* replacements_;
 		std::array<basic_method*, OM_COUNT> methods_;

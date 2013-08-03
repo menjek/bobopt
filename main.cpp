@@ -112,7 +112,7 @@ int main(int argc, const char* argv[])
 	CommonOptionsParser options(argc, argv);
 	RefactoringTool tool(options.getCompilations(), options.getSourcePathList());
 
-	bobopt::optimizer optimizer(&tool.getReplacements());
+	bobopt::optimizer optimizer(bobopt::MODE_DIAGNOSTIC, &tool.getReplacements());
 
 	MatchFinder finder;
 	finder.addMatcher(bobopt::optimizer::BOX_MATCHER, &optimizer);

@@ -23,6 +23,11 @@ namespace bobopt {
 		}
 	}
 
+	BOBOPT_INLINE modes optimizer::get_mode() const
+	{
+		return mode_;
+	}
+
 	BOBOPT_INLINE void optimizer::enable_method(method_type method)
 	{
 		create_method(method);

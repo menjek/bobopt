@@ -20,12 +20,13 @@ namespace bobopt {
 
 	const DeclarationMatcher optimizer::BOX_MATCHER = recordDecl(isDerivedFrom("bobox::basic_box")).bind("box");
 
-	optimizer::optimizer(Replacements* replacements)
-		: optimizer(replacements, OL_EXTRA)
+	optimizer::optimizer(modes mode, Replacements* replacements)
+		: optimizer(mode, replacements, OL_EXTRA)
 	{}
 
-	optimizer::optimizer(Replacements* replacements, level_type level)
-		: compiler_(nullptr)
+	optimizer::optimizer(modes mode, Replacements* replacements, levels level)
+		: mode_(mode)
+		, compiler_(nullptr)
 		, replacements_(replacements)
 	{
 		BOBOPT_ASSERT(replacements != nullptr);
@@ -42,7 +43,7 @@ namespace bobopt {
 		}
 	}
 
-	void optimizer::set_level(level_type level)
+	void optimizer::set_level(levels level)
 	{
 		for (auto method : methods_)
 		{
@@ -68,7 +69,7 @@ namespace bobopt {
 			std::string name = box_declaration->getNameAsString();
 			BOBOPT_UNUSED_EXPRESSION(name);
 
-			apply_methods(box_declaration, result.Context);
+			apply_methods(box_declaration);
 		}
 	}
 
@@ -92,7 +93,7 @@ namespace bobopt {
 		methods_[method] = nullptr;
 	}
 
-	void optimizer::apply_methods(CXXRecordDecl* box_declaration, clang::ASTContext* context) const
+	void optimizer::apply_methods(CXXRecordDecl* box_declaration) const
 	{
 		BOBOPT_ASSERT(box_declaration != nullptr);
 
@@ -106,7 +107,7 @@ namespace bobopt {
 		}
 	}
 
-	optimizer::method_iterator_pair optimizer::get_level_methods(level_type level)
+	optimizer::method_iterator_pair optimizer::get_level_methods(levels level)
 	{
 		static const method_type METHODS[OM_COUNT] = { OM_PREFETCH, OM_YIELD_COMPLEX };
 
