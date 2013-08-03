@@ -1,13 +1,13 @@
 namespace bobopt {
 
-	BOBOPT_INLINE void basic_method::set_compiler(clang::CompilerInstance* compiler)
+	BOBOPT_INLINE void basic_method::set_optimizer(const optimizer* optimizer_instance)
 	{
-		compiler_ = compiler;
+		optimizer_ = optimizer_instance;
 	}
 
-	BOBOPT_INLINE clang::CompilerInstance* basic_method::get_compiler() const
+	BOBOPT_INLINE const optimizer* basic_method::get_optimizer() const
 	{
-		return compiler_;
+		return optimizer_;
 	}
 
 } // namespace

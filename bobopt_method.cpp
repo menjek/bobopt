@@ -7,7 +7,7 @@
 namespace bobopt {
 
 	basic_method::basic_method()
-		: compiler_(nullptr)
+		: optimizer_(nullptr)
 	{}
 
 	basic_method::~basic_method()

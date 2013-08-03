@@ -3,6 +3,7 @@
 #include <bobopt_debug.hpp>
 #include <bobopt_language.hpp>
 #include <bobopt_macros.hpp>
+#include <bobopt_optimizer.hpp>
 #include <clang/bobopt_clang_utils.hpp>
 #include <clang/bobopt_control_flow_search.hpp>
 
@@ -600,7 +601,7 @@ namespace bobopt {
 					return;
 				}
 
-				internal::should_prefetch_collector should_prefetch(&(basic_method::get_compiler()->getASTContext()));
+				internal::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer()->get_compiler()->getASTContext()));
 				if (!analyze_sync(should_prefetch))
 				{
 					// Don't optimize.
@@ -783,7 +784,7 @@ namespace bobopt {
 			CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
 			if (body != nullptr)
 			{
-				ASTContext& context = basic_method::get_compiler()->getASTContext();
+				ASTContext& context = basic_method::get_optimizer()->get_compiler()->getASTContext();
 				Rewriter rewriter(context.getSourceManager(), context.getLangOpts());
 
 				cout << "[prefetch] optimization of: " << box_->getNameAsString() << endl;

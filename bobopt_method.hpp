@@ -9,12 +9,15 @@
 #include "clang/Tooling/Refactoring.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
+// forward declarations:
 namespace clang {
-	class CompilerInstance;
 	class CXXRecordDecl;
 }
 
 namespace bobopt {
+
+// forward declarations:
+class optimizer;
 
 class basic_method
 {
@@ -22,13 +25,16 @@ public:
 	basic_method();
 	virtual ~basic_method();
 
-	BOBOPT_INLINE void set_compiler(clang::CompilerInstance* compiler);
-	BOBOPT_INLINE clang::CompilerInstance* get_compiler() const;
+	BOBOPT_INLINE const optimizer* get_optimizer() const;
 
 	virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
 
 private:
-	clang::CompilerInstance* compiler_;
+	friend class optimizer;
+
+	BOBOPT_INLINE void set_optimizer(const optimizer* optimizer_instance);
+
+	const optimizer* optimizer_;
 };
 
 } // namespace
