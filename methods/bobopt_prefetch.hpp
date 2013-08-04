@@ -122,6 +122,8 @@ namespace bobopt {
 			clang::CXXMethodDecl* get_input(const std::string& name) const;
 
 			bool is_verbose() const;
+			void emit_header() const;
+			void emit_declaration() const;
 
 			// data members:
 			clang::CXXRecordDecl* box_;

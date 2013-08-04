@@ -1,5 +1,6 @@
 #include <bobopt_diagnostic.hpp>
 
+#include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
@@ -65,7 +66,104 @@ namespace bobopt {
 	// diagnostic implementation.
 	//==============================================================================
 
-	void diagnostic::emit(diagnostic_message message, message_modes mode) const
+	diagnostic::console_color diagnostic::s_location_color = 
+	{
+		llvm::raw_ostream::WHITE,
+		true
+	};
+
+	diagnostic::console_color diagnostic::s_pointers_color =
+	{
+		llvm::raw_ostream::GREEN,
+		true
+	};
+	
+	diagnostic::console_color diagnostic::s_info_color =
+	{
+		llvm::raw_ostream::BLACK,
+		true
+	};
+
+	diagnostic::console_color diagnostic::s_suggestion_color =
+	{
+		llvm::raw_ostream::MAGENTA,
+		true
+	};
+
+	diagnostic::console_color diagnostic::s_optimization_color =
+	{
+		llvm::raw_ostream::RED,
+		true
+	};
+
+	diagnostic::console_color diagnostic::s_message_color =
+	{
+		llvm::raw_ostream::WHITE,
+		true
+	};
+
+	void diagnostic::emit(const diagnostic_message& message, message_modes mode) const
+	{
+		emit_header(message);
+		emit_pointers(message, mode);
+	}
+
+	diagnostic_message diagnostic::get_decl_diag_message(Decl* decl, const string& message) const
+	{
+		SourceRange point_range(decl->getLocation(),
+			Lexer::getLocForEndOfToken(decl->getLocation(),
+				/* offset= */ 0,
+				compiler_.getSourceManager(),
+				compiler_.getLangOpts()));
+
+		return diagnostic_message(diagnostic_message::info, decl->getSourceRange(), point_range, message);
+	}
+
+	void diagnostic::emit_header(const diagnostic_message& message) const
+	{
+		llvm::raw_ostream& out = llvm::outs();
+
+		// Print location in sources.
+		out.changeColor(s_location_color.fg_color, s_location_color.bold);
+		out << message.get_point_range().getBegin().printToString(compiler_.getSourceManager()) << ": ";
+
+		// Print message type.
+		switch (message.get_type())
+		{
+			case diagnostic_message::info:
+			{
+				out.changeColor(s_info_color.fg_color, s_info_color.bold);
+				out << "info: ";
+				break;
+			}
+			
+			case diagnostic_message::suggestion:
+			{
+				out.changeColor(s_suggestion_color.fg_color, s_suggestion_color.bold);
+				out << "suggestion: ";
+				break;
+			}
+
+			case diagnostic_message::optimization:
+			{
+				out.changeColor(s_optimization_color.fg_color, s_optimization_color.bold);
+				out << "optimization: ";
+				break;
+			}
+
+			default:
+				BOBOPT_ERROR("unreachable_code");
+		}
+		
+		// Print message.
+		out.changeColor(s_message_color.fg_color, s_message_color.bold);
+		out << message.get_point_message();
+		out.resetColor();
+
+		out << '\n';
+	}
+
+	void diagnostic::emit_pointers(const diagnostic_message& message, message_modes mode) const
 	{
 		SourceManager& source_manager = compiler_.getSourceManager();
 
@@ -89,11 +187,13 @@ namespace bobopt {
 				size_t pointers_begin = (point_offset_begin > offset_begin) ? (point_offset_begin - offset_begin) : 0;
 				size_t pointers_end = (point_offset_end < offset_end) ? point_offset_end : offset_end;
 				
+				llvm::outs().changeColor(s_pointers_color.fg_color, s_pointers_color.bold);
 				llvm::outs() << internal::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
+				llvm::outs().resetColor();
 			}
 			else
 			{
-				if (mode == range)
+				if (mode == all)
 				{
 					llvm::outs() << line << '\n';
 				}
@@ -101,17 +201,6 @@ namespace bobopt {
 
 			offset_begin += line.size() + 1;
 		}
-	}
-
-	diagnostic_message diagnostic::get_decl_diag_message(Decl* decl, const string& message) const
-	{
-		SourceRange point_range(decl->getLocation(),
-			Lexer::getLocForEndOfToken(decl->getLocation(),
-				/* offset= */ 0,
-				compiler_.getSourceManager(),
-				compiler_.getLangOpts()));
-
-		return diagnostic_message(decl->getSourceRange(), point_range, message);
 	}
 
 } // namespace

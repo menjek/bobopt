@@ -786,14 +786,10 @@ namespace bobopt {
 				return;
 			}
 
-			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
-
 			if (is_verbose())
 			{
-				llvm::outs() << "[prefetch] optimization of: " << box_->getNameAsString() << '\n';
-
-				diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here");
-				diag.emit(box_message, diagnostic::single_line);
+				emit_header();
+				emit_declaration();
 			}
 
 			for (auto named_input : to_prefetch)
@@ -829,6 +825,30 @@ namespace bobopt {
 		{
 			modes mode = basic_method::get_optimizer().get_mode();
 			return (mode == MODE_DIAGNOSTIC) || (mode == MODE_INTERACTIVE);
+		}
+
+		/// \brief Emit header of box optimization.
+		void prefetch::emit_header() const
+		{
+			llvm::raw_ostream& out = llvm::outs();
+
+			out.changeColor(llvm::raw_ostream::WHITE, true);
+			out << "[prefetch]";
+			out.resetColor();
+			out << " optimization of box ";
+			out.changeColor(llvm::raw_ostream::MAGENTA, true);
+			out << box_->getNameAsString();
+			out.resetColor();
+			out << '\n';
+		}
+
+		/// \brief Emit declaration of box.
+		void prefetch::emit_declaration() const
+		{
+			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
+
+			diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here");
+			diag.emit(box_message);
 		}
 
 		/// \brief Name of bobox box initialization virtual member function to be overriden. 
