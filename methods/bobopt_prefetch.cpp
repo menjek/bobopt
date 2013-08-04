@@ -16,17 +16,16 @@
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
 #include <iterator>
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
-
-BOBOPT_TODO("Maybe own IO management in future.");
-#include <iostream>
 
 using namespace clang;
 using namespace clang::ast_matchers;
@@ -601,7 +600,7 @@ namespace bobopt {
 					return;
 				}
 
-				internal::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer()->get_compiler()->getASTContext()));
+				internal::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
 				if (!analyze_sync(should_prefetch))
 				{
 					// Don't optimize.
@@ -782,38 +781,33 @@ namespace bobopt {
 			BOBOPT_ASSERT(init_->getBody() != nullptr);
 
 			CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
-			if (body != nullptr)
+			if (body == nullptr)
 			{
-				ASTContext& context = basic_method::get_optimizer()->get_compiler()->getASTContext();
-				Rewriter rewriter(context.getSourceManager(), context.getLangOpts());
+				return;
+			}
 
+			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
+
+			if (is_verbose())
+			{
 				cout << "[prefetch] optimization of: " << box_->getNameAsString() << endl;
 
-				string box_location_text = box_->getLocation().printToString(context.getSourceManager());
-				cout << "declared here: " << box_location_text << endl;
-
-				for (auto named_input : to_prefetch)
-				{
-					CXXMethodDecl* input_decl = get_input(named_input);
-					if (input_decl == nullptr)
-					{
-						// We don't have input with this name.
-						continue;
-					}
-
-					cout << "Missing input: '" << named_input << "'" << endl;
-					
-// 					string prefetch_text;
-// 
-// 					prefetch_text += "prefetch_envelope(inputs::";
-// 					prefetch_text += named_input;
-// 					prefetch_text += "()); ";
-// 
-// 					rewriter.InsertTextAfterToken(body->getLBracLoc(), prefetch_text.c_str());
-				}
-			
-//				flush_rewriter(rewriter);
+				diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here");
+				diag.emit(box_message, diagnostic::single_line);
 			}
+
+			for (auto named_input : to_prefetch)
+			{
+				CXXMethodDecl* input_decl = get_input(named_input);
+				if (input_decl == nullptr)
+				{
+					// We don't have input with this name.
+					continue;
+				}
+
+				cout << "Missing input: '" << named_input << "'" << endl;
+			}
+			
 		}
 		
 		/// \brief Access input member function declaration to access input by name.
@@ -828,6 +822,13 @@ namespace bobopt {
 			}
 
 			return nullptr;
+		}
+
+		/// \brief Detects whether optimizer is in verbose mode.
+		bool prefetch::is_verbose() const
+		{
+			modes mode = basic_method::get_optimizer().get_mode();
+			return (mode == MODE_DIAGNOSTIC) || (mode == MODE_INTERACTIVE);
 		}
 
 		/// \brief Name of bobox box initialization virtual member function to be overriden. 

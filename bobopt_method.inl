@@ -5,9 +5,9 @@ namespace bobopt {
 		optimizer_ = optimizer_instance;
 	}
 
-	BOBOPT_INLINE const optimizer* basic_method::get_optimizer() const
+	BOBOPT_INLINE const optimizer& basic_method::get_optimizer() const
 	{
-		return optimizer_;
+		return *optimizer_;
 	}
 
 } // namespace

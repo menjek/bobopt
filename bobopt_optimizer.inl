@@ -1,4 +1,5 @@
 #include <bobopt_debug.hpp>
+#include <bobopt_utils.hpp>
 
 #include <algorithm>
 #include <iterator>
@@ -28,6 +29,18 @@ namespace bobopt {
 		return mode_;
 	}
 
+	BOBOPT_INLINE diagnostic& optimizer::get_diagnostic()
+	{
+		BOBOPT_ASSERT(diagnostic_);
+		return *diagnostic_;
+	}
+
+	BOBOPT_INLINE const diagnostic& optimizer::get_diagnostic() const
+	{
+		BOBOPT_ASSERT(diagnostic_);
+		return *diagnostic_;
+	}
+
 	BOBOPT_INLINE void optimizer::enable_method(method_type method)
 	{
 		create_method(method);
@@ -46,12 +59,14 @@ namespace bobopt {
 
 	BOBOPT_INLINE void optimizer::set_compiler(clang::CompilerInstance* compiler)
 	{
+		BOBOPT_ASSERT(compiler != nullptr);
 		compiler_ = compiler;
+		diagnostic_ = make_unique<diagnostic>(*compiler_);
 	}
 
-	BOBOPT_INLINE clang::CompilerInstance* optimizer::get_compiler() const
+	BOBOPT_INLINE clang::CompilerInstance& optimizer::get_compiler() const
 	{
-		return compiler_;
+		return *compiler_;
 	}
 
 } // namespace

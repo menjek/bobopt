@@ -25,7 +25,7 @@ public:
 	basic_method();
 	virtual ~basic_method();
 
-	BOBOPT_INLINE const optimizer* get_optimizer() const;
+	BOBOPT_INLINE const optimizer& get_optimizer() const;
 
 	virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
 

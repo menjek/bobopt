@@ -22,6 +22,7 @@
     <ClCompile Include="clang\bobopt_clang_utils.cpp">
       <Filter>clang</Filter>
     </ClCompile>
+    <ClCompile Include="bobopt_diagnostic.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="methods\bobopt_prefetch.hpp">
@@ -50,6 +51,7 @@
       <Filter>clang</Filter>
     </ClInclude>
     <ClInclude Include="bobopt_utils.hpp" />
+    <ClInclude Include="bobopt_diagnostic.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bobopt_empty.inl" />

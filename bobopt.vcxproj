@@ -144,6 +144,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bobopt_diagnostic.cpp" />
     <ClCompile Include="bobopt_method.cpp" />
     <ClCompile Include="bobopt_method_factory.cpp" />
     <ClCompile Include="bobopt_optimizer.cpp">
@@ -157,6 +158,7 @@
     <ClCompile Include="methods\bobopt_yield_complex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bobopt_diagnostic.hpp" />
     <ClInclude Include="bobopt_method.hpp" />
     <ClInclude Include="bobopt_inline.hpp" />
     <ClInclude Include="bobopt_language.hpp" />

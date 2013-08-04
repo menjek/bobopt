@@ -28,6 +28,7 @@ namespace bobopt {
 		: mode_(mode)
 		, compiler_(nullptr)
 		, replacements_(replacements)
+		, diagnostic_(nullptr)
 	{
 		BOBOPT_ASSERT(replacements != nullptr);
 

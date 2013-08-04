@@ -3,6 +3,7 @@
 #ifndef BOBOPT_OPTIMIZER_HPP_GUARD_
 #define BOBOPT_OPTIMIZER_HPP_GUARD_
 
+#include <bobopt_diagnostic.hpp>
 #include <bobopt_inline.hpp>
 #include <bobopt_language.hpp>
 #include <bobopt_method.hpp>
@@ -14,6 +15,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <array>
+#include <memory>
 
 // Forward declaration(s).
 namespace clang {
@@ -61,12 +63,15 @@ namespace bobopt {
 
 		void set_level(levels level);
 		modes get_mode() const;
+
+		diagnostic& get_diagnostic();
+		const diagnostic& get_diagnostic() const;
 		
 		void enable_method(method_type method);
 		void disable_method(method_type method);
 		bool is_method_enabled(method_type method) const;
 
-		clang::CompilerInstance* get_compiler() const;
+		clang::CompilerInstance& get_compiler() const;
 		void set_compiler(clang::CompilerInstance* compiler);
 
 		virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
@@ -88,6 +93,7 @@ namespace bobopt {
 		modes mode_;
 		clang::CompilerInstance* compiler_;
 		clang::tooling::Replacements* replacements_;
+		std::unique_ptr<diagnostic> diagnostic_;
 		std::array<basic_method*, OM_COUNT> methods_;
 	};
 

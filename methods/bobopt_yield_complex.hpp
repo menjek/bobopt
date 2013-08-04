@@ -118,6 +118,8 @@ namespace bobopt {
 
 	} // namespace methods
 
+	/// \relates method_factory
+	/// \brief Function used to create yeild_complex object.
 	basic_method* create_yield_complex();
 
 } // namespace bobopt

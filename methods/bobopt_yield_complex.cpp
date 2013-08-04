@@ -611,7 +611,7 @@ namespace bobopt {
 		/// \brief Based on complexity tree insert yields into code.
 		void yield_complex::insert_yields(clang::CompoundStmt* body, const complexity_tree_node_pointer& root) const
 		{
-			BOBOPT_ASSERT(body == nullptr);
+			BOBOPT_ASSERT(body != nullptr);
 			BOBOPT_UNUSED_EXPRESSION(root);
 		}
 

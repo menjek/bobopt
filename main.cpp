@@ -8,10 +8,17 @@
 #include "clang/Tooling/Tooling.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
+#include <cstdarg>
+#include <iostream>
+#include <ostream>
+#include <string>
+#include <vector>
+
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;
-
+using namespace llvm;
+using namespace std;
 
 namespace bobopt {
 
@@ -19,7 +26,7 @@ namespace bobopt {
 	//==============================================================================
 
 	/// \brief A little wrapping to catch \c clang::CompilerInstance so we can access \c clang::Sema.
-	/// There's not other possibility to access those objects from code inside match finder handling
+	/// There's no other possibility to access those objects from code inside match finder handling
 	/// member function.
 	template<typename FactoryT>
 	class optimizer_frontend_action_factory : public FrontendActionFactory
@@ -107,12 +114,23 @@ namespace bobopt {
 
 } // namespace
 
+/// \brief Command line option for program mode.
+static cl::opt<bobopt::modes> opt_mode(cl::desc("Optimizer mode:"),
+	cl::initializer<bobopt::modes>(bobopt::MODE_DIAGNOSTIC),
+	cl::values
+	(
+		clEnumValN(bobopt::MODE_DIAGNOSTIC, "diagnostic", "Print diagnostic. No modifications."),
+		clEnumValN(bobopt::MODE_INTERACTIVE, "interactive", "Modify code according to user input."),
+		clEnumValN(bobopt::MODE_BUILD, "build", "Do not print any diagnostic, just modify code."),
+		clEnumValEnd
+	));
+
 int main(int argc, const char* argv[])
 {
 	CommonOptionsParser options(argc, argv);
 	RefactoringTool tool(options.getCompilations(), options.getSourcePathList());
 
-	bobopt::optimizer optimizer(bobopt::MODE_DIAGNOSTIC, &tool.getReplacements());
+	bobopt::optimizer optimizer(opt_mode, &tool.getReplacements());
 
 	MatchFinder finder;
 	finder.addMatcher(bobopt::optimizer::BOX_MATCHER, &optimizer);
