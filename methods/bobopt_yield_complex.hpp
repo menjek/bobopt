@@ -62,6 +62,7 @@ namespace bobopt {
 			virtual void optimize(clang::CXXRecordDecl* box, clang::tooling::Replacements* replacements) BOBOPT_OVERRIDE;
 
 		private:
+			BOBOPT_NONCOPYMOVABLE(yield_complex);
 			
 			// helper structures:
 

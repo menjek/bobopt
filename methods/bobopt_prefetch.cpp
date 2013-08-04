@@ -851,49 +851,17 @@ namespace bobopt {
 		{
 			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 
-			diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here");
+			diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here:");
 			diag.emit(box_message);
 		}
 
 		/// \brief Emit info about input declaration.
 		void prefetch::emit_input_declaration(CXXMethodDecl* decl) const
 		{
-			CompilerInstance& compiler = basic_method::get_optimizer().get_compiler();
-			SourceManager& source_manager = compiler.getSourceManager();
-
-			SourceLocation location = decl->getLocation();
-			bool is_macro_expansion = source_manager.isMacroArgExpansion(location);
-
-			SourceLocation last_expansion_location;
-			while (source_manager.isMacroArgExpansion(location))
-			{
-				last_expansion_location = location;
-				location = source_manager.getFileLoc(location);
-			}
-
-			SourceRange range = decl->getSourceRange();
-			if (is_macro_expansion)
-			{
-				pair<SourceLocation, SourceLocation> expansion_range = source_manager.getExpansionRange(last_expansion_location);
-				SourceLocation expansion_range_end = Lexer::getLocForEndOfToken(expansion_range.second,
-					/* offset= */ 0,
-					source_manager,
-					compiler.getLangOpts());
-				range = SourceRange(expansion_range.first, expansion_range_end);
-			}
-			
-			SourceLocation location_end = Lexer::getLocForEndOfToken(location,
-				/* offset= */ 0,
-				source_manager,
-				compiler.getLangOpts());
-
-			diagnostic_message input_message(diagnostic_message::info,
-				range,
-				SourceRange(location, location_end),
-				"mission prefetch for input declared here");
-
 			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
-			diag.emit(input_message, diagnostic::all);
+
+			diagnostic_message input_message = diag.get_decl_diag_message(decl, "missing prefetch for input declared here:");
+			diag.emit(input_message);
 		}
 
 		/// \brief Name of bobox box initialization virtual member function to be overriden. 

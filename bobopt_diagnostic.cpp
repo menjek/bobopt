@@ -110,13 +110,38 @@ namespace bobopt {
 
 	diagnostic_message diagnostic::get_decl_diag_message(Decl* decl, const string& message) const
 	{
-		SourceRange point_range(decl->getLocation(),
-			Lexer::getLocForEndOfToken(decl->getLocation(),
-				/* offset= */ 0,
-				compiler_.getSourceManager(),
-				compiler_.getLangOpts()));
+		SourceManager& source_manager = compiler_.getSourceManager();;
 
-		return diagnostic_message(diagnostic_message::info, decl->getSourceRange(), point_range, message);
+		SourceLocation location = decl->getLocation();
+		bool is_macro_expansion = source_manager.isMacroArgExpansion(location);
+
+		SourceLocation last_expansion_location;
+		while (source_manager.isMacroArgExpansion(location))
+		{
+			last_expansion_location = location;
+			location = source_manager.getFileLoc(location);
+		}
+
+		SourceRange range = decl->getSourceRange();
+		if (is_macro_expansion)
+		{
+			pair<SourceLocation, SourceLocation> expansion_range = source_manager.getExpansionRange(last_expansion_location);
+			SourceLocation expansion_range_end = Lexer::getLocForEndOfToken(expansion_range.second,
+				/* offset= */ 0,
+				source_manager,
+				compiler_.getLangOpts());
+			range = SourceRange(expansion_range.first, expansion_range_end);
+		}
+			
+		SourceLocation location_end = Lexer::getLocForEndOfToken(location,
+			/* offset= */ 0,
+			source_manager,
+			compiler_.getLangOpts());
+
+		return diagnostic_message(diagnostic_message::info,
+			range,
+			SourceRange(location, location_end),
+			message);
 	}
 
 	void diagnostic::emit_header(const diagnostic_message& message) const
