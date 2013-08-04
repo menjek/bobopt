@@ -123,7 +123,8 @@ namespace bobopt {
 
 			bool is_verbose() const;
 			void emit_header() const;
-			void emit_declaration() const;
+			void emit_box_declaration() const;
+			void emit_input_declaration(clang::CXXMethodDecl* decl) const;
 
 			// data members:
 			clang::CXXRecordDecl* box_;
