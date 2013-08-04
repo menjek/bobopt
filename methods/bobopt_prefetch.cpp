@@ -9,6 +9,7 @@
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTTypeTraits.h"
@@ -22,7 +23,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -790,7 +790,7 @@ namespace bobopt {
 
 			if (is_verbose())
 			{
-				cout << "[prefetch] optimization of: " << box_->getNameAsString() << endl;
+				llvm::outs() << "[prefetch] optimization of: " << box_->getNameAsString() << '\n';
 
 				diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here");
 				diag.emit(box_message, diagnostic::single_line);
@@ -805,7 +805,7 @@ namespace bobopt {
 					continue;
 				}
 
-				cout << "Missing input: '" << named_input << "'" << endl;
+				llvm::outs() << "Missing input: '" << named_input << "'\n";
 			}
 			
 		}

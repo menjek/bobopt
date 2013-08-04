@@ -3,13 +3,13 @@
 #include <bobopt_inline.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
+#include "llvm/Support/raw_ostream.h"
 #include "clang/AST/Decl.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <cctype>
-#include <iostream>
 #include <string>
 
 using namespace clang;
@@ -84,18 +84,18 @@ namespace bobopt {
 			
 			if (internal::in_range(offset_begin, offset_end, point_offset_begin) || internal::in_range(offset_begin, offset_end, point_offset_end))
 			{
-				cout << line << endl;
+				llvm::outs() << line << '\n';
 
 				size_t pointers_begin = (point_offset_begin > offset_begin) ? (point_offset_begin - offset_begin) : 0;
 				size_t pointers_end = (point_offset_end < offset_end) ? point_offset_end : offset_end;
 				
-				cout << internal::create_pointers_line(line, pointers_begin, pointers_end) << endl;
+				llvm::outs() << internal::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
 			}
 			else
 			{
 				if (mode == range)
 				{
-					cout << line << endl;
+					llvm::outs() << line << '\n';
 				}
 			}
 

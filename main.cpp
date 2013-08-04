@@ -9,7 +9,6 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <cstdarg>
-#include <iostream>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -17,7 +16,6 @@
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;
-using namespace llvm;
 using namespace std;
 
 namespace bobopt {
@@ -115,9 +113,9 @@ namespace bobopt {
 } // namespace
 
 /// \brief Command line option for program mode.
-static cl::opt<bobopt::modes> opt_mode(cl::desc("Optimizer mode:"),
-	cl::initializer<bobopt::modes>(bobopt::MODE_DIAGNOSTIC),
-	cl::values
+static llvm::cl::opt<bobopt::modes> opt_mode(llvm::cl::desc("Optimizer mode:"),
+	llvm::cl::initializer<bobopt::modes>(bobopt::MODE_DIAGNOSTIC),
+	llvm::cl::values
 	(
 		clEnumValN(bobopt::MODE_DIAGNOSTIC, "diagnostic", "Print diagnostic. No modifications."),
 		clEnumValN(bobopt::MODE_INTERACTIVE, "interactive", "Modify code according to user input."),
