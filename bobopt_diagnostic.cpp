@@ -6,6 +6,7 @@
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/raw_ostream.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
 #include <clang/bobopt_clang_epilog.hpp>
@@ -16,6 +17,8 @@
 using namespace clang;
 using namespace std;
 
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_diagnostic)
+
 namespace bobopt {
 
 	namespace internal {
@@ -25,7 +28,7 @@ namespace bobopt {
 			return (begin <= offset) && (offset < end);
 		}
 	
-		string read_message_line(string& message)
+		BOBOPT_INLINE string read_message_line(string& message)
 		{
 			size_t nl = message.find_first_of('\n');
 			if (nl != string::npos)
@@ -102,13 +105,13 @@ namespace bobopt {
 		true
 	};
 
-	void diagnostic::emit(const diagnostic_message& message, message_modes mode) const
+	void diagnostic::emit(const source_message& message, source_modes mode) const
 	{
 		emit_header(message);
-		emit_pointers(message, mode);
+		emit_source(message, mode);
 	}
 
-	diagnostic_message diagnostic::get_decl_diag_message(Decl* decl, const string& message) const
+	source_message diagnostic::get_message_decl(source_message::types type, clang::Decl* decl, const std::string& message ) const
 	{
 		SourceManager& source_manager = compiler_.getSourceManager();;
 
@@ -138,13 +141,18 @@ namespace bobopt {
 			source_manager,
 			compiler_.getLangOpts());
 
-		return diagnostic_message(diagnostic_message::info,
+		return source_message(source_message::info,
 			range,
 			SourceRange(location, location_end),
 			message);
 	}
 
-	void diagnostic::emit_header(const diagnostic_message& message) const
+	source_message diagnostic::get_message_call_expr(source_message::types type, CallExpr* call_expr, const string& message) const
+	{
+		return source_message(type, call_expr->getSourceRange(), call_expr->getSourceRange(), message);
+	}
+
+	void diagnostic::emit_header(const source_message& message) const
 	{
 		llvm::raw_ostream& out = llvm::outs();
 
@@ -155,21 +163,21 @@ namespace bobopt {
 		// Print message type.
 		switch (message.get_type())
 		{
-			case diagnostic_message::info:
+			case source_message::info:
 			{
 				out.changeColor(s_info_color.fg_color, s_info_color.bold);
 				out << "info: ";
 				break;
 			}
 			
-			case diagnostic_message::suggestion:
+			case source_message::suggestion:
 			{
 				out.changeColor(s_suggestion_color.fg_color, s_suggestion_color.bold);
 				out << "suggestion: ";
 				break;
 			}
 
-			case diagnostic_message::optimization:
+			case source_message::optimization:
 			{
 				out.changeColor(s_optimization_color.fg_color, s_optimization_color.bold);
 				out << "optimization: ";
@@ -182,13 +190,13 @@ namespace bobopt {
 		
 		// Print message.
 		out.changeColor(s_message_color.fg_color, s_message_color.bold);
-		out << message.get_point_message();
+		out << message.get_message();
 		out.resetColor();
 
 		out << '\n';
 	}
 
-	void diagnostic::emit_pointers(const diagnostic_message& message, message_modes mode) const
+	void diagnostic::emit_source(const source_message& message, source_modes mode) const
 	{
 		SourceManager& source_manager = compiler_.getSourceManager();
 
@@ -218,7 +226,7 @@ namespace bobopt {
 			}
 			else
 			{
-				if (mode == all)
+				if (mode == dump)
 				{
 					llvm::outs() << line << '\n';
 				}

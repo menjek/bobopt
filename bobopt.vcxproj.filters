@@ -57,5 +57,6 @@
     <None Include="bobopt_empty.inl" />
     <None Include="bobopt_optimizer.inl" />
     <None Include="bobopt_method.inl" />
+    <None Include="bobopt_diagnostic.inl" />
   </ItemGroup>
 </Project>

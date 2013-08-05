@@ -175,6 +175,7 @@
     <ClInclude Include="methods\bobopt_yield_complex.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bobopt_diagnostic.inl" />
     <None Include="bobopt_empty.inl" />
     <None Include="bobopt_method.inl" />
     <None Include="bobopt_optimizer.inl" />

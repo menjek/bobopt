@@ -851,7 +851,7 @@ namespace bobopt {
 		{
 			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 
-			diagnostic_message box_message = diag.get_decl_diag_message(box_, "declared here:");
+			source_message box_message = diag.get_message_decl(source_message::info, box_, "declared here:");
 			diag.emit(box_message);
 		}
 
@@ -860,7 +860,7 @@ namespace bobopt {
 		{
 			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 
-			diagnostic_message input_message = diag.get_decl_diag_message(decl, "missing prefetch for input declared here:");
+			source_message input_message = diag.get_message_decl(source_message::info, decl, "missing prefetch for input declared here:");
 			diag.emit(input_message);
 		}
 

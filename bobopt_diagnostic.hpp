@@ -3,6 +3,7 @@
 #ifndef BOBOPT_DIAGNOSTIC_HPP_GUARD_
 #define BOBOPT_DIAGNOSTIC_HPP_GUARD_
 
+#include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
@@ -16,97 +17,85 @@
 namespace clang {
 	class CompilerInstance;
 	class Decl;
+	class CallExpr;
 }
 
 namespace bobopt {
 
-class diagnostic_message
-{
-public:
-	enum message_type
+	class source_message
 	{
-		info,
-		optimization,
-		suggestion
+	public:
+		enum types
+		{
+			info,
+			optimization,
+			suggestion
+		};
+
+		// create:
+		source_message(types type,
+			clang::SourceRange range,
+			clang::SourceRange point_range,
+			const std::string& message);
+
+		// access:
+		types get_type() const;
+		clang::SourceRange get_range() const;
+		clang::SourceRange get_point_range() const;
+		std::string get_message() const;
+
+	private:
+
+		// data members:
+		types type_;
+		clang::SourceRange range_;
+		clang::SourceRange point_range_;
+		std::string message_;
 	};
 
-	diagnostic_message(message_type type,
-		clang::SourceRange range,
-		clang::SourceRange point_range,
-		const std::string& point_message)
-
-		: type_(type)
-		, range_(range)
-		, point_range_(point_range)
-		, point_message_(point_message)
-	{}
-
-	message_type get_type() const
+	class diagnostic
 	{
-		return type_;
-	}
+	public:
+		enum source_modes
+		{
+			pointers_only,
+			dump
+		};
 
-	clang::SourceRange get_range() const
-	{
-		return range_;
-	}
+		// create:
+		explicit diagnostic(clang::CompilerInstance& compiler);
 
-	clang::SourceRange get_point_range() const
-	{
-		return point_range_;
-	}
+		// message emition.
+		void emit(const source_message& message, source_modes mode = pointers_only) const;
 
-	std::string get_point_message() const
-	{
-		return point_message_;
-	}
+		// source_message creation.
+		source_message get_message_decl(source_message::types type, clang::Decl* decl, const std::string& message) const;
+		source_message get_message_call_expr(source_message::types type, clang::CallExpr* call_expr, const std::string& message) const;
 
-private:
-	message_type type_;
-	clang::SourceRange range_;
-	clang::SourceRange point_range_;
-	std::string point_message_;
-};
+	private:
+		BOBOPT_NONCOPYMOVABLE(diagnostic);
 
-class diagnostic
-{
-public:
-	enum message_modes
-	{
-		pointers_only,
-		all
+		struct console_color
+		{
+			llvm::raw_ostream::Colors fg_color;
+			bool bold;
+		};
+
+		void emit_header(const source_message& message) const;
+		void emit_source(const source_message& message, source_modes mode) const;
+
+		static console_color s_location_color;
+		static console_color s_pointers_color;
+		static console_color s_info_color;
+		static console_color s_suggestion_color;
+		static console_color s_optimization_color;
+		static console_color s_message_color;
+
+		clang::CompilerInstance& compiler_;
 	};
-
-	explicit diagnostic(clang::CompilerInstance& compiler)
-		: compiler_(compiler)
-	{}
-
-	void emit(const diagnostic_message& message, message_modes mode = pointers_only) const;
-
-	diagnostic_message get_decl_diag_message(clang::Decl* decl, const std::string& message) const;
-
-private:
-	BOBOPT_NONCOPYMOVABLE(diagnostic);
-
-	struct console_color
-	{
-		llvm::raw_ostream::Colors fg_color;
-		bool bold;
-	};
-
-	static console_color s_location_color;
-	static console_color s_pointers_color;
-	static console_color s_info_color;
-	static console_color s_suggestion_color;
-	static console_color s_optimization_color;
-	static console_color s_message_color;
-
-	void emit_header(const diagnostic_message& message) const;
-	void emit_pointers(const diagnostic_message& message, message_modes mode) const;
-
-	clang::CompilerInstance& compiler_;
-};
 
 } // namespace
+
+#include BOBOPT_INLINE_IN_HEADER(bobopt_diagnostic)
 
 #endif // guard
