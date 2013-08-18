@@ -48,7 +48,7 @@ namespace bobopt {
 			/// It expects certain layout of inputs structure. The one created by
 			/// \c BOBOX_BOX_INPUT_LIST macro, where the last member function is getter for
 			/// input type by its name.
-			class inputs_collector_helper BOBOPT_FINAL : public RecursiveASTVisitor<inputs_collector_helper>
+			class inputs_collector_helper : public RecursiveASTVisitor<inputs_collector_helper>
 			{
 			public:
 
@@ -103,7 +103,7 @@ namespace bobopt {
 
 			/// \relates inputs_collector_helper
 			/// \brief Search in bobox box for \c inputs structure and forward job to helper.
-			class inputs_collector BOBOPT_FINAL : public RecursiveASTVisitor<inputs_collector>
+			class inputs_collector : public RecursiveASTVisitor<inputs_collector>
 			{
 			public:
 
@@ -154,7 +154,7 @@ namespace bobopt {
 			///
 			/// It uses \link bobopt::recursive_match_finder recursive_match_finder \endlink
 			/// helper to find matches of \c inputs::name() expressions in subtree.
-			class extract_input_helper BOBOPT_FINAL
+			class extract_input_helper 
 			{
 			public:
 
@@ -208,7 +208,7 @@ namespace bobopt {
 				///
 				/// We expect to hold only one instance of this matcher callback so
 				/// it can hold all values by itself.
-				class finder_callback BOBOPT_FINAL : public MatchFinder::MatchCallback
+				class finder_callback : public MatchFinder::MatchCallback
 				{
 				public:
 
@@ -264,7 +264,7 @@ namespace bobopt {
 			///
 			/// It looks for \c prefetched_envelope() calls in code that will be surely
 			/// visited and collects input names that are prefetched.
-			class prefetched_collector BOBOPT_FINAL : public control_flow_search<prefetched_collector, string>
+			class prefetched_collector : public control_flow_search<prefetched_collector, string>
 			{
 			public:
 
@@ -400,7 +400,7 @@ namespace bobopt {
 			///
 			/// It looks for all input streams objects and expects input to be prefetched
 			/// if \b any member function is called on input stream object.
-			class should_prefetch_collector BOBOPT_FINAL : public control_flow_search<should_prefetch_collector, string>
+			class should_prefetch_collector : public control_flow_search<should_prefetch_collector, string>
 			{
 			public:
 

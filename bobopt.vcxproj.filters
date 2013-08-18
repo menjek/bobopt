@@ -23,6 +23,9 @@
       <Filter>clang</Filter>
     </ClCompile>
     <ClCompile Include="bobopt_diagnostic.cpp" />
+    <ClCompile Include="methods\bobopt_complexity_tree.cpp">
+      <Filter>methods</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="methods\bobopt_prefetch.hpp">
@@ -52,11 +55,20 @@
     </ClInclude>
     <ClInclude Include="bobopt_utils.hpp" />
     <ClInclude Include="bobopt_diagnostic.hpp" />
+    <ClInclude Include="methods\bobopt_complexity_tree.hpp">
+      <Filter>methods</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="bobopt_empty.inl" />
     <None Include="bobopt_optimizer.inl" />
     <None Include="bobopt_method.inl" />
     <None Include="bobopt_diagnostic.inl" />
+    <None Include="methods\bobopt_complexity_tree.inl">
+      <Filter>methods</Filter>
+    </None>
+    <None Include="clang\bobopt_clang_utils.inl">
+      <Filter>clang</Filter>
+    </None>
   </ItemGroup>
 </Project>

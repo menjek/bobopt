@@ -12,6 +12,8 @@ using namespace std;
 using namespace clang;
 using namespace clang::ast_matchers;
 
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_clang_utils)
+
 namespace bobopt {
 	
 	void flush_rewriter(Rewriter& rewriter)
