@@ -1,6 +1,7 @@
 #include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
 #include <bobopt_utils.hpp>
+#include <clang/bobopt_clang_utils.hpp>
 #include <methods/bobopt_complexity_tree.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
@@ -72,6 +73,25 @@ namespace bobopt {
 				return nullptr;
 			}
 
+			size_t call_expr_complexity(CallExpr* call_expr)
+			{
+				FunctionDecl* callee = call_expr->getDirectCallee();
+				if (callee != nullptr)
+				{
+					if (callee->isInlined())
+					{
+						return call_inline_boost;
+					}
+
+					if (callee->isTrivial())
+					{
+						return call_trivial_boost;
+					}
+				}
+
+				return call_boost;
+			}
+
 		} // namespace
 
 
@@ -109,30 +129,17 @@ namespace bobopt {
 				}
 				else
 				{
-					CallExpr* call_expr = llvm::dyn_cast<CallExpr>(*child);
-					if (call_expr != nullptr)
-					{
-						FunctionDecl* callee = call_expr->getDirectCallee();
-						if (callee != nullptr)
-						{
-							if (callee->isTrivial())
-							{
-								result->add(call_trivial_boost);
-								continue;
-							}
-
-							if (callee->isInlined())
-							{
-								result->add(call_inline_boost);
-								continue;
-							}
-						}
-						
-						result->add(call_boost);
-					}
-					else
+					ast_nodes_collector<CallExpr> collector;
+					collector.TraverseStmt(*child);
+					if (collector.empty())
 					{
 						result->add(1);
+						continue;
+					}
+
+					for (auto call_expr_it = collector.nodes_begin(); call_expr_it != collector.nodes_end(); ++call_expr_it)
+					{
+						result->add(call_expr_complexity(*call_expr_it));
 					}
 				}
 			}
@@ -157,10 +164,25 @@ namespace bobopt {
 
 			if_complexity* result = new if_complexity();
 
-			// condition is considered as 1 until more complicated complexity algorithm comes in.
-			result->add(1);
-			result->use_heuristic_ = false;
+			// condition.
+			Expr* cond_expr = if_stmt->getCond();
+			BOBOPT_ASSERT(cond_expr != nullptr);
+			
+			ast_nodes_collector<CallExpr> collector;
+			collector.TraverseStmt(cond_expr);
+			if (!collector.empty())
+			{
+				for (auto call_expr_it = collector.nodes_begin(); call_expr_it != collector.nodes_end(); ++call_expr_it)
+				{
+					result->add(call_expr_complexity(*call_expr_it));
+				}
+			}
+			else
+			{
+				result->add(1);
+			}
 
+			// then.
 			complexity_ptr then_complexity;
 			Stmt* then_stmt = if_stmt->getThen();
 			if (then_stmt != nullptr)
@@ -168,6 +190,7 @@ namespace bobopt {
 				then_complexity = create_complexity_node(then_stmt);
 			}
 
+			// else.
 			complexity_ptr else_complexity;
 			Stmt* else_stmt = if_stmt->getElse();
 			if (else_stmt != nullptr)
@@ -181,7 +204,6 @@ namespace bobopt {
 			BOBOPT_ASSERT(result->branches_.empty());
 			if (then_complexity)
 			{
-				result->add(*then_complexity);
 				result->branches_.push_back(move(then_complexity));
 				result->then_index_ = 0;
 			}

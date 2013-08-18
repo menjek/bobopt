@@ -73,7 +73,7 @@ namespace bobopt {
 	};
 
 	template<typename NodeT>
-	class ast_nodes_collector : public clang::RecursiveASTVisitor<ast_nodes_collector<NodeT>>
+	class basic_ast_nodes_collector
 	{
 	public:
 		typedef NodeT node_type;
@@ -89,84 +89,109 @@ namespace bobopt {
 
 		node_type* operator [](size_type index) const;
 
-		bool VisitDecl(clang::Decl* decl);
-		bool VisitStmt(clang::Stmt* stmt);
-		bool VisitType(clang::Type* type);
+	protected:
+		basic_ast_nodes_collector();
+		~basic_ast_nodes_collector();
 
-	private:
 		nodes_type nodes_;
 	};
 
 	template<typename NodeT>
-	BOBOPT_INLINE typename ast_nodes_collector<NodeT>::nodes_iterator ast_nodes_collector<NodeT>::nodes_begin() const
+	basic_ast_nodes_collector<NodeT>::basic_ast_nodes_collector()
+	{}
+
+	template<typename NodeT>
+	basic_ast_nodes_collector<NodeT>::~basic_ast_nodes_collector()
+	{}
+
+	template<typename NodeT>
+	BOBOPT_INLINE typename basic_ast_nodes_collector<NodeT>::nodes_iterator basic_ast_nodes_collector<NodeT>::nodes_begin() const
 	{
 		return std::begin(nodes_);
 	}
 
 	template<typename NodeT>
-	BOBOPT_INLINE typename ast_nodes_collector<NodeT>::nodes_iterator ast_nodes_collector<NodeT>::nodes_end() const
+	BOBOPT_INLINE typename basic_ast_nodes_collector<NodeT>::nodes_iterator basic_ast_nodes_collector<NodeT>::nodes_end() const
 	{
 		return std::end(nodes_);
 	}
 
 	template<typename NodeT>
-	BOBOPT_INLINE bool ast_nodes_collector<NodeT>::empty() const
+	BOBOPT_INLINE bool basic_ast_nodes_collector<NodeT>::empty() const
 	{
 		return nodes_.empty();
 	}
 
 	template<typename NodeT>
-	BOBOPT_INLINE typename ast_nodes_collector<NodeT>::size_type ast_nodes_collector<NodeT>::size() const
+	BOBOPT_INLINE typename basic_ast_nodes_collector<NodeT>::size_type basic_ast_nodes_collector<NodeT>::size() const
 	{
 		return nodes_.size();
 	}
 	template<typename NodeT>
-	BOBOPT_INLINE NodeT* ast_nodes_collector<NodeT>::operator [](size_type index) const
+	BOBOPT_INLINE NodeT* basic_ast_nodes_collector<NodeT>::operator [](size_type index) const
 	{
 		return nodes_[index];
 	}
 
-	template<typename NodeT>
-	BOBOPT_INLINE bool ast_nodes_collector<NodeT>::VisitDecl(clang::Decl* decl)
-	{
-		BOBOPT_ASSERT(decl != nullptr);
-
-		node_type* node = llvm::dyn_cast<node_type*>(decl);
-		if (node != nullptr)
-		{
-			nodes_.push_back(node);
-		}
-
-		return true;
-	}
+	template<typename NodeT, typename Distinctizer = void>
+	class ast_nodes_collector;
 
 	template<typename NodeT>
-	BOBOPT_INLINE bool ast_nodes_collector<NodeT>::VisitStmt(clang::Stmt* stmt)
+	class ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Decl, NodeT>>::type>
+		: public basic_ast_nodes_collector<NodeT>
+		, public clang::RecursiveASTVisitor<ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Decl, NodeT>>::type>>
 	{
-		BOBOPT_ASSERT(stmt != nullptr);
+	public:
+		typedef basic_ast_nodes_collector<NodeT> base;
 
-		node_type* node = llvm::dyn_cast<node_type*>(stmt);
-		if (node != nullptr)
+		bool VisitDecl(clang::Decl* decl)
 		{
-			nodes_.push_back(node);
+			base::node_type* node = llvm::dyn_cast<base::node_type>(decl);
+			if (node != nullptr)
+			{
+				this->nodes_.push_back(node);
+			}
+			return true;
 		}
-
-		return true;
-	}
+	};
 
 	template<typename NodeT>
-	BOBOPT_INLINE bool ast_nodes_collector<NodeT>::VisitType(clang::Type* type)
+	class ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Stmt, NodeT>>::type>
+		: public basic_ast_nodes_collector<NodeT>
+		, public clang::RecursiveASTVisitor<ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Stmt, NodeT>>::type>>
 	{
-		BOBOPT_ASSERT(type != nullptr);
+	public:
+		typedef basic_ast_nodes_collector<NodeT> base;
 
-		node_type* node = llvm::dyn_cast<node_type*>(type);
-		if (node != nullptr)
+		bool VisitStmt(clang::Stmt* stmt)
 		{
-			nodes_.push_back(node);
+			base::node_type* node = llvm::dyn_cast<base::node_type>(stmt);
+			if (node != nullptr)
+			{
+				this->nodes_.push_back(node);
+			}
+			return true;
 		}
+	};
 
-		return true;
-	}
+	template<typename NodeT>
+	class ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Type, NodeT>>::type>
+		: public basic_ast_nodes_collector<NodeT>
+		, public clang::RecursiveASTVisitor<ast_nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Type, NodeT>>::type>>
+	{
+	public:
+		typedef basic_ast_nodes_collector<NodeT> base;
+
+		bool VisitType(clang::Type* type)
+		{
+			base::node_type* node = llvm::dyn_cast<base::node_type>(stmt);
+			if (node != nullptr)
+			{
+				this->nodes_.push_back(node);
+			}
+			return true;
+		}
+	};
 
 } // namespace
 
