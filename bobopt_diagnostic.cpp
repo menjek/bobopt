@@ -49,7 +49,7 @@ namespace bobopt {
 			{
 				if (in_range(begin, end, i))
 				{
-					line[i] = '^';
+					line[i] = (i == begin) ? '^' : '~';
 				}
 				else
 				{
@@ -111,7 +111,7 @@ namespace bobopt {
 		emit_source(message, mode);
 	}
 
-	source_message diagnostic::get_message_decl(source_message::types type, clang::Decl* decl, const std::string& message ) const
+	source_message diagnostic::get_message_decl(source_message::types type, const clang::Decl* decl, const std::string& message ) const
 	{
 		SourceManager& source_manager = compiler_.getSourceManager();;
 
@@ -141,13 +141,13 @@ namespace bobopt {
 			source_manager,
 			compiler_.getLangOpts());
 
-		return source_message(source_message::info,
+		return source_message(type,
 			range,
 			SourceRange(location, location_end),
 			message);
 	}
 
-	source_message diagnostic::get_message_call_expr(source_message::types type, CallExpr* call_expr, const string& message) const
+	source_message diagnostic::get_message_call_expr(source_message::types type, const CallExpr* call_expr, const string& message) const
 	{
 		return source_message(type, call_expr->getSourceRange(), call_expr->getSourceRange(), message);
 	}

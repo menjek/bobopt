@@ -5,6 +5,7 @@
 #include <bobopt_macros.hpp>
 #include <bobopt_utils.hpp>
 #include <clang/bobopt_clang_utils.hpp>
+#include <methods/bobopt_complexity_tree.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "clang/AST/ASTTypeTraits.h"
@@ -540,6 +541,9 @@ namespace bobopt {
 		/// \brief Create complexity tree for function body.
 		yield_complex::complexity_tree_node_pointer yield_complex::build_complexity_tree(clang::CompoundStmt* compound_stmt) const
 		{
+			complexity_ptr root1 = compound_complexity::create(compound_stmt);
+			BOBOPT_UNUSED_EXPRESSION(root1);
+
 			unique_ptr<complexity_tree_node> root = make_unique<complexity_tree_node>();
 
 			size_t complexity = 0;

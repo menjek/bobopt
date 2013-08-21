@@ -920,7 +920,7 @@ namespace bobopt {
 	BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::should_traverse_body(clang::Expr* expr) const
 	{
 		BOBOPT_UNUSED_EXPRESSION(expr);
-		return false;
+		return true;
 	}
 
 	/// \brief Function indicates whether traversal should continue based on flags.

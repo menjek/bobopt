@@ -27,6 +27,9 @@
 #include <string>
 #include <vector>
 
+BOBOPT_TODO("Couldn't find anything in llvm code base for input stream :(");
+#include <iostream>
+
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::ast_type_traits;
@@ -786,12 +789,14 @@ namespace bobopt {
 				return;
 			}
 
-			if (is_verbose())
+			if (get_optimizer().verbose())
 			{
 				emit_header();
 				emit_box_declaration();
+				llvm::outs() << "\n\n";
 			}
 
+			const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 			for (auto named_input : to_prefetch)
 			{
 				CXXMethodDecl* input_decl = get_input(named_input);
@@ -802,12 +807,70 @@ namespace bobopt {
 					continue;
 				}
 
-				if (is_verbose())
+				string prefetch_call_source = string("prefetch_envelope(inputs::") + named_input + "())";
+
+				bool update_init_impl = false;
+				if (get_optimizer().verbose())
 				{
 					emit_input_declaration(input_decl);
+					
+					internal::should_prefetch_collector::locations_type locations = should_prefetch.get_locations(named_input);
+					for (auto location : locations)
+					{
+						const CallExpr* call_expr = location.get<CallExpr>();
+						if (call_expr != nullptr)
+						{
+							source_message use_message = diag.get_message_call_expr(source_message::info, call_expr, "used here:");
+							diag.emit(use_message);
+						}
+					}
+					llvm::outs() << '\n';
+
+					string update_message_text = string("should be updated with ") + prefetch_call_source + " call:";
+					source_message update_message = diag.get_message_decl(source_message::suggestion, init_, update_message_text);
+					diag.emit(update_message);
+
+					if (get_optimizer().get_mode() == MODE_INTERACTIVE)
+					{
+						char answer = 0;
+						while ((answer != 'y') && (answer != 'n'))
+						{
+							llvm::outs() << "Do you wish to update source [y/n]?: ";
+							llvm::outs().flush();
+							cin >> answer;
+							answer = static_cast<char>(tolower(answer));
+						}
+
+						update_init_impl = (answer == 'y');
+						llvm::outs() << "\n\n";
+					}
+				}
+
+				if (update_init_impl || (get_optimizer().get_mode() == MODE_BUILD))
+				{
+					CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
+					BOBOPT_ASSERT(body != nullptr);
+
+					SourceLocation insert_location = Lexer::getLocForEndOfToken(body->getLBracLoc(),
+						0,
+						get_optimizer().get_compiler().getSourceManager(),
+						get_optimizer().get_compiler().getLangOpts());
+
+					Replacement replacement(get_optimizer().get_compiler().getSourceManager(),
+						insert_location,
+						0,
+						prefetch_call_source + "; ");
+
+					replacements_->insert(replacement);
+
+					if (get_optimizer().verbose())
+					{
+						source_message opt_message = diag.get_message_decl(source_message::optimization, init_, prefetch_call_source + " added.");
+						diag.emit(opt_message);
+						llvm::outs() << "\n\n";
+					}
 				}
 			}
-			
 		}
 		
 		/// \brief Access input member function declaration to access input by name.
@@ -822,13 +885,6 @@ namespace bobopt {
 			}
 
 			return nullptr;
-		}
-
-		/// \brief Detects whether optimizer is in verbose mode.
-		bool prefetch::is_verbose() const
-		{
-			modes mode = basic_method::get_optimizer().get_mode();
-			return (mode == MODE_DIAGNOSTIC) || (mode == MODE_INTERACTIVE);
 		}
 
 		/// \brief Emit header of box optimization.

@@ -29,6 +29,11 @@ namespace bobopt {
 		return mode_;
 	}
 
+	BOBOPT_INLINE bool optimizer::verbose() const
+	{
+		return ((mode_ == MODE_DIAGNOSTIC) || (mode_ == MODE_INTERACTIVE));
+	}
+
 	BOBOPT_INLINE diagnostic& optimizer::get_diagnostic()
 	{
 		BOBOPT_ASSERT(diagnostic_);

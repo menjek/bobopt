@@ -69,8 +69,8 @@ namespace bobopt {
 		void emit(const source_message& message, source_modes mode = pointers_only) const;
 
 		// source_message creation.
-		source_message get_message_decl(source_message::types type, clang::Decl* decl, const std::string& message) const;
-		source_message get_message_call_expr(source_message::types type, clang::CallExpr* call_expr, const std::string& message) const;
+		source_message get_message_decl(source_message::types type, const clang::Decl* decl, const std::string& message) const;
+		source_message get_message_call_expr(source_message::types type, const clang::CallExpr* call_expr, const std::string& message) const;
 
 	private:
 		BOBOPT_NONCOPYMOVABLE(diagnostic);

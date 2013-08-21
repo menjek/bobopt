@@ -63,6 +63,7 @@ namespace bobopt {
 
 		void set_level(levels level);
 		modes get_mode() const;
+		bool verbose() const;
 
 		diagnostic& get_diagnostic();
 		const diagnostic& get_diagnostic() const;
