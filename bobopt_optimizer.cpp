@@ -67,9 +67,6 @@ namespace bobopt {
 				return;
 			}
 
-			std::string name = box_declaration->getNameAsString();
-			BOBOPT_UNUSED_EXPRESSION(name);
-
 			apply_methods(box_declaration);
 		}
 	}
