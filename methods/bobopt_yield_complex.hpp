@@ -74,38 +74,15 @@ namespace bobopt {
 				std::string parent_name;
 			};
 
-			/// \brief Structure that holds information about single node of complexity tree.
-			struct complexity_tree_node
-			{
-				// typedefs:
-				typedef std::unique_ptr<complexity_tree_node> complexity_tree_node_pointer;
-
-				// data members:
-				clang::ast_type_traits::DynTypedNode node;
-				size_t complexity;
-				std::vector<complexity_tree_node_pointer> children;
-			};
-
 			// typedefs:
-			typedef complexity_tree_node::complexity_tree_node_pointer complexity_tree_node_pointer;
 			typedef clang::CXXMethodDecl* exec_function_type;
 
 			// helpers:
 			void optimize_methods();
 			void optimize_method(exec_function_type method);
 
-			size_t analyze_for(clang::Stmt* init_stmt, clang::Stmt* cond_stmt) const;
-
-			complexity_tree_node_pointer create_if(clang::IfStmt* if_stmt) const;
-			complexity_tree_node_pointer create_for(clang::ForStmt* for_stmt) const;
-			complexity_tree_node_pointer create_while(clang::WhileStmt* while_stmt) const;
-			complexity_tree_node_pointer create_switch(clang::SwitchStmt* switch_stmt) const;
-			complexity_tree_node_pointer create_try(clang::CXXTryStmt* try_stmt) const;
-
-			complexity_tree_node_pointer search_and_create_call(clang::Stmt* stmt) const;
-
-			complexity_tree_node_pointer build_complexity_tree(clang::CompoundStmt* compound_stmt) const;
-			void insert_yields(clang::CompoundStmt* body, const complexity_tree_node_pointer& root) const;
+			complexity_ptr build_complexity_tree(clang::CompoundStmt* compound_stmt) const;
+			void insert_yields(clang::CompoundStmt* body, const complexity_ptr& root) const;
 
 			// data members:
 			clang::CXXRecordDecl* box_;
