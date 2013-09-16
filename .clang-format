@@ -1,0 +1,31 @@
+AccessModifierOffset: 0
+
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+AlwaysBreakTemplateDeclarations: false
+
+BinPackParameters: false
+
+BreakConstructorInitializersBeforeComma: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+BreakBeforeBraces: Allman
+
+ColumnLimit: 120
+IndentWidth: 4
+UseTab: false
+
+IndentCaseLabels: false
+
+NamespaceIndentation: All
+
+MaxEmptyLinesToKeep: 2
+
+PointerBindsToType: true
+
+SpaceAfterControlStatementKeyword: true
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+

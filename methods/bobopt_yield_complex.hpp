@@ -82,7 +82,7 @@ namespace bobopt {
 			void optimize_method(exec_function_type method);
 
 			complexity_ptr build_complexity_tree(clang::CompoundStmt* compound_stmt) const;
-			void insert_yields(clang::CompoundStmt* body, const complexity_ptr& root) const;
+			void insert_yields(const complexity_ptr& root) const;
 
 			// data members:
 			clang::CXXRecordDecl* box_;

@@ -89,7 +89,7 @@ namespace bobopt {
 			}
 
 			complexity_ptr root = build_complexity_tree(body);
-			insert_yields(body, root);
+			insert_yields(root);
 		}
 
 		/// \brief Create complexity tree for function body.
@@ -102,10 +102,14 @@ namespace bobopt {
 		}
 
 		/// \brief Based on complexity tree insert yields into code.
-		void yield_complex::insert_yields(clang::CompoundStmt* body, const complexity_ptr& root) const
+		void yield_complex::insert_yields(const complexity_ptr& root) const
 		{
-			BOBOPT_ASSERT(body != nullptr);
-			BOBOPT_UNUSED_EXPRESSION(root);
+			if (!root)
+			{
+				return;
+			}
+
+
 		}
 
 		// constants:
