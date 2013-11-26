@@ -1,0 +1,12 @@
+\chapter{Introduction}
+The Bobox project as framework for parallel computing can have bad uses as well as any other software framework. Static analysis of code can be used to detect and repair such bad uses. Since core, and the only, language of Bobox is C++, static analysis of code becomes accordingly difficult to lack of tools. This has been the biggest pitfall for any static analysis of C++ code, but has become less marginal with Clang front-end being open-sourced and its support for tooling. Clang exposes C++ code as user friendly Abstract Syntax Tree structure.
+
+\section{Goals}
+Primary output of thesis is creation of tool to optimize code for Bobox framework. By analysing abstract syntax tree of code written for Bobox framework, tool will be able to diagnose and potentially transform bad uses. In context of this work there will be implemented two different patterns of bad uses. In both cases, tool will inject new code to hint Bobox scheduler about user code structure. Implementations will perform source-to-source transformation of source code so they can be used in build process as pre-build optimizer. Tool will be implemented using Clang tooling API inheriting its platform support.
+
+\section{Structure of thesis}
+Thesis begins with brief description of Bobox framework to familiarize reader with its underlying mechanisms and for better understanding why user code can be optimized using transformations mentioned later in thesis.
+
+Following introduction to Clang analyses possible approaches to build tools using its API. Each approach is described and analysed individually with all its advantages and disadvantages and what it would bring to project. Section ends with description of tool implementation related to Clang and rationale behind decisions.
+
+Own work is described in the following sections starting with high-level look on project design followed by description of implemented optimizer methods and ending with achieved results. Each method has its own section with detailed description. Section contains information related to Bobox framework, algorithm used to detect bad use and design of implementation.

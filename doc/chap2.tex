@@ -1,0 +1,107 @@
+\chapter{Static code analysis}
+Detecting and repairing errors in code early in development process is important to reduce cost of repairing such errors. The most commonly used process to detect errors as soon as possible is code review. Static code analysis can be considered to be automated code review.
+
+One of the biggest pitfalls of code review is its high price, when big portion of development budget consists of developer salaries. Two or more people read code looking for a way to improve it, finding and fixing errors or potential errors that can become real errors in future, performance issues, etc. Quality of code review also decreases with time spent reading code. Developers need to rest to increase quality.
+
+Compiler warnings con be considered to be very basic static code analysis performed by compiler. It warns programmer about suspicious parts of code it detected in compilation. It is good practice to turn on all warnings inside compiler and compile code without any. The most commonly used compilers also provides switch to consider warnings as an errors. Software development companies have often rules to force programmers produce warning-less code or simply using mentioned compiler switch in development environment implicitly removing warnings.
+
+But there's not much compilers can do in diagnostic errors. It's not their primary goal that is code compilation and more advanced diagnostic could hurt compilation times. In context of this thesis, where C++  is the analysed language, compilation times does really matter. Furthermore, there's no need to produce any binary when analysing code. Developer of tool for static code analysis would like to step in right after semantic analysis finished when there's enough \textit{understanding} of code. It's up to programmer whether he reuses front-end of compiler or implement his own.
+
+\section{Pitfalls}
+The fully C++ compliant, freeware and open sourced compilers\footnote{Both requirements are thesis requirements, proprietary compilers can do the job as well.} can be counted on one hand. Actually, if another requirement is being multiplatform, there are only two compilers left, \emph{GCC, the GNU Compiler Collection} and \emph{Clang/LLVM}. The lack of compilers is caused by complexity of C++ core language. Apart from standard syntax for procedural programming, C++ includes Turing-complete template metaprogramming language. Simplified, compiler needs to \textit{"execute"} code to generate code that will be eventually compiled. As an example of complexity, implementation of \code{export} feature was so huge task for compiler writers that this feature was eventually removed from language\footnote{Keyword has remained for future purpose.}. Next, the small number of C++ compilers caused by complexity of C++ is very strong argument not to try individually  implement own front-end.
+
+Clang as a compiler front-end is covered by the whole following chapter, because it was chosen as implementation framework for tool. 
+
+\section{GCC - the GNU Compiler Collection}
+Why not just use GCC? Cite from sparse FAQ will partially cover the answer:\\
+
+\emph{"Gcc is big, complex, and the gcc maintainers are not interested in other uses of the gcc front-end.  In fact, gcc has explicitly resisted splitting up the front and back ends and having some common intermediate language because of religious license issues - you can have multiple front ends and back ends, but they all have to be part of gcc and licensed under the GPL."}\\
+
+The first sentence, especially the first few words, is the main reason programmers haven't started using GCC front-end to create tools for static code analysis.
+
+Con's of GCC:
+
+\begin{itemize}
+\item It's very hard to learn for beginners.
+
+\item Even though GCC consists of front-end, middle-end and back-end, it \textit{"feels"} monolithic by design. It's very difficult to decouple front and back ends.
+
+\item GENERIC and GIMPLE\footnote{Names for different representations of AST. GIMPLE is subset of GENERIC for code optimizations.} representations of code are not as understandable as Clang AST.
+
+\item GCC doesn't keep track about tokens location in source code. (e.g. It doesn't keep track of macro expansions so it's very difficult to refactor code with even a very little macro usage.)
+
+\item Front-end optimizes code while parsing so AST doesn't correspond to source code (e.g. \code{x-x} is optimized to be \code{0}). It's extremely difficult to refactor such code.
+\end{itemize}
+
+Con of GCC in context of this thesis:
+
+\begin{itemize}
+\item Code base is written mainly in C language. Even though there's transition to C++, it's not going to change design of compiler. Transition will introduce only very few and simple C++ features. (e.g STL containers such as \code{std::vector}, partially replacing GCC internal garbage collection with smart pointers, templates, etc.)
+\end{itemize}
+
+\section{Elsa: The Elkhound-based C/C++ Parser}
+
+\begin{lstlisting}
+int main(int argc, char* argv[])
+{
+    return 0;
+}
+\end{lstlisting}
+
+\section{Related work}
+Code quality in a huge projects is hard to maintain using code review since there's a lot of commits every day (e.g. Crysis 2 multiplayer had $\sim100-150$ code related commits every day collecting 103 different developers in its lifetime) and providing people resources for code review would be inefficient. Instead of that, companies use tools for static code analysis and diagnostic is further reviewed. Though not many companies trust tools in the way they let them do source-to-source transformations apart from formatting or simple refactoring.
+
+\subsection{Clang Static Analyzer (\emph{clang-analyzer})}
+Static analyzer that is part of the Clang project.
+
+A little advice from static analyzer developer manual:\\
+
+\label{clang-analyzer-checkers}
+\emph{"Some checks might not require path-sensitivity to be effective. Simple AST walk might be sufficient. If that is the case, consider implementing a Clang compiler warning. On the other hand, a check might not be acceptable as a compiler warning; for example, because of a relatively high false positive rate."}
+
+\subsection{Clang Format (\emph{clang-format})}
+Consistency in code formatting is very important in huge projects. It increases readability and code also becomes machine editable. Even though consistent code formatting is very important, there's not a lot of tools that supports automatic code formatting for C++ (e.g. \textit{BCPP}, \textit{Artistic Style}, \textit{Uncrustify}, \textit{GreatCode}, \emph{Style Revisor}, etc.)
+
+The reason why companies allow use of an automatic formatting tools is that those tools guarantee they won't change code semantic (i.e. edit only white space characters, literals and comments) and thus won't break compilation. In this context there was proposal to let clang-format reorder includes, but it didn't get in because such change can break compilation. Main challenges for clang-format based on their design document:
+
+\begin{itemize}
+\item A vast number of different coding styles has evolved over time.
+\item Macros need to be handled properly.
+\item It should be possible to format code that is not yet syntactically correct.
+\end{itemize}
+
+It was a hard decision for clang-format authors whether they use Lexer or Parser to implement such tool. Both have their advantages and disadvantages in terms of performance, macro management, type info, etc. In the end they decided to stick with Lexer implementation, but there's still a discussion about adding also AST information. Though this discussion is leaning towards creating separate tool using AST, which already has the name, \emph{clang-tidy}.
+
+\subsection{OCLint}
+Another tool built on top of Clang LibTooling interface is \emph{OCLint}. Main parts of OCLint are \emph{Core}, \emph{Rules} and \emph{Reporter}.
+
+Core controls the flow of analysis, dispatches tasks to another modules and outputs results. It parses code creating AST and provides modules with access to it. While parsing code it creates various metrics such as:
+
+\begin{itemize}
+\item Cyclomatic complexity.
+\item NPath complexity.
+\item Non commenting source statements.
+\item Statement depth.
+\end{itemize}
+
+Rules may then provide RuleConfiguration that defines limits for metrics. When limits  are exceeded, Core emits violation. There are two main approaches for modules to handle diagnostic:
+
+\begin{description}
+\item[Line based] is when modules are provided with lines of code.
+\item[AST based] provides modules AST access using another two approaches  \footnote{Without further details. Very similar mechanisms will be mentioned in the following Clang section.}:
+	\begin{itemize}
+	\item Using \emph{Visitor pattern} to explore AST.
+	\item Defining \emph{Matchers} for suspicious code patterns.
+	\end{itemize}
+\end{description}
+
+Actually, OCLint tries to create generic framework for code diagnostic. Modules are separated from Core code and can be loaded in runtime. Basic diagnostic can be really represented as set of code \textit{"bad usage"} patterns, where AST matchers become very comfortable mechanism. Reporting found \textit{"bad usage"} is the last task to be done.
+
+From the negative side, pattern matching is not strong enough mechanism to catch even a little more complex bugs such as resource leaks. Just to remind clang-analyzer advice for creation of checkers: When you can create checker based on AST visitor, consider implementing Clang compiler warnings (\ref{clang-analyzer-checkers}).
+
+\subsection{Scout}
+
+\subsection{Cppcheck}
+
+\subsection{PVS-Studio}
+

@@ -1,0 +1,36 @@
+\chapter{Clang and tooling}
+As already mentioned in previous section, support of building tools for static analysis of C++ code was very subtle. There was no support for creating tools over C++ code on amateur, enthusiast level. All compilers front-end were cumbersome for usage and implementing own front-end analysis were close to impossible. That changed with Clang, as a compiler front-end, creating API for accessing C++ code represented as user friendly Abstract Syntax Tree structure. Actually, Clang doesn't provide single API for all tools working over C++ code, rather multiple APIs with slight differences in usage affecting mainly range of information tool accesses, compatibility with older versions and the way it is built (e.g. what it is linked against). Tool developer can then decide whether he wants to sacrifices compatibility to all information front-end internals provides. As Clang develops there's no guarantee that even a basic interfaces in their code base doesn't change. Accessing Clang internals has another cost in form of tool binary size. Developers need to link their tools against whole clang, which is not negligible amount of code binary. Tool support in clang is from majority targeted to diagnostic, code completion or simple refactoring tools. Source-to-source transformations are not well supported. Even though there's possibility to inject own code, it's not recommended approach.
+
+\section{Abstract Syntax Tree}
+The structure Clang provides is not only Abstract Syntax Tree of code, it's graph that has AST as its sub-graph and Clang provides mechanisms to traverse this graph as it would be AST. When developer gets node from AST he can traverse graph in more ways then he would be able to do with purely AST structure so he gets more freedom to optimize tool code. Unusually, class hierarchy over nodes doesn't have common ancestor. There are 2 large hierarchies of classes with common ancestors in \code{clang::Decl} and \code{clang::Stmt}, some important ones in \code{clang::Type} and \code{clang::DeclContext}, and a lot of classes that are accessible only from specific nodes. AST traversal starts in \code{clang::TranslationUnitDecl} node.
+
+\subsection{Design}
+Tree base nodes (Decl, Stmt, Type)
+
+\subsection{Traversal}
+Template responsible for AST traversal is called \code{clang::RecursiveASTVisitor}. It is implemented as Curiously Recurring Template Pattern, when programmer is able to either react on AST node visit or manipulate with traversal. Due to character of AST class hierarchy, implementation of visitor is a bit cumbersome and got nickname macro monster. It was promised it will be reimplemented once and there's no guarantee interface won't change even though visitor is massively used in tools.
+
+\section{Source to source transformation}
+AST is immutable, etc.
+
+\subsection{Rewriter}
+\subsection{Replacements}
+\subsection{TreeTransform}
+
+\section{libclang}
+Brief description. Why not...
+
+\section{Plugins}
+Brief description. Why not...
+
+\section{LibTooling and AST matchers}
+How they are used in combination and need of access to clang internals because of injecting code for dynamic analysis (e.g. access to clang::Sema because of table of symbols).
+
+\subsection{Internals}
+Accessing and usage of clang internals such as clang::Sema and clang::ASTContext.
+
+\subsection{Utilities}
+What utilities i created to help navigation in AST.
+
+\subsection{Usage}
+compile commands and VS2012 solution database (if i implement that).
