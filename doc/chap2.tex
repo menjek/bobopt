@@ -47,11 +47,16 @@ The biggest disadvantage of Elsa is that its development stopped long ago in 200
 \section{VivaCore/OpenC++}
 Library was created as basis for \emph{PSV-Studio} static code analyzer for C/C++ code. VivaCore is derived from older OpenC++ (OpenCxx) library. The idea of using OpenC++ appeared when team was implementing \emph{Viva64} library. They made a lot of changes to OpenC++ and because lack of resources they didn't continue to improve it\footnote{Many changes didn't fit into OpenC++ ideology so they would need to adapt and allocate new resources for such process.}, but rather developed their own library. Library became popular and is used as basis by other very popular tools such as  \emph{VisualAssist} by \emph{Whole Tomato Software}, \emph{Doxygen}, \emph{Gimpel Software PC-Lint}, \emph{Parasoft C++test} and more.
 
-The first step of code analysis is to use preprocessor. Library uses external preprocessor what becomes its big disadvantage in source-to-source transformation process. Without integrated preprocessor it's next to impossible to track macro expansion and actual location of symbols in source code. Doxygen users may now understand why there's special \code{\textbackslash{def}} command to define macro documentation as it doesn't see macro usages because of using external preprocessor. VisualAssist uses Visual Studio preprocessor that feeds VivaCore library with preprocessed file. Therefore it often misses usage of symbols inside macros when refactoring code.
+The first step of code analysis is to use preprocessor. Library uses external preprocessor what becomes its biggest disadvantage in source-to-source transformation process. Without integrated preprocessor it's next to impossible to track macro expansion and actual location of symbols in source code. Doxygen users may now understand why there's special \code{\textbackslash{def}} command to define macro documentation as it doesn't see macro usages because of using external preprocessor. VisualAssist uses Visual Studio preprocessor that feeds VivaCore library with preprocessed file. Therefore it often misses usage of symbols inside macros when renaming symbols.
 
-Preprocessing subsystem
+Preprocessed input is then passed to library. There are two library subsystems that process code before it gets to lexical analysis. The first is input subsystem which has responsibility for putting preprocessed code into internal data structures. The second step is internally called \emph{Preprocessor}, but it doesn't preprocess input in the meaning of C++ preprocessor. It has mainly responsibility for two operations:
 
-Lexer
+\begin{itemize}
+\item Splitting code into strings and dividing them into two logical groups. One is for system libraries and the second one is for user code. Library user can choose whether he wants to analyze also system code or just user code.
+\item Removing C++ non-related strings, specific for compiler (e.g. \code{SA\_Success} and \code{SA\_FormatString} are presented in Visual Studio headers.).
+\end{itemize}
+
+Next step is finally lexical analysis. Output of \emph{Lexer} can be used for basic metrics or syntax highlighting. VivaCore allows to quite easily modify set of tokens for lexical analysis.
 
 VivaCore provides user with \emph{parse tree (PT)} called also \emph{derivation tree (DT)} as an output of syntactic analysis. Parse tree differs from abstract syntax tree in the way it contains nodes representing derivation rules used in syntactic analysis. The word \emph{abstract} came from the reasoning that it hides the way tree was constructed. It is actually possible to traverse PT as it was AST. Parse tree defines two basic sets of nodes with ancestors in \code{NonLeaf} and \code{Leaf} base classes which have \code{PTree}\footnote{\code{PTree} has \code{LightObject} as its base class used in GC.} class as their common ancestor declaring the only pure virtual member function:
 
@@ -61,7 +66,15 @@ virtual bool IsLeaf() const = 0;
 
 It is actually the only function that is needed to be defined in inherited classes letting their design to be more flexible.
 
-Walker
+Probably the most interesting part for library users is tree traversal. For this purpose there are three different \emph{walker} classes implemented
+
+\begin{description}
+\item[\code{Walker}] is responsible for walking over basic C++ constructions.
+\item[\code{ClassWalker}] handles C++ class specific features.
+\item[\code{ClasBodyWalker}] traverses body of C++ class.
+\end{description}
+
+It is possible to traverse PT multiple times so user can firstly traverse code for measurements and in the second traversal may modify PT. If user modifies tree nodes, it may happen that tree will be rebuilt.
 
 \section{Related work}
 Code quality in a huge projects is hard to maintain using code review since there's a lot of commits every day (e.g. Crysis 2 multiplayer had $\sim$100-150 code related commits every day collecting 103 different developers in its lifetime) and providing people resources for code review would be inefficient. Instead of that, companies use tools for static code analysis and diagnostic is further reviewed. Though not many companies trust tools in the way they let them do source-to-source transformations apart from formatting or simple refactoring.
