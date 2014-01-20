@@ -1,36 +1,103 @@
 \chapter{Clang and tooling}
-As already mentioned in previous section, support of building tools for static analysis of C++ code was very subtle. There was no support for creating tools over C++ code on amateur, enthusiast level. All compilers front-end were cumbersome for usage and implementing own front-end analysis were close to impossible. That changed with Clang, as a compiler front-end, creating API for accessing C++ code represented as user friendly Abstract Syntax Tree structure. Actually, Clang doesn't provide single API for all tools working over C++ code, rather multiple APIs with slight differences in usage affecting mainly range of information tool accesses, compatibility with older versions and the way it is built (e.g. what it is linked against). Tool developer can then decide whether he wants to sacrifices compatibility to all information front-end internals provides. As Clang develops there's no guarantee that even a basic interfaces in their code base doesn't change. Accessing Clang internals has another cost in form of tool binary size. Developers need to link their tools against whole clang, which is not negligible amount of code binary. Tool support in clang is from majority targeted to diagnostic, code completion or simple refactoring tools. Source-to-source transformations are not well supported. Even though there's possibility to inject own code, it's not recommended approach.
+As already mentioned in the previous chapter, support for building tools for static analysis of C++ code was very subtle. There was no support for creating tools over C++ code on amateur, enthusiast level. All compilers front-ends were cumbersome for usage and individually implementing own front-end is close to impossible. This changed with Clang, a compiler front-end, creating API for accessing C++ code represented as user friendly abstract syntax tree structure. Actually, Clang doesn't provide single tooling API, rather multiple APIs with differences in usage affecting mainly range of information tool accesses and compatibility with older versions. Tool developer can decide whether he wants to sacrifices compatibility to all information front-end internals provide. As Clang develops, there's no guarantee that even a basic interfaces in their code base don't change. Accessing Clang internals has another cost in form of tool binary size. Developer needs to link his tool against whole Clang code base which is not negligible amount of code binary. Tooling interface indicates that targeted sets of tools are diagnostic, code completion and refactoring tools. Source-to-source transformation support is subtle. Even though there are multiple ways to transform code, the most of them are deprecated.
 
 \section{Abstract Syntax Tree}
-The structure Clang provides is not only Abstract Syntax Tree of code, it's graph that has AST as its sub-graph and Clang provides mechanisms to traverse this graph as it would be AST. When developer gets node from AST he can traverse graph in more ways then he would be able to do with purely AST structure so he gets more freedom to optimize tool code. Unusually, class hierarchy over nodes doesn't have common ancestor. There are 2 large hierarchies of classes with common ancestors in \code{clang::Decl} and \code{clang::Stmt}, some important ones in \code{clang::Type} and \code{clang::DeclContext}, and a lot of classes that are accessible only from specific nodes. AST traversal starts in \code{clang::TranslationUnitDecl} node.
+The structure Clang provides is not only abstract syntax tree of code, it's graph that has AST as its sub-graph and Clang provides mechanisms to traverse this graph as it would be AST. Having access to AST node, programmer is able to traverse graph in more ways then he would be able to do with purely AST structure. It allows developer optimize his analysing code.
 
-\subsection{Design}
-Tree base nodes (Decl, Stmt, Type)
+Unusually, class hierarchy of nodes doesn't have common ancestor. There are two large hierarchies with common ancestors in \code{Decl} and \code{Stmt}, some important ones with ancestors in \code{Type} and \code{DeclContext}, and a lot of classes that are accessible only from specific nodes. AST traversal starts in \code{TranslationUnitDecl} node. 
 
 \subsection{Traversal}
-Template responsible for AST traversal is called \code{clang::RecursiveASTVisitor}. It is implemented as Curiously Recurring Template Pattern, when programmer is able to either react on AST node visit or manipulate with traversal. Due to character of AST class hierarchy, implementation of visitor is a bit cumbersome and got nickname macro monster. It was promised it will be reimplemented once and there's no guarantee interface won't change even though visitor is massively used in tools.
+Template responsible for AST traversal is called \code{RecursiveASTVisitor}. It is implemented as \emph{Curiously Recurring Template Pattern (CRTP)}, when programmer is able to either react on AST node visit or manipulate with traversal. Due to character of AST class hierarchy, implementation of visitor is a bit cumbersome and got nickname \emph{macro monster}. It was promised, it will be reimplemented once and there's no guarantee interface won't change even though visitor is massively used in tools.
 
 \section{Source to source transformation}
-AST is immutable, etc.
+When it comes to automatic source-to-source transformation, programmers try to use it very carefully. Even the simplest case of code refactoring such as symbol renaming is difficult to implement in C++. Before lexical analysis steps in, with some exceptions\footnote{Token paste operator \code{\#\#} needs to be handled when lexical analysis is happening.}, there's text preprocessing phase when source code \emph{text} is transformed to different source code \emph{text}. Preprocessor doesn't know anything about language, it is just defined as a set of operations on text. During preprocessing phase, symbols may be created, copied or erased. It is difficult task to track symbols origin from syntactic analysis output to source code location before preprocessing. The Clang has integrated preprocessor so looking up source location from AST is simpler.
+
+There are multiple approaches to source-to-source transformation based on tool objectives. If tool is supposed to support operations such as symbol renaming or code completion, Clang allows programmer to simply rewrite source code as text. This functionality is provided by \code{Rewriter} class. For bigger control over code replacements in specialized tool wrappers, there's \code{Replacement} class. If tool is supposed to be used in build process, it is the best solution to transform AST and output code for next build step. There's facility called \code{TreeTransform} in Clang code base for such purpose.
 
 \subsection{Rewriter}
-\subsection{Replacements}
-\subsection{TreeTransform}
+Simple interface for code editing. Programmer can create as many instances as necessary and pass them reference to \code{SourceManager} to make them functional.  User is then allowed to do operations such as inserting, removing or replacing text using \code{SourceLocation} or \code{SourceRange} which can be gathered directly from AST node. Source code text transformation is far from ideal in C++, though for renaming symbols or code completion in source code text editor it is sufficient and caused compilation errors can be repaired by programmer.
 
-\section{libclang}
-Brief description. Why not...
+\subsection{Replacements}
+Special wrapper for \code{Rewriter} operations to keep bigger control over text replacements is called \code{Replacement}. When using AST matchers, callback function is provided with pointer to \code{Replacements} which is set of \code{Replacement} objects. Callback is free to manipulate with this set, e.g.,  mainly adding new objects, but it is not prohibited from removing or editing existing items. At the end of analysis tool tests whether analysis finished correctly, then checks \code{Replacement} objects for validity and if everything went right, it applies those objects on \code{Rewriter} object. After all objects are successfully applied to \code{Rewriter}, the last step is to save files. When using \code{Rewriter}, programmer should implement all the mentioned steps for correct usage. The problem arises when tool wants to refactor code with compilation errors. \code{RefactoringTool} won't save any changes when analysis fails. Therefore refactoring tools that want to be integrated to source code text editor can't use these facilities. Furthermore, text editor tools need to react as fast as possible to user input. It often may be enough and faster to use output of \code{Lexer} and avoid phases of syntactic and semantic analysis. In such cases programmers shouldn't use tooling interface rather they should use compiler internals\footnote{Similar discussion between developers is conducted on \emph{clang-format} implementation.}.
+
+\subsection{TreeTransform}
+The most correct way of transforming AST is to use \code{TreeTransform} facility. If programmer has access to non-const nodes, they often provide member functions to manipulate with \textit{"edges"} to other nodes. Scout (\ref{scout}) tool for front-end SIMD optimizations uses this approach even though it is deprecated. The problem is that nodes and edges actually create more complex structure than AST. It is very hard to correctly manipulate with this structure without its detailed knowledge, i.e., knowledge on the level of the Clang developer. Developer needs to know what is responsible for node lifetime, what everything can point to it so deleting node doesn't leave any dangling pointer or reference and all necessary edges starting from new node so AST structure won't be incomplete. It is encouraged not to try to modify AST manually.
+
+AST immutability is widely mentioned in previous text and it may invoke thoughts about AST being created and never changed. That is not true. Clang internally transforms AST multiple times in compilation process. For example template instantiation is done on constructed AST effectively transforming it to different one. Since template instantiation may break semantic, it is necessary to test newly created AST in semantic analysis represented by \code{Sema}. This process is handled by \code{TreeTransform} class. Even though its interface is pretty simple, using CRTP pattern similar to \code{RecursiveASTVisitor}, it is hard to actually use it in tools. Object needs to be constructed with reference to \code{Sema} which is hard to access using tooling interface. 
+
+\section{LibClang}
+The first mentioned, but probably the least suitable tooling API to achieve thesis goal is LibClang, library with interface in C language. Its major advantage presented by Clang developers is that it's supposed to be relatively stable and backward compatible. For some developers it may be crucial feature, but it's negligible to achieve thesis goal.
+
+Even though LibClang provides interface in different language than Clang internals, it doesn't try to hide the way code is represented there. It provides access to Clang AST\footnote{It is necessary to mention that access is very limited relatively to Clang internal AST.} in form of abstraction called \emph{Cursor} which represents single AST element. Tree traversal is achieved using \emph{visitor} design pattern. Part of library also supports code completion and may fit well in source code text editors.
+
+The fact that library is written in C language makes using C++ for tool implementation unwise. Even though it is definitely possible, there are disadvantages in doing so. Resources has to be acquired and released which tends to use C++ RAII mechanism not only for being exception safe, but also for the code readability and maintenance. It means implementing whole C++ wrapping layer on top of LibClang which wraps Clang internals itself. Writing tool in different language than C would add unnecessary overhead to implementation. 
 
 \section{Plugins}
-Brief description. Why not...
+Clang as compiler front-end allows developer to step into compilation in form of plugins as dynamic libraries loaded on runtime and running their actions on processed code. Plugins are easy to integrate into build environment where Clang is used as compiler. They can be used to break compilation (e.g.  coding rules of company were broken) or they can produce some output (e.g. code statistics). But because they are already part of single compilation step, they are not suitable for source-to-source transformations. Unlike using LibClang, developer has full access to AST using plugins.
+
+Even though purpose of this project is to create tool used mainly in build environment, it should not be limited for environments where Clang is used as compiler or force build environments to integrate Clang in any way. Therefore using plugins would lower tool requirements. Fortunately, there are more suitable ways of writing tools on top of Clang front-end.
 
 \section{LibTooling and AST matchers}
-How they are used in combination and need of access to clang internals because of injecting code for dynamic analysis (e.g. access to clang::Sema because of table of symbols).
+LibTooling aims at writing standalone tools such as checkers or refactoring tools. It's easier to run standalone tool on single file or specific set of files. On the other hand, it's harder, but definitely possible to integrate such tool into build environment where it can be triggered on dependency changes.
+
+Library interface is very similar to the one of plugins and guarantee full access to AST structure. Even though interface tries to hide other compiler internals, it is part of compiler code and can be obfuscated to access them. Developer then can take advantage of other powerful facilities in compiler such as \code{Lexer}, \code{Parser}, \code{Sema}, \code{SourceManager}, \code{TreeTransform} and more.
+
+AST matchers aims at solving the very fundamental operation of matching patterns in AST. The most of tools don't try to invoke action on every single node in AST rather on specific ones. Without AST matchers, the only way to do this is to traverse whole tree looking for patterns and eventually invoke action on matching nodes. Clang provides extensive library of matcher classes that are designed to be combinable. For example matchers for if statement and function call can be combined to matcher for if statement where condition is expression in form of function call.
+
+Both libraries are part of the Clang source code and unlike LibClang, they do not try to abstract compiler internal structures. They only represent the way those structures are accessed. Therefore both libraries can be used interchangeably, e.g., developer can use AST matchers to lookup nodes in AST and then run front end action on subtree using LibTooling.
 
 \subsection{Internals}
-Accessing and usage of clang internals such as clang::Sema and clang::ASTContext.
+There are some powerful facilities inside every compiler used in compilation process. Access to them may improve understanding of code and allow implementation of more complex algorithms. If those facilities are accessed soon enough, before their invocation, tool can also affect compilation process.
 
-\subsection{Utilities}
-What utilities i created to help navigation in AST.
+\subsubsection{Preprocessor}
+Module tightly cooperates with lexer in transformation of source code text to tokens. \code{Lexer} should see code as a single source file and it should not care about code preprocessing actions such as resolving includes and macro expansion. Integrated preprocessor gives Clang tooling an edge over other libraries when deciding what library to use for source-to-source transformation.
+
+Some provided information:
+
+\begin{itemize}
+\item List of all predefined macros.
+\item Access immediate macro name for source location.
+\end{itemize}
+
+\subsubsection{Lexer}
+Simple interface for transformation of text buffer to stream of tokens. Only forward lexing is supported.
+
+Some provided information:
+
+\begin{itemize}
+\item Get source location just past the end of token specified by provided source location.
+\item Get token as string based on provided source location.
+\end{itemize}
+
+\subsubsection{Parser}
+Compiler parser for C family of languages, i.e., C, Objective C, C++ and Objective C++. Clang implements own hand-written recursive-descent parser as several other C and C++ front-ends do\footnote{GCC used generated Bison/YACC parser, but authors implemented hand-written parser in the end. Elsa uses recursive-descent parser as well.}. Due to being recursive-descent and complexity of C++ grammar, \code{Parser} is relatively large class in terms of member functions count. But it is not interesting from tooling point of view since majority of member functions handle grammar rules resolution and are context sensitive.
+
+\subsubsection{Sema}
+Parser feeds \code{Sema} object with information using \code{Action} interface. Essentially, when code is being parsed, \code{Parser} notifies \code{Sema} and based on notifications \code{Sema} constructs AST. After whole translation unit is parsed, \code{ActOnEndOfTranslationUnit} action is invoked and \code{Sema} provides \code{ASTConsumer} with constructed AST. This is the point where plugins and LibTooling libraries start code analysis by providing own \code{ASTConsumer} implementation through \code{FrontendAction}.
+
+\code{Sema} is one of the most interesting classes for tools from outside of AST library. It provides:
+
+\begin{itemize}
+\item Name lookup.
+\item Semantic checks.
+\item Code completion.
+\end{itemize}
+
+\subsubsection{SourceManager}
+Class essential for source-to-source transformation tools, because it's responsible for source code management on top of filesystem. It handles loading and caching of source code and it is able to translate abstract \code{SourceLocation} objects into spelling or expansion locations. Spelling location is location where bytes for specified token came from and expansion location where programmer can see them. For macro expansion, spelling location is location in macro definition and expansion location is location where macro was expanded.
+
+Some provided information:
+
+\begin{itemize}
+\item Spelling and expansion line and column numbers.
+\item Whether location is in system header.
+\item Whether location is in main TU file.
+\item Whether location is in macro expansion.
+\item Memory buffer for TU source code.
+\item Various macro expansion information.
+\end{itemize}
 
 \subsection{Usage}
-compile commands and VS2012 solution database (if i implement that).
+Clang, as the most other compilers, can receive compilation options such as predefined macros, include directories, forced includes or diagnostic level as command line arguments. Standalone tool must be able to feed compiler internally with this kind of data. Since it may have its own command line arguments, it would be hard to distinguish tool and compiler arguments. LibTooling tools gather compilation options from file with special name \code{compile\_commands.json}. Tool tries to lookup file with this name on initialization in parent directories of currently compiled file. If it succeeds, it builds compilation database from this file.
+
+When integrating tool into generated build environments, it is only matter to add or use existing generator for compilation database and create rules for tool execution. Some of the \code{CMake} generators are already able to generate also JSON database.
