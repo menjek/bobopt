@@ -7,15 +7,36 @@
 
 #include <cassert>
 
+// BOBOPT_BREAK
+//==============================================================================
+
+#ifndef NDEBUG
+
+#if defined(_MSC_VER)
+#   define BOBOPT_BREAK __debugbreak()
+#elif defined(__GNUG__)
+#   define BOBOPT_BREAK __builtin_trap()
+#elif defined(__clang__)
+#   define BOBOPT_BREAK __builtin_trap()
+#else
+#   define BOBOPT_BREAK ((void)0)
+#endif
+
+#else // NDEBUG
+
+#   define BOBOPT_BREAK
+
+#endif // BOBOPT_BREAK
+
 // BOBOPT_ASSERT
 //==============================================================================
 
 #ifndef NDEBUG
 
-#define BOBOPT_ASSERT(condition) assert(condition)
+#define BOBOPT_ASSERT(condition) assert((!!(condition)) || (BOBOPT_BREAK, false))
 
 #if defined(_MSC_VER)
-#	define BOBOPT_ASSERT_MSG(condition, text) (void)( (!!(condition)) || (_wassert(_CRT_WIDE(text), _CRT_WIDE(__FILE__), __LINE__), 0) )
+#	define BOBOPT_ASSERT_MSG(condition, text) (void)( (!!(condition)) || (BOBOPT_BREAK, _wassert(_CRT_WIDE(text), _CRT_WIDE(__FILE__), __LINE__), 0) )
 #else
 #	define BOBOPT_ASSERT_MSG(condition, text) BOBOPT_ASSERT(condition)
 #endif
@@ -31,7 +52,7 @@
 //==============================================================================
 
 #ifndef NDEBUG
-#	define BOBOPT_CHECK(condition) assert(condition)
+#	define BOBOPT_CHECK(condition) BOBOPT_ASSERT(condition)
 #else // NDEBUG
 #	define BOBOPT_CHECK(condition) (void)(condition)
 #endif // BOBOPT_CHECK
