@@ -26,71 +26,72 @@
 #include <vector>
 
 // forward declarations:
-namespace clang {
+namespace clang
+{
     class CXXRecordDecl;
-	class CXXMethodDecl;
-	class CFG;
+    class CXXMethodDecl;
+    class CFG;
 }
 
-namespace bobopt {
+namespace bobopt
+{
 
-	namespace methods {
+    namespace methods
+    {
 
-		/// \brief Definition of method to optimize complex bobox member functions.
-		/// 
-		/// Method creates its own AST related tree which holds only nodes that are
-		/// potentially going to be expensive and so their execution will be yield.
-		/// Such nodes are loops, compound statements, if, call expressions and
-		/// try blocks. All rest statements are counted as with complexity is equal
-		/// to one.
-		///
-		/// TODO: description of finding places to insert yield();
-		class yield_complex : public basic_method
-		{
-		public:
-		
-			// create/destroy:
-			yield_complex();
-			virtual ~yield_complex() BOBOPT_OVERRIDE;
+        /// \brief Definition of method to optimize complex bobox member functions.
+        ///
+        /// Method creates its own AST related tree which holds only nodes that are
+        /// potentially going to be expensive and so their execution will be yield.
+        /// Such nodes are loops, compound statements, if, call expressions and
+        /// try blocks. All rest statements are counted as with complexity is equal
+        /// to one.
+        class yield_complex : public basic_method
+        {
+        public:
 
-			// optimize:
-			virtual void optimize(clang::CXXRecordDecl* box, clang::tooling::Replacements* replacements) BOBOPT_OVERRIDE;
+            // create/destroy:
+            yield_complex();
+            virtual ~yield_complex() BOBOPT_OVERRIDE;
 
-		private:
-			BOBOPT_NONCOPYMOVABLE(yield_complex);
-			
-			// helper structures:
+            // optimize:
+            virtual void optimize(clang::CXXRecordDecl* box, clang::tooling::Replacements* replacements) BOBOPT_OVERRIDE;
 
-			/// \brief Structure that holds information about member function and name of parent it overrides.
-			struct method_override
-			{
-				std::string method_name;
-				std::string parent_name;
-			};
+        private:
+            BOBOPT_NONCOPYMOVABLE(yield_complex);
 
-			// typedefs:
-			typedef clang::CXXMethodDecl* exec_function_type;
+            // helper structures:
 
-			// helpers:
-			void optimize_methods();
-			void optimize_method(exec_function_type method);
+            /// \brief Structure that holds information about member function and name of parent it overrides.
+            struct method_override
+            {
+                std::string method_name;
+                std::string parent_name;
+            };
+
+            // typedefs:
+            typedef clang::CXXMethodDecl* exec_function_type;
+
+            // helpers:
+            void optimize_methods();
+            void optimize_method(exec_function_type method);
             void optimize_body(const clang::CFG& cfg);
 
-			// data members:
-			clang::CXXRecordDecl* box_;
-			clang::tooling::Replacements* replacements_;
+            // data members:
+            clang::CXXRecordDecl* box_;
+            clang::tooling::Replacements* replacements_;
 
-			// constants.
+            // constants.
             static const size_t COMPLEXITY_THRESHOLD = 1500;
-			static const size_t BOX_EXEC_METHOD_COUNT = 3;
-			static const method_override BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT];
-		};
+            static const size_t BOX_EXEC_METHOD_COUNT = 3;
+            static const method_override BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT];
+        };
 
-	} // namespace methods
+    } // namespace methods
 
-	/// \relates method_factory
-	/// \brief Function used to create yeild_complex object.
-	basic_method* create_yield_complex();
+    /// \relates method_factory
+    /// \brief Function used to create yeild_complex object.
+    basic_method* create_yield_complex();
 
 } // namespace bobopt
 

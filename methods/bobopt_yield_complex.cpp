@@ -23,12 +23,14 @@ using namespace std;
 using namespace clang;
 using namespace clang::ast_type_traits;
 
-namespace bobopt {
+namespace bobopt
+{
 
-	namespace methods {
+    namespace methods
+    {
 
         // helpers implementation.
-		//==============================================================================
+        //==============================================================================
 
         static bool has_yield(const CFGElement& element)
         {
@@ -59,11 +61,12 @@ namespace bobopt {
 
         static unsigned calc_stmt_complexity(const CFGElement& element)
         {
+            BOBOPT_UNUSED_EXPRESSION(element);
             return 0;
         }
 
         // cfg_data implementation.
-		//==============================================================================
+        //==============================================================================
 
         class cfg_data
         {
@@ -131,7 +134,7 @@ namespace bobopt {
                             data.yield = true;
                             break;
                         }
-        
+
                         block_complexity += calc_stmt_complexity(element);
                     }
 
@@ -147,7 +150,7 @@ namespace bobopt {
                 }
 
             private:
-                template<typename T>
+                template <typename T>
                 class stack_scope
                 {
                 public:
@@ -212,51 +215,54 @@ namespace bobopt {
             data_type data_;
         };
 
-		// yield_complex implementation.
-		//==============================================================================
+        // yield_complex implementation.
+        //==============================================================================
 
-		/// \brief Create default constructed unusable object.
-		yield_complex::yield_complex()
-			: box_(nullptr)
-			, replacements_(nullptr)
-		{}
+        /// \brief Create default constructed unusable object.
+        yield_complex::yield_complex()
+            : box_(nullptr)
+            , replacements_(nullptr)
+        {
+        }
 
-		/// \brief Deletable through pointer to base.
-		yield_complex::~yield_complex()
-		{}
+        /// \brief Deletable through pointer to base.
+        yield_complex::~yield_complex()
+        {
+        }
 
-		/// \brief Inherited optimization member function.
-		/// It just checks and stores optmization parameters and forwards job to dedicated member function.
-		void yield_complex::optimize(CXXRecordDecl* box, tooling::Replacements* replacements)
-		{
-			BOBOPT_ASSERT(box != nullptr);
-			BOBOPT_ASSERT(replacements != nullptr);
+        /// \brief Inherited optimization member function.
+        /// It just checks and stores optmization parameters and forwards job to dedicated member function.
+        void yield_complex::optimize(CXXRecordDecl* box, tooling::Replacements* replacements)
+        {
+            BOBOPT_ASSERT(box != nullptr);
+            BOBOPT_ASSERT(replacements != nullptr);
 
-			box_ = box;
-			replacements_ = replacements_;
-			
-			optimize_methods();
-		}
+            box_ = box;
+            replacements_ = replacements_;
 
-		/// \brief Main optimization pass.
-		/// Function iterates through box methods and if it matches method in array it calls dedicated function to optimizer single method.
-		void yield_complex::optimize_methods()
-		{
-			BOBOPT_ASSERT(box_ != nullptr);
+            optimize_methods();
+        }
 
-			for (auto method_it = box_->method_begin(); method_it != box_->method_end(); ++method_it)
-			{
-				CXXMethodDecl* method = *method_it;
+        /// \brief Main optimization pass.
+        /// Function iterates through box methods and if it matches method in array it calls dedicated function to
+        /// optimizer single method.
+        void yield_complex::optimize_methods()
+        {
+            BOBOPT_ASSERT(box_ != nullptr);
 
-				for (const auto& exec_method : BOX_EXEC_METHOD_OVERRIDES)
-				{
-					if ((method->getNameAsString() == exec_method.method_name) && overrides(method, exec_method.parent_name))
-					{
-						optimize_method(method);
-					}
-				}
-			}
-		}
+            for (auto method_it = box_->method_begin(); method_it != box_->method_end(); ++method_it)
+            {
+                CXXMethodDecl* method = *method_it;
+
+                for (const auto& exec_method : BOX_EXEC_METHOD_OVERRIDES)
+                {
+                    if ((method->getNameAsString() == exec_method.method_name) && overrides(method, exec_method.parent_name))
+                    {
+                        optimize_method(method);
+                    }
+                }
+            }
+        }
 
         /// \brief Main optimization pass for single method.
         /// Optimization is done in 2 steps:
@@ -299,18 +305,16 @@ namespace bobopt {
 
         // constants:
 
-		const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT] =
-		{
-			{ {"sync_mach_etwas"}, {"bobox::basic_box"} },
-			{ {"async_mach_etwas"}, {"bobox::basic_box"} },
-			{ {"body_mach_etwas"}, {"bobox::basic_box"} }
-		};
+        const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT] = {
+            { { "sync_mach_etwas" }, { "bobox::basic_box" } }, { { "async_mach_etwas" }, { "bobox::basic_box" } },
+            { { "body_mach_etwas" }, { "bobox::basic_box" } }
+        };
 
-	} // namespace
+    } // namespace
 
-	basic_method* create_yield_complex()
-	{
-		return new methods::yield_complex;
-	}
+    basic_method* create_yield_complex()
+    {
+        return new methods::yield_complex;
+    }
 
 } // namespace
