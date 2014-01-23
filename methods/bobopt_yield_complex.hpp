@@ -81,10 +81,9 @@ namespace bobopt
             clang::CXXRecordDecl* box_;
             clang::tooling::Replacements* replacements_;
 
-            // constants.
-            static const size_t COMPLEXITY_THRESHOLD = 1500;
-            static const size_t BOX_EXEC_METHOD_COUNT = 3;
-            static const method_override BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT];
+            // constants:
+            static const size_t COMPLEXITY_THRESHOLD;
+            static const method_override BOX_EXEC_METHOD_OVERRIDES[];
         };
 
     } // namespace methods

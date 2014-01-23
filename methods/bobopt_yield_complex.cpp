@@ -16,8 +16,9 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
-#include <vector>
+#include <memory>
 #include <unordered_map>
+#include <vector>
 
 using namespace std;
 using namespace clang;
@@ -218,6 +219,14 @@ namespace bobopt
         // yield_complex implementation.
         //==============================================================================
 
+        // constants:
+
+        const size_t yield_complex::COMPLEXITY_THRESHOLD = 1500;
+        const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[] = {
+            { { "sync_mach_etwas" }, { "bobox::basic_box" } }, { { "async_mach_etwas" }, { "bobox::basic_box" } },
+            { { "body_mach_etwas" }, { "bobox::basic_box" } }
+        };
+
         /// \brief Create default constructed unusable object.
         yield_complex::yield_complex()
             : box_(nullptr)
@@ -245,7 +254,7 @@ namespace bobopt
 
         /// \brief Main optimization pass.
         /// Function iterates through box methods and if it matches method in array it calls dedicated function to
-        /// optimizer single method.
+        /// optimize single method.
         void yield_complex::optimize_methods()
         {
             BOBOPT_ASSERT(box_ != nullptr);
@@ -265,9 +274,6 @@ namespace bobopt
         }
 
         /// \brief Main optimization pass for single method.
-        /// Optimization is done in 2 steps:
-        ///   - Construct CFG.
-        ///   - Insert yield calls by analyzing CFG.
         void yield_complex::optimize_method(exec_function_type method)
         {
             BOBOPT_ASSERT(method != nullptr);
@@ -284,31 +290,24 @@ namespace bobopt
             }
 
             CFG::BuildOptions options;
-            CFG* cfg = CFG::buildCFG(method, body, &method->getASTContext(), options);
+            std::unique_ptr<CFG> cfg(CFG::buildCFG(method, body, &method->getASTContext(), options));
 
             if (cfg == nullptr)
             {
-                BOBOPT_ERROR("Failed to construct CFG.");
+                llvm::errs() << "[ERROR] Failed to build CFG from function body.\n";
                 return;
             }
 
             optimize_body(*cfg);
-            delete cfg;
         }
 
+        /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(const CFG& cfg)
         {
             cfg_data data(cfg);
             data.optimize();
             data.apply();
         }
-
-        // constants:
-
-        const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT] = {
-            { { "sync_mach_etwas" }, { "bobox::basic_box" } }, { { "async_mach_etwas" }, { "bobox::basic_box" } },
-            { { "body_mach_etwas" }, { "bobox::basic_box" } }
-        };
 
     } // namespace
 
