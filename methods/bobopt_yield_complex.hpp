@@ -27,15 +27,9 @@
 
 // forward declarations:
 namespace clang {
-	class CXXRecordDecl;
+    class CXXRecordDecl;
 	class CXXMethodDecl;
-	class CompoundStmt;
-	class Stmt;
-	class IfStmt;
-	class ForStmt;
-	class WhileStmt;
-	class CompoundStmt;
-	class CXXTryStmt;
+	class CFG;
 }
 
 namespace bobopt {
@@ -80,17 +74,14 @@ namespace bobopt {
 			// helpers:
 			void optimize_methods();
 			void optimize_method(exec_function_type method);
-
-			complexity_ptr build_complexity_tree(clang::CompoundStmt* compound_stmt) const;
-			void insert_yields(const complexity_ptr& root) const;
+            void optimize_body(const clang::CFG& cfg);
 
 			// data members:
 			clang::CXXRecordDecl* box_;
 			clang::tooling::Replacements* replacements_;
 
 			// constants.
-			static const size_t FOR_UNKNOWN_LOOP_COUNT;
-			static const size_t FOR_RUNTIME_ANALYSIS_TRESHOLD;
+            static const size_t COMPLEXITY_THRESHOLD = 1500;
 			static const size_t BOX_EXEC_METHOD_COUNT = 3;
 			static const method_override BOX_EXEC_METHOD_OVERRIDES[BOX_EXEC_METHOD_COUNT];
 		};

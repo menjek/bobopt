@@ -31,7 +31,7 @@ namespace bobopt {
 		}
 	}
 
-	bool overrides(CXXMethodDecl* method_decl, const string& parent_name)
+	bool overrides(const CXXMethodDecl* method_decl, const string& parent_name)
 	{
 		for (auto it = method_decl->begin_overridden_methods(); it != method_decl->end_overridden_methods(); ++it)
 		{

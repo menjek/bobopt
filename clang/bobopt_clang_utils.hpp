@@ -35,7 +35,7 @@ namespace bobopt {
 	void flush_rewriter(clang::Rewriter& rewriter);
 	
 	/// \brief Tests whether member function overrides bobox basic box virtual member function.
-	bool overrides(clang::CXXMethodDecl* method_decl, const std::string& parent_name);
+	bool overrides(const clang::CXXMethodDecl* method_decl, const std::string& parent_name);
 
 	/// \brief Handles AST traversal and match finding.
 	///
