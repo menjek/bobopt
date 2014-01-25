@@ -33,37 +33,81 @@ namespace bobopt
         // helpers implementation.
         //==============================================================================
 
-        static bool has_yield(const CFGElement& element)
+        static const unsigned call_default_complexity = 200u;
+        static const unsigned call_trivial_complexity = 25u;
+        static const unsigned call_inline_complexity = 10u;
+        static const unsigned call_constexpr_complexity = 1u;
+
+        static const unsigned multiplier_for = 20u;
+        static const unsigned multiplier_while = 25u;
+
+        static bool is_yield(const CallExpr* call_expr)
+        {
+            BOBOPT_ASSERT(call_expr != nullptr);
+
+            const CXXMemberCallExpr* member_call_expr = llvm::dyn_cast<CXXMemberCallExpr>(call_expr);
+            if (member_call_expr == nullptr)
+            {
+                return false;
+            }
+
+            const CXXMethodDecl* method_decl = member_call_expr->getMethodDecl();
+            const CXXRecordDecl* record_decl = member_call_expr->getRecordDecl();
+
+            return (method_decl->getNameAsString() == "yield") && (record_decl->getNameAsString() == "basic_box");
+        }
+
+        static unsigned calc_call_complexity(const CallExpr* call_expr)
+        {
+            BOBOPT_ASSERT(call_expr != nullptr);
+
+            const FunctionDecl* callee = call_expr->getDirectCallee();
+
+            if (callee->isConstexpr())
+            {
+                return call_constexpr_complexity;
+            }
+
+            if (callee->isInlined())
+            {
+                return call_inline_complexity;
+            }
+
+            if (callee->hasTrivialBody())
+            {
+                return call_trivial_complexity;
+            }
+
+            return call_default_complexity;
+        }
+
+        static unsigned calc_element_complexity(const CFGElement& element)
         {
             if (element.getKind() != CFGElement::Kind::Statement)
             {
-                return false;
+                return 1u;
             }
 
             const Stmt* stmt = element.castAs<CFGStmt>().getStmt();
             BOBOPT_ASSERT(stmt != nullptr);
 
-            ast_nodes_collector<CXXMemberCallExpr> collector;
+            ast_nodes_collector<CallExpr> collector;
             collector.TraverseStmt(const_cast<Stmt*>(stmt));
 
+            unsigned result = 1u;
             for (auto it = collector.nodes_begin(), end = collector.nodes_end(); it != end; ++it)
             {
-                const CXXMethodDecl* method_decl = (*it)->getMethodDecl();
-                const CXXRecordDecl* record_decl = (*it)->getRecordDecl();
+                const CallExpr* call_expr = *it;
 
-                if ((method_decl->getNameAsString() == "yield") && (record_decl->getNameAsString() == "basic_box"))
+                if (is_yield(call_expr))
                 {
-                    return true;
+                    return 0u;
                 }
+
+                result += calc_call_complexity(call_expr);
             }
 
-            return false;
-        }
-
-        static unsigned calc_stmt_complexity(const CFGElement& element)
-        {
-            BOBOPT_UNUSED_EXPRESSION(element);
-            return 0;
+            return result;
         }
 
         // cfg_data implementation.
@@ -94,7 +138,7 @@ namespace bobopt
 
                 for (;;)
                 {
-                    optimize_impl(temp, data_);
+                    optimize_step(temp, data_);
                     unsigned temp_goodness = calc_goodness(temp);
                     if (temp_goodness < goodness)
                     {
@@ -108,6 +152,7 @@ namespace bobopt
 
             void apply() const
             {
+                BOBOPT_TODO("Implement")
             }
 
         private:
@@ -116,30 +161,46 @@ namespace bobopt
             class cfg_builder
             {
             public:
-                void process_cfg_block(const CFGBlock& block, unsigned int path_complexity)
+                void process_cfg_block(const CFGBlock& block, unsigned path_complexity)
                 {
+                    block_data& data = data_[block.getBlockID()];
+
                     stack_scope<unsigned> guard(stack_, block.getBlockID());
                     if (guard.cycle())
                     {
-                        return;
+                        // In loop?
+                        CFGTerminator terminator = block.getTerminator();
+                        if (terminator)
+                        {
+                            const Stmt* stmt = terminator.getStmt();
+                            BOBOPT_ASSERT(stmt != nullptr);
+
+                            if ((llvm::dyn_cast<ForStmt>(stmt) != nullptr) || (llvm::dyn_cast<WhileStmt>(stmt) != nullptr))
+                            {
+                                // Yep.
+                                data.paths.push_back(path_complexity);
+                                return;
+                            }
+                        }
                     }
 
-                    block_data& data = data_[block.getBlockID()];
                     data.yield = false;
 
-                    unsigned int block_complexity = 0;
+                    unsigned block_complexity = 0;
                     for (const CFGElement& element : block)
                     {
-                        if (has_yield(element))
+                        unsigned stmt_comlexity = calc_element_complexity(element);
+
+                        if (stmt_comlexity == 0)
                         {
                             data.yield = true;
                             break;
                         }
 
-                        block_complexity += calc_stmt_complexity(element);
+                        block_complexity += stmt_comlexity;
                     }
 
-                    unsigned int result_complexity = path_complexity + block_complexity;
+                    unsigned result_complexity = path_complexity + block_complexity;
                     data.paths.push_back(result_complexity);
 
                     process_succ(block, result_complexity);
@@ -190,9 +251,53 @@ namespace bobopt
 
                 void process_succ(const CFGBlock& block, unsigned path_complexity)
                 {
+                    CFGTerminator terminator = block.getTerminator();
+                    if (terminator)
+                    {
+                        const Stmt* stmt = terminator.getStmt();
+                        BOBOPT_ASSERT(stmt != nullptr);
+
+                        if (llvm::dyn_cast<ForStmt>(stmt) != nullptr)
+                        {
+                            process_succ_loop(block, path_complexity, multiplier_for);
+                            return;
+                        }
+
+                        if (llvm::dyn_cast<WhileStmt>(stmt) != nullptr)
+                        {
+                            process_succ_loop(block, path_complexity, multiplier_while);
+                            return;
+                        }
+                    }
+
                     for (auto it = block.succ_begin(), end = block.succ_end(); it != end; ++it)
                     {
                         process_cfg_block(**it, path_complexity);
+                    }
+                }
+
+                void process_succ_loop(const CFGBlock& block, unsigned path_complexity, unsigned multiplier)
+                {
+                    auto it = block.succ_begin();
+                    BOBOPT_ASSERT(it != block.succ_end());
+
+                    const CFGBlock& body = **it;
+
+                    ++it;
+                    BOBOPT_ASSERT(it != block.succ_end());
+                    const CFGBlock& skip = **it;
+
+                    ++it;
+                    BOBOPT_ASSERT(it == block.succ_end());
+
+                    process_cfg_block(body, path_complexity);
+
+                    block_data& data = data_[block.getBlockID()];
+                    for (auto& body_path : data.paths)
+                    {
+                        body_path *= multiplier;
+                        body_path += path_complexity;
+                        process_cfg_block(skip, body_path);
                     }
                 }
 
@@ -200,14 +305,16 @@ namespace bobopt
                 std::vector<unsigned> stack_;
             };
 
-            static void optimize_impl(data_type& new_data, const data_type& data)
+            static void optimize_step(data_type& new_data, const data_type& data)
             {
+                BOBOPT_TODO("Implement.");
                 BOBOPT_UNUSED_EXPRESSION(new_data);
                 BOBOPT_UNUSED_EXPRESSION(data);
             }
 
             static unsigned calc_goodness(const data_type& data)
             {
+                BOBOPT_TODO("Implement.");
                 BOBOPT_UNUSED_EXPRESSION(data);
                 return 0;
             }
@@ -222,10 +329,9 @@ namespace bobopt
         // constants:
 
         const size_t yield_complex::COMPLEXITY_THRESHOLD = 1500;
-        const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[] = {
-            { { "sync_mach_etwas" }, { "bobox::basic_box" } }, { { "async_mach_etwas" }, { "bobox::basic_box" } },
-            { { "body_mach_etwas" }, { "bobox::basic_box" } }
-        };
+        const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[] = { { { "sync_mach_etwas" }, { "bobox::basic_box" } },
+                                                                                            { { "async_mach_etwas" }, { "bobox::basic_box" } },
+                                                                                            { { "body_mach_etwas" }, { "bobox::basic_box" } } };
 
         /// \brief Create default constructed unusable object.
         yield_complex::yield_complex()
@@ -304,9 +410,12 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(const CFG& cfg)
         {
+//             llvm::errs() << box_->getNameAsString() << "\n";
+//             cfg.dump(box_->getASTContext().getLangOpts(), false);
+
             cfg_data data(cfg);
-            data.optimize();
-            data.apply();
+//             data.optimize();
+//             data.apply();
         }
 
     } // namespace
