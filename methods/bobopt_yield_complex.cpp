@@ -41,6 +41,9 @@ namespace bobopt
         static const unsigned multiplier_for = 20u;
         static const unsigned multiplier_while = 25u;
 
+        static const unsigned threshold_penalty = 8u;
+        static const unsigned threshold = 1000u;
+
         static bool is_yield(const CallExpr* call_expr)
         {
             BOBOPT_ASSERT(call_expr != nullptr);
@@ -133,13 +136,13 @@ namespace bobopt
 
             void optimize()
             {
-                data_type temp;
-                unsigned goodness = calc_goodness(data_);
+                data_type temp(data_);
+                float goodness = calc_goodness(data_);
 
                 for (;;)
                 {
                     optimize_step(temp, data_);
-                    unsigned temp_goodness = calc_goodness(temp);
+                    float temp_goodness = calc_goodness(temp);
                     if (temp_goodness < goodness)
                     {
                         break;
@@ -152,7 +155,7 @@ namespace bobopt
 
             void apply() const
             {
-                BOBOPT_TODO("Implement")
+                BOBOPT_TODO("Implement.")
             }
 
         private:
@@ -175,7 +178,9 @@ namespace bobopt
                             const Stmt* stmt = terminator.getStmt();
                             BOBOPT_ASSERT(stmt != nullptr);
 
-                            if ((llvm::dyn_cast<ForStmt>(stmt) != nullptr) || (llvm::dyn_cast<WhileStmt>(stmt) != nullptr))
+                            if ((llvm::dyn_cast<ForStmt>(stmt) != nullptr) ||
+                                (llvm::dyn_cast<WhileStmt>(stmt) != nullptr) ||
+                                (llvm::dyn_cast<DoStmt>(stmt) != nullptr))
                             {
                                 // Yep.
                                 data.paths.push_back(path_complexity);
@@ -305,18 +310,54 @@ namespace bobopt
                 std::vector<unsigned> stack_;
             };
 
-            static void optimize_step(data_type& new_data, const data_type& data)
+            void optimize_step(data_type& new_data, const data_type& data)
             {
-                BOBOPT_TODO("Implement.");
-                BOBOPT_UNUSED_EXPRESSION(new_data);
-                BOBOPT_UNUSED_EXPRESSION(data);
+                BOBOPT_ASSERT(!data.empty() && (data.size() == new_data.size()));
+
+                auto max_it = std::begin(data);
+                float max_goodness = 0.0f;
+                for (auto it = std::begin(data), end = std::end(data); it != end; ++it)
+                {
+                    unsigned sum = 0;
+                    for (auto path : it->second.paths)
+                    {
+                        sum += path;
+                    }
+
+                    float goodness = sum / static_cast<float>(it->second.paths.size());
+                    if (goodness > max_goodness)
+                    {
+                        max_it = it;
+                        max_goodness = goodness;
+                    }
+                }
+
+                auto new_it = new_data.find(max_it->first);
+                BOBOPT_ASSERT(new_it != std::end(new_data));
+
+                new_it->second.yield = true;
             }
 
-            static unsigned calc_goodness(const data_type& data)
+            float calc_goodness(const data_type& data) const
             {
-                BOBOPT_TODO("Implement.");
-                BOBOPT_UNUSED_EXPRESSION(data);
-                return 0;
+                auto block_it = data.find(cfg_.getExit().getBlockID());
+                BOBOPT_ASSERT(block_it != std::end(data));
+
+                unsigned sum = 0;
+                for (auto path : block_it->second.paths)
+                {
+                    if (path > threshold)
+                    {
+                        sum += threshold;
+                        sum += (path - threshold) * threshold_penalty;
+                    }
+                    else
+                    {
+                        sum += path;
+                    }
+                }
+
+                return sum / static_cast<float>(block_it->second.paths.size());
             }
 
             const CFG& cfg_;
@@ -410,8 +451,8 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(const CFG& cfg)
         {
-//             llvm::errs() << box_->getNameAsString() << "\n";
-//             cfg.dump(box_->getASTContext().getLangOpts(), false);
+            llvm::errs() << box_->getNameAsString() << "\n";
+//            cfg.dump(box_->getASTContext().getLangOpts(), false);
 
             cfg_data data(cfg);
 //             data.optimize();
