@@ -273,7 +273,7 @@ namespace bobopt
 
                         if (stmt_comlexity == 0u)
                         {
-                            BOBOPT_ASSERT(!build_ || block_item.yield);
+                            BOBOPT_ASSERT(build_ || block_item.yield);
                             block_item.yield = true;
                             break;
                         }
@@ -314,6 +314,12 @@ namespace bobopt
                         }
 
                         if (llvm::dyn_cast<WhileStmt>(stmt) != nullptr)
+                        {
+                            process_succ_loop(data, block, path, multiplier_while);
+                            return;
+                        }
+
+                        if (llvm::dyn_cast<DoStmt>(stmt) != nullptr)
                         {
                             process_succ_loop(data, block, path, multiplier_while);
                             return;
@@ -371,13 +377,8 @@ namespace bobopt
 
                     data_item.temps.clear();
 
-                    // Paths that entered for already left from temps.
-                    // Their "skip body" version needs new id.
-                    for (auto& skip_path : data_item.paths)
-                    {
-                        skip_path.id = next_id();
-                        process_cfg_block(data, skip, skip_path);
-                    }
+                    path.id = next_id();
+                    process_cfg_block(data, skip, path);
                 }
 
                 bool build_;
