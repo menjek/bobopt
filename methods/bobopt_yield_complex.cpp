@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <numeric>
 #include <unordered_map>
 #include <vector>
 
@@ -33,16 +34,16 @@ namespace bobopt
         // helpers implementation.
         //==============================================================================
 
-        static const unsigned call_default_complexity = 200u;
-        static const unsigned call_trivial_complexity = 25u;
-        static const unsigned call_inline_complexity = 10u;
+        static const unsigned call_default_complexity = 50u;
+        static const unsigned call_trivial_complexity = 10u;
+        static const unsigned call_inline_complexity = 5u;
         static const unsigned call_constexpr_complexity = 1u;
 
-        static const unsigned multiplier_for = 20u;
-        static const unsigned multiplier_while = 25u;
+        static const unsigned multiplier_for = 15u;
+        static const unsigned multiplier_while = 20u;
 
         static const unsigned threshold_penalty = 8u;
-        static const unsigned threshold = 1000u;
+        static const unsigned threshold = 250000u;
 
         static bool is_yield(const CallExpr* call_expr)
         {
@@ -120,8 +121,15 @@ namespace bobopt
         {
             struct block_data
             {
+                struct path_data
+                {
+                    unsigned id;
+                    unsigned complexity;
+                };
+
                 bool yield;
-                std::vector<unsigned> paths;
+                std::vector<path_data> paths;
+                std::vector<path_data> temps;
             };
 
             typedef std::unordered_map<unsigned, block_data> data_type;
@@ -130,7 +138,7 @@ namespace bobopt
             explicit cfg_data(const CFG& cfg) : cfg_(cfg)
             {
                 cfg_builder builder;
-                builder.process_cfg_block(data_, cfg.getEntry(), 0);
+                builder.process(data_, cfg.getEntry());
             }
 
             void optimize()
@@ -140,15 +148,21 @@ namespace bobopt
 
                 for (;;)
                 {
-                    optimize_step(temp, data_);
-                    float temp_goodness = calc_goodness(temp);
-                    if (temp_goodness < goodness)
+                    if (!optimize_step(temp, data_))
                     {
                         break;
                     }
 
-                    data_.swap(temp);
-                    goodness = temp_goodness;
+                    float temp_goodness = calc_goodness(temp);
+                    if (temp_goodness > goodness)
+                    {
+                        data_.swap(temp);
+                        goodness = temp_goodness;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -163,66 +177,19 @@ namespace bobopt
             class cfg_builder
             {
             public:
-                explicit cfg_builder(bool build = true) : build_(build)
+                explicit cfg_builder(bool build = true)
+                    : build_(build)
+                    , max_id_(0)
+                    , stack_()
                 {
                 }
 
-                void process_cfg_block(data_type& data, const CFGBlock& block, unsigned path_complexity)
+                void process(data_type& data, const CFGBlock& entry_block)
                 {
-                    block_data& data_item = data[block.getBlockID()];
-
-                    stack_scope<unsigned> guard(stack_, block.getBlockID());
-                    if (guard.cycle())
-                    {
-                        // In loop?
-                        CFGTerminator terminator = block.getTerminator();
-                        if (terminator)
-                        {
-                            const Stmt* stmt = terminator.getStmt();
-                            BOBOPT_ASSERT(stmt != nullptr);
-
-                            if ((llvm::dyn_cast<ForStmt>(stmt) != nullptr) ||
-                                (llvm::dyn_cast<WhileStmt>(stmt) != nullptr) ||
-                                (llvm::dyn_cast<DoStmt>(stmt) != nullptr))
-                            {
-                                // Yep.
-                                data_item.paths.push_back(path_complexity);
-                                return;
-                            }
-                        }
-                    }
-
-                    if (build_)
-                    {
-                        data_item.yield = false;
-                    }
-
-                    unsigned block_complexity = 0u;
-                    for (const CFGElement& element : block)
-                    {
-                        unsigned stmt_comlexity = calc_element_complexity(element);
-
-                        if (stmt_comlexity == 0u)
-                        {
-                            BOBOPT_ASSERT(!build_ || data_item.yield);
-                            block_complexity = 0u;
-                            data_item.yield = true;
-                            break;
-                        }
-
-                        if (!build_ && data_item.yield)
-                        {
-                            block_complexity = 0u;
-                            break;
-                        }
-
-                        block_complexity += stmt_comlexity;
-                    }
-
-                    unsigned result_complexity = path_complexity + block_complexity;
-                    data_item.paths.push_back(result_complexity);
-
-                    process_succ(data, block, result_complexity);
+                    block_data::path_data entry_path;
+                    entry_path.id = next_id();
+                    entry_path.complexity = 0;
+                    process_cfg_block(data, entry_block, entry_path);
                 }
 
             private:
@@ -263,7 +230,76 @@ namespace bobopt
                     unsigned value_;
                 };
 
-                void process_succ(data_type& data, const CFGBlock& block, unsigned path_complexity)
+                unsigned next_id()
+                {
+                    return max_id_++;
+                }
+
+                void process_cfg_block(data_type& data, const CFGBlock& block, block_data::path_data path)
+                {
+                    unsigned block_id = block.getBlockID();
+                    block_data& block_item = data[block_id];
+
+                    stack_scope<unsigned> guard(stack_, block_id);
+                    if (guard.cycle())
+                    {
+                        // In loop?
+                        CFGTerminator terminator = block.getTerminator();
+                        if (terminator)
+                        {
+                            const Stmt* stmt = terminator.getStmt();
+                            BOBOPT_ASSERT(stmt != nullptr);
+
+                            if ((llvm::dyn_cast<ForStmt>(stmt) != nullptr) || (llvm::dyn_cast<WhileStmt>(stmt) != nullptr) ||
+                                (llvm::dyn_cast<DoStmt>(stmt) != nullptr))
+                            {
+                                // Yep.
+                                block_item.temps.push_back(path);
+                                return;
+                            }
+                        }
+                    }
+
+                    if (build_)
+                    {
+                        block_item.yield = false;
+                    }
+
+                    unsigned block_complexity = 0u;
+                    for (const CFGElement& element : block)
+                    {
+                        unsigned stmt_comlexity = calc_element_complexity(element);
+                        block_complexity += stmt_comlexity;
+
+                        if (stmt_comlexity == 0u)
+                        {
+                            BOBOPT_ASSERT(!build_ || block_item.yield);
+                            block_item.yield = true;
+                            break;
+                        }
+
+                        if (!build_ && block_item.yield)
+                        {
+                            break;
+                        }
+                    }
+
+                    block_data::path_data result_path;
+                    result_path.id = path.id;
+                    result_path.complexity = path.complexity + block_complexity;
+                    block_item.paths.push_back(result_path);
+
+                    if (block_item.yield)
+                    {
+                        result_path.id = next_id();
+                        result_path.complexity = 0;
+                        block_item.paths.push_back(result_path);
+                    }
+
+                    process_succ(data, block, result_path);
+                }
+
+                void process_succ(data_type& data, const CFGBlock& block, block_data::path_data path)
                 {
                     CFGTerminator terminator = block.getTerminator();
                     if (terminator)
@@ -273,25 +309,37 @@ namespace bobopt
 
                         if (llvm::dyn_cast<ForStmt>(stmt) != nullptr)
                         {
-                            process_succ_loop(data, block, path_complexity, multiplier_for);
+                            process_succ_loop(data, block, path, multiplier_for);
                             return;
                         }
 
                         if (llvm::dyn_cast<WhileStmt>(stmt) != nullptr)
                         {
-                            process_succ_loop(data, block, path_complexity, multiplier_while);
+                            process_succ_loop(data, block, path, multiplier_while);
                             return;
                         }
                     }
 
-                    for (auto it = block.succ_begin(), end = block.succ_end(); it != end; ++it)
+                    auto block_it = block.succ_begin();
+                    if (block_it != block.succ_end())
                     {
-                        process_cfg_block(data, **it, path_complexity);
+                        process_cfg_block(data, **block_it, path);
+
+                        ++block_it;
+                        for (auto end = block.succ_end(); block_it != end; ++block_it)
+                        {
+                            block_data::path_data new_path;
+                            new_path.id = next_id();
+                            new_path.complexity = path.complexity;
+                            process_cfg_block(data, **block_it, new_path);
+                        }
                     }
                 }
 
-                void process_succ_loop(data_type& data, const CFGBlock& block, unsigned path_complexity, unsigned multiplier)
+                void process_succ_loop(data_type& data, const CFGBlock& block, block_data::path_data path, unsigned multiplier)
                 {
+                    BOBOPT_ASSERT(data.count(block.getBlockID()) == 1);
+
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
 
@@ -304,55 +352,44 @@ namespace bobopt
                     ++it;
                     BOBOPT_ASSERT(it == block.succ_end());
 
-                    process_cfg_block(data, body, path_complexity);
+                    // Process body but with zero complexity
+                    // because value will be multiplied later.
+                    {
+                        block_data::path_data body_path;
+                        body_path.id = path.id;
+                        body_path.complexity = 0u;
+                        process_cfg_block(data, body, body_path);
+                    }
 
                     block_data& data_item = data[block.getBlockID()];
-                    for (auto& body_path : data_item.paths)
+                    for (auto body_path : data_item.temps)
                     {
-                        body_path *= multiplier;
-                        body_path += path_complexity;
+                        body_path.complexity *= multiplier;
+                        body_path.complexity += path.complexity;
                         process_cfg_block(data, skip, body_path);
+                    }
+
+                    data_item.temps.clear();
+
+                    // Paths that entered for already left from temps.
+                    // Their "skip body" version needs new id.
+                    for (auto& skip_path : data_item.paths)
+                    {
+                        skip_path.id = next_id();
+                        process_cfg_block(data, skip, skip_path);
                     }
                 }
 
                 bool build_;
+                unsigned max_id_;
                 std::vector<unsigned> stack_;
             };
 
-            void optimize_step(data_type& new_data, const data_type& data)
+            bool optimize_step(data_type& new_data, const data_type& data)
             {
                 BOBOPT_ASSERT(!data.empty() && (data.size() == new_data.size()));
-
-                auto max_it = std::begin(data);
-                float max_goodness = 0.0f;
-                for (auto it = std::begin(data), end = std::end(data); it != end; ++it)
-                {
-                    unsigned sum = 0;
-                    for (auto path : it->second.paths)
-                    {
-                        sum += path;
-                    }
-
-                    float goodness = sum / static_cast<float>(it->second.paths.size());
-                    if (goodness > max_goodness)
-                    {
-                        max_it = it;
-                        max_goodness = goodness;
-                    }
-                }
-
-                auto new_it = new_data.find(max_it->first);
-                BOBOPT_ASSERT(new_it != std::end(new_data));
-
-                new_it->second.yield = true;
-
-                for (auto data_pair : new_data)
-                {
-                    data_pair.second.paths.clear();
-                }
-
-                cfg_builder builder(false);
-                builder.process_cfg_block(new_data, cfg_.getEntry(), 0);
+                BOBOPT_TODO("Implement from scratch.");
+                return false;
             }
 
             float calc_goodness(const data_type& data) const
@@ -360,21 +397,37 @@ namespace bobopt
                 auto block_it = data.find(cfg_.getExit().getBlockID());
                 BOBOPT_ASSERT(block_it != std::end(data));
 
+                // Paths ending in EXIT block.
                 unsigned sum = 0;
                 for (auto path : block_it->second.paths)
                 {
-                    if (path > threshold)
+                    if (path.complexity > threshold)
                     {
                         sum += threshold;
-                        sum += (path - threshold) * threshold_penalty;
+                        sum += (path.complexity - threshold) * threshold_penalty;
                     }
                     else
                     {
-                        sum += path;
+                        sum += path.complexity;
                     }
                 }
 
-                return sum / static_cast<float>(block_it->second.paths.size());
+                size_t paths_count = block_it->second.paths.size();
+
+                // Paths ending in yielded blocks.
+                for (const auto& block_pair : data)
+                {
+                    if (block_pair.second.yield)
+                    {
+                        sum += std::accumulate(std::begin(block_pair.second.paths),
+                                               std::end(block_pair.second.paths),
+                                               0u,
+                                               [](unsigned int lhs, const block_data::path_data & rhs) { return lhs + rhs.complexity; });
+                        paths_count += block_pair.second.paths.size();
+                    }
+                }
+
+                return sum / static_cast<float>(paths_count);
             }
 
             const CFG& cfg_;
@@ -468,12 +521,12 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(const CFG& cfg)
         {
-//            llvm::errs() << box_->getNameAsString() << "\n";
-//            cfg.dump(box_->getASTContext().getLangOpts(), false);
+            llvm::errs() << box_->getNameAsString() << "\n";
+            cfg.dump(box_->getASTContext().getLangOpts(), false);
 
             cfg_data data(cfg);
-//             data.optimize();
-//             data.apply();
+            data.optimize();
+            //            data.apply();
         }
 
     } // namespace
