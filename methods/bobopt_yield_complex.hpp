@@ -14,7 +14,6 @@
 #define BOBOPT_METHODS_BOBOPT_YIELD_COMPLEX_HPP_GUARD_
 
 #include <bobopt_method.hpp>
-#include <methods/bobopt_complexity_tree.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "clang/AST/ASTTypeTraits.h"

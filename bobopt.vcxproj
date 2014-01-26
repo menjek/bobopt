@@ -152,7 +152,6 @@
     </ClCompile>
     <ClCompile Include="clang\bobopt_clang_utils.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="methods\bobopt_complexity_tree.cpp" />
     <ClCompile Include="methods\bobopt_prefetch.cpp">
       <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
     </ClCompile>
@@ -172,7 +171,6 @@
     <ClInclude Include="clang\bobopt_clang_prolog.hpp" />
     <ClInclude Include="clang\bobopt_clang_utils.hpp" />
     <ClInclude Include="clang\bobopt_control_flow_search.hpp" />
-    <ClInclude Include="methods\bobopt_complexity_tree.hpp" />
     <ClInclude Include="methods\bobopt_prefetch.hpp" />
     <ClInclude Include="methods\bobopt_yield_complex.hpp" />
   </ItemGroup>
@@ -182,7 +180,6 @@
     <None Include="bobopt_method.inl" />
     <None Include="bobopt_optimizer.inl" />
     <None Include="clang\bobopt_clang_utils.inl" />
-    <None Include="methods\bobopt_complexity_tree.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

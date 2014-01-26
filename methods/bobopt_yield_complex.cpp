@@ -5,7 +5,6 @@
 #include <bobopt_macros.hpp>
 #include <bobopt_utils.hpp>
 #include <clang/bobopt_clang_utils.hpp>
-#include <methods/bobopt_complexity_tree.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "clang/AST/ASTContext.h"
@@ -123,13 +122,13 @@ namespace bobopt
             {
                 struct path_data
                 {
-                    unsigned id;
+                    std::vector<unsigned> id;
                     unsigned complexity;
                 };
 
                 bool yield;
                 std::vector<path_data> paths;
-                std::vector<path_data> temps;
+                std::unordered_map<unsigned, unsigned> temps;
             };
 
             typedef std::unordered_map<unsigned, block_data> data_type;
@@ -186,10 +185,7 @@ namespace bobopt
 
                 void process(data_type& data, const CFGBlock& entry_block)
                 {
-                    block_data::path_data entry_path;
-                    entry_path.id = next_id();
-                    entry_path.complexity = 0;
-                    process_cfg_block(data, entry_block, entry_path);
+                    process_cfg_block(data, entry_block, next_id(), 0u);
                 }
 
             private:
@@ -235,7 +231,7 @@ namespace bobopt
                     return max_id_++;
                 }
 
-                void process_cfg_block(data_type& data, const CFGBlock& block, block_data::path_data path)
+                std::vector<unsigned> process_cfg_block(data_type& data, const CFGBlock& block, unsigned path, unsigned complexity)
                 {
                     unsigned block_id = block.getBlockID();
                     block_data& block_item = data[block_id];
@@ -254,8 +250,8 @@ namespace bobopt
                                 (llvm::dyn_cast<DoStmt>(stmt) != nullptr))
                             {
                                 // Yep.
-                                block_item.temps.push_back(path);
-                                return;
+                                block_item.temps[path] = complexity;
+                                return std::vector<unsigned>();
                             }
                         }
                     }
@@ -284,23 +280,28 @@ namespace bobopt
                         }
                     }
 
-                    block_data::path_data result_path;
-                    result_path.id = path.id;
-                    result_path.complexity = path.complexity + block_complexity;
-                    block_item.paths.push_back(result_path);
-
                     if (block_item.yield)
                     {
-                        result_path.id = next_id();
-                        result_path.complexity = 0;
-                        block_item.paths.push_back(result_path);
+                        block_data::path_data new_path;
+                        new_path.id.push_back(next_id());
+                        new_path.complexity = 0;
+                        process_succ(data, block, new_path);
+                        block_item.paths.push_back(new_path);
+                        return std::vector<unsigned>();
                     }
-
-                    process_succ(data, block, result_path);
+                    
+                    block_data::path_data input_path;
+                    input_path.id.push_back(path);
+                    input_path.complexity = complexity + block_complexity;
+                    auto paths = process_succ(data, block, input_path);
+                    block_item.paths.push_back(input_path);
+                    return paths;
                 }
 
-                void process_succ(data_type& data, const CFGBlock& block, block_data::path_data path)
+                std::vector<unsigned> process_succ(data_type& data, const CFGBlock& block, block_data::path_data& path)
                 {
+                    BOBOPT_ASSERT(path.id.size() == 1);
+
                     CFGTerminator terminator = block.getTerminator();
                     if (terminator)
                     {
@@ -309,42 +310,52 @@ namespace bobopt
 
                         if (llvm::dyn_cast<ForStmt>(stmt) != nullptr)
                         {
-                            process_succ_loop(data, block, path, multiplier_for);
-                            return;
+                            return process_succ_loop(data, block, path, multiplier_for);
                         }
 
                         if (llvm::dyn_cast<WhileStmt>(stmt) != nullptr)
                         {
-                            process_succ_loop(data, block, path, multiplier_while);
-                            return;
+                            return process_succ_loop(data, block, path, multiplier_while);
                         }
 
                         if (llvm::dyn_cast<DoStmt>(stmt) != nullptr)
                         {
-                            process_succ_loop(data, block, path, multiplier_while);
-                            return;
+                            return process_succ_loop(data, block, path, multiplier_while);
                         }
                     }
+
+                    std::vector<unsigned> created_paths;
 
                     auto block_it = block.succ_begin();
                     if (block_it != block.succ_end())
                     {
-                        process_cfg_block(data, **block_it, path);
+                        auto deep_path = process_cfg_block(data, **block_it, path.id[0], path.complexity);
+                        path.id.insert(std::end(path.id), std::begin(deep_path), std::end(deep_path));
+                        created_paths.insert(std::end(created_paths), std::begin(deep_path), std::end(deep_path));
 
                         ++block_it;
                         for (auto end = block.succ_end(); block_it != end; ++block_it)
                         {
-                            block_data::path_data new_path;
-                            new_path.id = next_id();
-                            new_path.complexity = path.complexity;
-                            process_cfg_block(data, **block_it, new_path);
+                            unsigned id = next_id();
+                            path.id.push_back(id);
+                            created_paths.push_back(id);
+                            auto new_paths = process_cfg_block(data, **block_it, id, path.complexity);
+                            path.id.insert(std::end(path.id), std::begin(new_paths), std::end(new_paths));
+                            created_paths.insert(std::end(created_paths), std::begin(new_paths), std::end(new_paths));
                         }
                     }
+
+                    return created_paths;
                 }
 
-                void process_succ_loop(data_type& data, const CFGBlock& block, block_data::path_data path, unsigned multiplier)
+                std::vector<unsigned> process_succ_loop(data_type& data, const CFGBlock& block, block_data::path_data& path, unsigned multiplier)
                 {
+                    BOBOPT_ASSERT(path.id.size() == 1);
                     BOBOPT_ASSERT(data.count(block.getBlockID()) == 1);
+
+                    auto path_id = path.id[0];
+                    auto path_complexity = path.complexity;
+                    auto& block_item = data[block.getBlockID()];
 
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
@@ -360,25 +371,55 @@ namespace bobopt
 
                     // Process body but with zero complexity
                     // because value will be multiplied later.
-                    {
-                        block_data::path_data body_path;
-                        body_path.id = path.id;
-                        body_path.complexity = 0u;
-                        process_cfg_block(data, body, body_path);
-                    }
+                    process_cfg_block(data, body, path_id, path_complexity);
+
+                    std::vector<unsigned> created_paths;
 
                     block_data& data_item = data[block.getBlockID()];
                     for (auto body_path : data_item.temps)
                     {
-                        body_path.complexity *= multiplier;
-                        body_path.complexity += path.complexity;
-                        process_cfg_block(data, skip, body_path);
+                        body_path.second *= multiplier;
+                        body_path.second += path.complexity;
+
+                        if (body_path.first == path_id)
+                        {
+                            path.complexity = body_path.second;
+
+                            auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
+                            path.id.insert(std::end(path.id), std::begin(paths), std::end(paths));
+                            created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
+                        }
+                        else
+                        {  
+                           block_data::path_data new_path;
+                           new_path.id.push_back(body_path.first);
+                           new_path.complexity = body_path.second;
+
+                           created_paths.push_back(new_path.id[0]);
+                           auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
+                           path.id.insert(std::end(path.id), std::begin(paths), std::end(paths));
+                           new_path.id.insert(std::end(new_path.id), std::begin(paths), std::end(paths));
+                           created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
+
+                           block_item.paths.push_back(new_path);
+                        }
                     }
 
                     data_item.temps.clear();
 
-                    path.id = next_id();
-                    process_cfg_block(data, skip, path);
+                    block_data::path_data new_path;
+                    new_path.id.push_back(next_id());
+                    new_path.complexity = path.complexity;
+
+                    created_paths.push_back(new_path.id[0]);
+                    auto paths = process_cfg_block(data, skip, new_path.id[0], new_path.complexity);
+                    path.id.insert(std::end(path.id), std::begin(paths), std::end(paths));
+                    new_path.id.insert(std::end(new_path.id), std::begin(paths), std::end(paths));
+                    created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
+
+                    block_item.paths.push_back(new_path);
+
+                    return created_paths;
                 }
 
                 bool build_;
