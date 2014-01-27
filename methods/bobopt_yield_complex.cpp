@@ -138,6 +138,8 @@ namespace bobopt
             {
                 cfg_builder builder;
                 builder.process(data_, cfg.getEntry());
+
+                BOBOPT_ASSERT(cfg_builder::debug_check(cfg, data_));
             }
 
             void optimize()
@@ -186,7 +188,54 @@ namespace bobopt
                 void process(data_type& data, const CFGBlock& entry_block)
                 {
                     process_cfg_block(data, entry_block, next_id(), 0u);
+                    for (auto& item : data)
+                    {
+                        for (auto& path : item.second.paths)
+                        {
+                            std::sort(std::begin(path.id), std::end(path.id));
+                        }
+                    }
                 }
+
+#ifndef NDEBUG
+                static bool debug_check(const CFG& cfg, data_type& data)
+                {
+                    // Do/While makes all other checks irrelevant.
+                    for (const auto& block : cfg)
+                    {
+                        CFGTerminator terminator = block->getTerminator();
+                        if (terminator)
+                        {
+                            if (llvm::dyn_cast<DoStmt>(terminator.getStmt()) != nullptr)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    // Check uniqueness of path id for every block.
+                    for (const auto& block : data)
+                    {
+                        using namespace std;
+
+                        const block_data& item = block.second;
+
+                        vector<unsigned> ids = accumulate(
+                            begin(item.paths), end(item.paths), vector<unsigned>(), [](vector<unsigned> & lhs, const block_data::path_data & path) {
+                                lhs.insert(end(lhs), begin(path.id), end(path.id));
+                                return lhs;
+                            });
+
+                        sort(begin(ids), end(ids));
+                        if (adjacent_find(begin(ids), end(ids)) != end(ids))
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+#endif // NDEBUG
 
             private:
                 template <typename T>
@@ -355,7 +404,8 @@ namespace bobopt
 
                     auto path_id = path.id[0];
                     auto path_complexity = path.complexity;
-                    auto& block_item = data[block.getBlockID()];
+                    auto block_id = block.getBlockID();
+                    auto& block_item = data[block_id];
 
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
@@ -397,7 +447,6 @@ namespace bobopt
 
                            created_paths.push_back(new_path.id[0]);
                            auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
-                           path.id.insert(std::end(path.id), std::begin(paths), std::end(paths));
                            new_path.id.insert(std::end(new_path.id), std::begin(paths), std::end(paths));
                            created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
 
@@ -413,7 +462,6 @@ namespace bobopt
 
                     created_paths.push_back(new_path.id[0]);
                     auto paths = process_cfg_block(data, skip, new_path.id[0], new_path.complexity);
-                    path.id.insert(std::end(path.id), std::begin(paths), std::end(paths));
                     new_path.id.insert(std::end(new_path.id), std::begin(paths), std::end(paths));
                     created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
 
@@ -430,7 +478,39 @@ namespace bobopt
             bool optimize_step(data_type& new_data, const data_type& data)
             {
                 BOBOPT_ASSERT(!data.empty() && (data.size() == new_data.size()));
-                BOBOPT_TODO("Implement from scratch.");
+                
+                // Find all blocks where paths end, i.e., exit and yielded blocks.
+                std::vector<const block_data*> end_blocks;
+                for (const auto& block : data)
+                {
+                    if (block.second.yield)
+                    {
+                        end_blocks.push_back(&(block.second));
+                    }
+                }
+
+                auto end_block_it = data.find(cfg_.getExit().getBlockID());
+                BOBOPT_ASSERT(end_block_it == std::end(data));
+                end_blocks.push_back(&(end_block_it->second));
+
+                // Iterate through all blocks and calculate what we can achieve
+                // by placing yield inside block.
+                for (const auto& block : data)
+                {
+                    if (block.second.yield || (block.first == cfg_.getExit().getBlockID()))
+                    {
+                        continue;
+                    }
+
+                    for (const auto& path : block.second.paths)
+                    {
+                        if (path.complexity < threshold)
+                        {
+                            continue;
+                        }
+                    }
+                }
+
                 return false;
             }
 
