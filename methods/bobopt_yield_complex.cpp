@@ -18,6 +18,7 @@
 #include <memory>
 #include <numeric>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 using namespace std;
@@ -41,8 +42,13 @@ namespace bobopt
         static const unsigned multiplier_for = 15u;
         static const unsigned multiplier_while = 20u;
 
-        static const unsigned threshold_penalty = 8u;
-        static const unsigned threshold = 250000u;
+        static const unsigned threshold = 100000u;
+
+        template <typename T, typename U>
+        static auto value_distance(T a, U b) -> decltype((a > b) ? (a - b) : (b - a))
+        {
+            return (a > b) ? (a - b) : (b - a);
+        }
 
         static bool is_yield(const CallExpr* call_expr)
         {
@@ -145,6 +151,7 @@ namespace bobopt
             void optimize()
             {
                 data_type temp(data_);
+                sweep_data(temp);
                 float goodness = calc_goodness(data_);
 
                 for (;;)
@@ -155,10 +162,11 @@ namespace bobopt
                     }
 
                     float temp_goodness = calc_goodness(temp);
-                    if (temp_goodness > goodness)
+                    if (temp_goodness < goodness)
                     {
-                        data_.swap(temp);
                         goodness = temp_goodness;
+                        data_.swap(temp);
+                        sweep_data(temp);
                     }
                     else
                     {
@@ -188,13 +196,7 @@ namespace bobopt
                 void process(data_type& data, const CFGBlock& entry_block)
                 {
                     process_cfg_block(data, entry_block, next_id(), 0u);
-                    for (auto& item : data)
-                    {
-                        for (auto& path : item.second.paths)
-                        {
-                            std::sort(std::begin(path.ids), std::end(path.ids));
-                        }
-                    }
+                    postprocess(data);
                 }
 
 #ifndef NDEBUG
@@ -212,7 +214,7 @@ namespace bobopt
                             }
                         }
                     }
-                    
+
                     // Check uniqueness of path id for every block.
                     for (const auto& block : data)
                     {
@@ -280,6 +282,19 @@ namespace bobopt
                     return max_id_++;
                 }
 
+                static void postprocess(data_type& data)
+                {
+                    for (auto& block_pair : data)
+                    {
+                        for (auto& path : block_pair.second.paths)
+                        {
+                            std::sort(std::begin(path.ids), std::end(path.ids));
+                        }
+
+                        block_pair.second.temps.clear();
+                    }
+                }
+
                 std::vector<unsigned> process_cfg_block(data_type& data, const CFGBlock& block, unsigned path, unsigned complexity)
                 {
                     unsigned block_id = block.getBlockID();
@@ -331,14 +346,18 @@ namespace bobopt
 
                     if (block_item.yield)
                     {
+                        block_data::path_data input_path;
+                        input_path.ids.push_back(path);
+                        input_path.complexity = complexity + block_complexity;
+                        block_item.paths.push_back(input_path);
+
                         block_data::path_data new_path;
                         new_path.ids.push_back(next_id());
                         new_path.complexity = 0;
                         process_succ(data, block, new_path);
-                        block_item.paths.push_back(new_path);
                         return std::vector<unsigned>();
                     }
-                    
+
                     block_data::path_data input_path;
                     input_path.ids.push_back(path);
                     input_path.complexity = complexity + block_complexity;
@@ -404,8 +423,8 @@ namespace bobopt
 
                     auto path_id = path.ids[0];
                     auto path_complexity = path.complexity;
-                    auto block_id = block.getBlockID();
-                    auto& block_item = data[block_id];
+                    //auto block_id = block.getBlockID();
+                    //auto& block_item = data[block_id];
 
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
@@ -440,17 +459,17 @@ namespace bobopt
                             created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
                         }
                         else
-                        {  
-                           block_data::path_data new_path;
-                           new_path.ids.push_back(body_path.first);
-                           new_path.complexity = body_path.second;
+                        {
+                            block_data::path_data new_path;
+                            new_path.ids.push_back(body_path.first);
+                            new_path.complexity = body_path.second;
 
-                           created_paths.push_back(new_path.ids[0]);
-                           auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
-                           new_path.ids.insert(std::end(new_path.ids), std::begin(paths), std::end(paths));
-                           created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
+                            created_paths.push_back(new_path.ids[0]);
+                            auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
+                            new_path.ids.insert(std::end(new_path.ids), std::begin(paths), std::end(paths));
+                            created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
 
-                           block_item.paths.push_back(new_path);
+                            //block_item.paths.push_back(new_path);
                         }
                     }
 
@@ -465,7 +484,7 @@ namespace bobopt
                     new_path.ids.insert(std::end(new_path.ids), std::begin(paths), std::end(paths));
                     created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
 
-                    block_item.paths.push_back(new_path);
+                    //block_item.paths.push_back(new_path);
 
                     return created_paths;
                 }
@@ -475,13 +494,22 @@ namespace bobopt
                 std::vector<unsigned> stack_;
             };
 
-            bool optimize_step(data_type& new_data, const data_type& data)
+            static void sweep_data(data_type& data)
             {
-                BOBOPT_ASSERT(!data.empty() && (data.size() == new_data.size()));
-                
+                for (auto& block_pair : data)
+                {
+                    block_pair.second.paths.clear();
+                    block_pair.second.temps.clear();
+                }
+            }
+
+            bool optimize_step(data_type& dst_data, const data_type& src_data)
+            {
+                BOBOPT_ASSERT((src_data.size() == dst_data.size()) && (src_data.size() == cfg_.size()));
+
                 // Find all blocks where paths end, i.e., exit and yielded blocks.
                 std::vector<const block_data*> end_blocks;
-                for (const auto& block : data)
+                for (const auto& block : src_data)
                 {
                     if (block.second.yield)
                     {
@@ -489,30 +517,40 @@ namespace bobopt
                     }
                 }
 
-                auto end_block_it = data.find(cfg_.getExit().getBlockID());
-                BOBOPT_ASSERT(end_block_it != std::end(data));
-                end_blocks.push_back(&(end_block_it->second));
+                auto exit_it = src_data.find(cfg_.getExit().getBlockID());
+                BOBOPT_ASSERT(exit_it != std::end(src_data));
+                end_blocks.push_back(&(exit_it->second));
 
                 // Iterate through all blocks and calculate what we can achieve
                 // by placing yield inside block.
-                float max_goodness = 0.0f;
-                unsigned max_block = 0;
-                for (const auto& block : data)
+                float min_goodness = std::numeric_limits<float>::max();
+                unsigned min_block = 0u;
+                for (const auto& block : src_data)
                 {
-                    auto goodness = optimize_block(block.second, end_blocks);
-                    if (goodness > max_goodness)
+                    if (block.second.yield)
                     {
-                        max_block = block.first;
-                        max_goodness = goodness;
+                        continue;
+                    }
+
+                    auto result = optimize_block(block.second, end_blocks);
+                    if (result.second && (result.first < min_goodness))
+                    {
+                        min_block = block.first;
+                        min_goodness = result.first;
                     }
                 }
 
-                if (max_goodness > 0.0f)
+                // If there was block worth optimizing, insert yield into destination
+                // data structure and recalculate cfg.
+                if (min_block != 0u)
                 {
-                    BOBOPT_ASSERT(max_block != 0);
-                    auto found_it = new_data.find(max_block);
-                    BOBOPT_ASSERT(found_it != std::end(new_data));
-                    found_it->second.yield = true;
+                    auto max_block_it = dst_data.find(min_block);
+                    BOBOPT_ASSERT(max_block_it != std::end(dst_data));
+                    max_block_it->second.yield = true;
+
+                    cfg_builder builder(false);
+                    builder.process(dst_data, cfg_.getEntry());
+
                     return true;
                 }
 
@@ -523,36 +561,34 @@ namespace bobopt
             {
                 using namespace std;
 
-                return find_if(begin(block.paths), end(block.paths), [id](const block_data::path_data& path) {
+                return find_if(begin(block.paths), end(block.paths), [id](const block_data::path_data & path) {
                     return find(begin(path.ids), end(path.ids), id) != end(path.ids);
                 });
             }
 
-            float optimize_block(const block_data& block, const std::vector<const block_data*>& end_blocks)
+            std::pair<float, bool> optimize_block(const block_data& block, const std::vector<const block_data*>& end_blocks)
             {
-                unsigned sum = 0;
-                unsigned count = 0;
-                unsigned penalty = 0;
-
+                unsigned distance = 0u;
+                unsigned count = 0u;
+                
                 // Check whether block is worth optimizing.
                 bool over_threshold = false;
                 for (const auto& path : block.paths)
                 {
                     unsigned ids_count = static_cast<unsigned>(path.ids.size());
-
                     count += ids_count;
-                    sum += path.complexity * ids_count;
-
+                    
                     if (path.complexity > threshold)
                     {
-                        penalty += (path.complexity - threshold) * ids_count;
                         over_threshold = true;
-                    }                    
+                    }
+
+                    distance += ids_count * value_distance(threshold, path.complexity);
                 }
 
                 if (!over_threshold)
                 {
-                    return 0.0f;
+                    return std::make_pair(0.0f, false);
                 }
 
                 // Evaluate blocks at the end of paths.
@@ -560,66 +596,63 @@ namespace bobopt
                 {
                     for (const auto& path : end_block->paths)
                     {
-                        auto path_penalty = (path.complexity > threshold) ? (path.complexity - threshold) : 0u;
-
+                        const auto path_distance = value_distance(threshold, path.complexity);
                         for (auto id : path.ids)
                         {
                             ++count;
 
-                            auto found_it = find_path(id, block);
+                            const auto found_it = find_path(id, block);
                             if (found_it == std::end(block.paths))
                             {
-                                sum += path.complexity;
-                                penalty += path_penalty;
+                                distance += path_distance;
                                 continue;
                             }
 
-                            auto new_path = path.complexity - found_it->complexity;
-                            sum += new_path;
-                            penalty += (new_path > threshold) ? (new_path - threshold) : 0u;
+                            auto new_complexity = path.complexity - found_it->complexity;
+                            distance += value_distance(threshold, new_complexity);
                         }
                     }
                 }
 
-                return sum + (penalty * threshold_penalty) / static_cast<float>(count);
+                return std::make_pair(distance / static_cast<float>(count), true);
             }
 
             float calc_goodness(const data_type& data) const
             {
-                auto block_it = data.find(cfg_.getExit().getBlockID());
-                BOBOPT_ASSERT(block_it != std::end(data));
+                auto exit_it = data.find(cfg_.getExit().getBlockID());
+                BOBOPT_ASSERT(exit_it != std::end(data));
+                BOBOPT_ASSERT(!(exit_it->second.yield));
+
+                unsigned distance = 0u;
+                unsigned count = 0u;
 
                 // Paths ending in EXIT block.
-                unsigned sum = 0;
-                for (auto path : block_it->second.paths)
+                for (const auto& path : exit_it->second.paths)
                 {
-                    if (path.complexity > threshold)
-                    {
-                        sum += threshold;
-                        sum += (path.complexity - threshold) * threshold_penalty;
-                    }
-                    else
-                    {
-                        sum += path.complexity;
-                    }
-                }
+                    BOBOPT_TODO("Extract to function.")
+                    auto ids_count = static_cast<unsigned>(path.ids.size());
 
-                size_t paths_count = block_it->second.paths.size();
+                    count += ids_count;
+                    distance += ids_count * value_distance(threshold, path.complexity);
+                }
 
                 // Paths ending in yielded blocks.
-                for (const auto& block_pair : data)
+                for (const auto& block : data)
                 {
-                    if (block_pair.second.yield)
+                    if (block.second.yield)
                     {
-                        sum += std::accumulate(std::begin(block_pair.second.paths),
-                                               std::end(block_pair.second.paths),
-                                               0u,
-                                               [](unsigned int lhs, const block_data::path_data & rhs) { return lhs + rhs.complexity; });
-                        paths_count += block_pair.second.paths.size();
+                        for (const auto& path : block.second.paths)
+                        {
+                            BOBOPT_TODO("Extract to function.")
+                            auto ids_count = static_cast<unsigned>(path.ids.size());
+
+                            count += ids_count;
+                            distance += ids_count * value_distance(threshold, path.complexity);
+                        }
                     }
                 }
 
-                return sum / static_cast<float>(paths_count);
+                return distance / static_cast<float>(count);
             }
 
             const CFG& cfg_;
