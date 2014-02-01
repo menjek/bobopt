@@ -44,12 +44,6 @@ namespace bobopt
 
         static const unsigned threshold = 100000u;
 
-        template <typename T, typename U>
-        static auto value_distance(T a, U b) -> decltype((a > b) ? (a - b) : (b - a))
-        {
-            return (a > b) ? (a - b) : (b - a);
-        }
-
         static bool is_yield(const CallExpr* call_expr)
         {
             BOBOPT_ASSERT(call_expr != nullptr);

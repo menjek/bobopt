@@ -1,6 +1,7 @@
 #ifndef BOBOPT_UTILS_HPP_GUARD_
 #define BOBOPT_UTILS_HPP_GUARD_
 
+#include <bobopt_inline.hpp>
 #include <bobopt_language.hpp>
 
 #include <memory>
@@ -9,6 +10,9 @@
 
 namespace bobopt
 {
+
+    // make_unique
+    //==========================================================================
 
     // Implementation of make_unique based on paper N3656 by STL.
     // http://isocpp.org/files/papers/N3656.txt
@@ -55,6 +59,14 @@ namespace bobopt
     /// \brief Delete definition for call on an array of known size.
     template <typename T, typename... Args>
     typename unique_if<T>::known_bound make_unique(Args&&...) BOBOPT_SPECIAL_DELETE;
+
+    // value_distance.
+    //==========================================================================
+    template <typename T, typename U>
+    auto value_distance(T a, U b) -> decltype((a > b) ? (a - b) : (b - a))
+    {
+        return (a > b) ? (a - b) : (b - a);
+    }
 
 } // namespace
 
