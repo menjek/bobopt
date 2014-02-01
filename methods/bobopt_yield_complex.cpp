@@ -423,9 +423,7 @@ namespace bobopt
 
                     auto path_id = path.ids[0];
                     auto path_complexity = path.complexity;
-                    //auto block_id = block.getBlockID();
-                    //auto& block_item = data[block_id];
-
+                    
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
 
@@ -466,10 +464,7 @@ namespace bobopt
 
                             created_paths.push_back(new_path.ids[0]);
                             auto paths = process_cfg_block(data, skip, body_path.first, body_path.second);
-                            new_path.ids.insert(std::end(new_path.ids), std::begin(paths), std::end(paths));
                             created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
-
-                            //block_item.paths.push_back(new_path);
                         }
                     }
 
@@ -481,10 +476,7 @@ namespace bobopt
 
                     created_paths.push_back(new_path.ids[0]);
                     auto paths = process_cfg_block(data, skip, new_path.ids[0], new_path.complexity);
-                    new_path.ids.insert(std::end(new_path.ids), std::begin(paths), std::end(paths));
                     created_paths.insert(std::end(created_paths), std::begin(paths), std::end(paths));
-
-                    //block_item.paths.push_back(new_path);
 
                     return created_paths;
                 }
@@ -570,14 +562,14 @@ namespace bobopt
             {
                 unsigned distance = 0u;
                 unsigned count = 0u;
-                
+
                 // Check whether block is worth optimizing.
                 bool over_threshold = false;
                 for (const auto& path : block.paths)
                 {
                     unsigned ids_count = static_cast<unsigned>(path.ids.size());
                     count += ids_count;
-                    
+
                     if (path.complexity > threshold)
                     {
                         over_threshold = true;
@@ -751,7 +743,7 @@ namespace bobopt
 
             cfg_data data(cfg);
             data.optimize();
-            //            data.apply();
+            data.apply();
         }
 
     } // namespace
