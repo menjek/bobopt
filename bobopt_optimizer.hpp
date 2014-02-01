@@ -18,86 +18,87 @@
 #include <memory>
 
 // Forward declaration(s).
-namespace clang {
-	class CXXRecordDecl;
-	class CompilerInstance;
+namespace clang
+{
+    class CXXRecordDecl;
+    class CompilerInstance;
 }
 
-namespace bobopt {
+namespace bobopt
+{
 
-	/// \brief Optimization level type.
-	enum levels
-	{
-		OL_NONE = 0,
-		OL_BASIC = 1,
-		OL_EXTRA = 2,
+    /// \brief Optimization level type.
+    enum levels
+    {
+        OL_NONE = 0,
+        OL_BASIC = 1,
+        OL_EXTRA = 2,
 
-		OL_COUNT
-	};
+        OL_COUNT
+    };
 
-	/// \brief Optimization modes.
-	enum modes
-	{
-		MODE_DIAGNOSTIC,
-		MODE_INTERACTIVE,
-		MODE_BUILD
-	};
-	
-	/// \brief Base class for bobox optimizations.
-	///
-	/// Inherited from clang ast match finder callback. It also contains
-	/// definition of matcher for finding bobox boxes.
-	class optimizer : public clang::ast_matchers::MatchFinder::MatchCallback
-	{
-	public:
+    /// \brief Optimization modes.
+    enum modes
+    {
+        MODE_DIAGNOSTIC,
+        MODE_INTERACTIVE,
+        MODE_BUILD
+    };
 
-		static const clang::ast_matchers::DeclarationMatcher BOX_MATCHER;
+    /// \brief Base class for bobox optimizations.
+    ///
+    /// Inherited from clang ast match finder callback. It also contains
+    /// definition of matcher for finding bobox boxes.
+    class optimizer : public clang::ast_matchers::MatchFinder::MatchCallback
+    {
+    public:
 
-		optimizer(modes mode, clang::tooling::Replacements* replacements);
-		optimizer(modes mode, clang::tooling::Replacements* replacements, levels level);
+        static const clang::ast_matchers::DeclarationMatcher BOX_MATCHER;
 
-		template<typename InputIterator>
-		optimizer(clang::tooling::Replacements* replacements, InputIterator first, InputIterator last);
+        optimizer(modes mode, clang::tooling::Replacements* replacements);
+        optimizer(modes mode, clang::tooling::Replacements* replacements, levels level);
 
-		~optimizer();
+        template <typename InputIterator>
+        optimizer(clang::tooling::Replacements* replacements, InputIterator first, InputIterator last);
 
-		void set_level(levels level);
-		modes get_mode() const;
-		bool verbose() const;
+        ~optimizer();
 
-		diagnostic& get_diagnostic();
-		const diagnostic& get_diagnostic() const;
-		
-		void enable_method(method_type method);
-		void disable_method(method_type method);
-		bool is_method_enabled(method_type method) const;
+        void set_level(levels level);
+        modes get_mode() const;
+        bool verbose() const;
 
-		clang::CompilerInstance& get_compiler() const;
-		void set_compiler(clang::CompilerInstance* compiler);
+        diagnostic& get_diagnostic();
+        const diagnostic& get_diagnostic() const;
 
-		virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
+        void enable_method(method_type method);
+        void disable_method(method_type method);
+        bool is_method_enabled(method_type method) const;
 
-	private:
-		typedef const method_type* method_iterator;
-		typedef std::pair<method_iterator, method_iterator> method_iterator_pair;
+        clang::CompilerInstance& get_compiler() const;
+        void set_compiler(clang::CompilerInstance* compiler);
 
-		template<typename InputIterator>
-		void construct(InputIterator first, InputIterator last);
+        virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
 
-		void create_method(method_type method);
-		void destroy_method(method_type method);
+    private:
+        typedef const method_type* method_iterator;
+        typedef std::pair<method_iterator, method_iterator> method_iterator_pair;
 
-		void apply_methods(clang::CXXRecordDecl* box_declaration) const;
-				
-		static method_iterator_pair get_level_methods(levels level);
+        template <typename InputIterator>
+        void construct(InputIterator first, InputIterator last);
 
-		modes mode_;
-		clang::CompilerInstance* compiler_;
-		clang::tooling::Replacements* replacements_;
-		std::unique_ptr<diagnostic> diagnostic_;
-		std::array<basic_method*, OM_COUNT> methods_;
-	};
+        void create_method(method_type method);
+        void destroy_method(method_type method);
 
+        void apply_methods(clang::CXXRecordDecl* box_declaration) const;
+
+        static method_iterator_pair get_level_methods(levels level);
+
+        modes mode_;
+        clang::CompilerInstance* compiler_;
+        clang::tooling::Replacements* replacements_;
+        std::unique_ptr<diagnostic> diagnostic_;
+        std::array<basic_method*, OM_COUNT> methods_;
+    };
 
 } // namespace
 

@@ -4,13 +4,15 @@
 
 #include BOBOPT_INLINE_IN_SOURCE(bobopt_method)
 
-namespace bobopt {
+namespace bobopt
+{
 
-	basic_method::basic_method()
-		: optimizer_(nullptr)
-	{}
+    basic_method::basic_method() : optimizer_(nullptr)
+    {
+    }
 
-	basic_method::~basic_method()
-	{}
+    basic_method::~basic_method()
+    {
+    }
 
 } // namespace

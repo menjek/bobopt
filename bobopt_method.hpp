@@ -10,32 +10,34 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 // forward declarations:
-namespace clang {
-	class CXXRecordDecl;
+namespace clang
+{
+    class CXXRecordDecl;
 }
 
-namespace bobopt {
-
-// forward declarations:
-class optimizer;
-
-class basic_method
+namespace bobopt
 {
-public:
-	basic_method();
-	virtual ~basic_method();
 
-	BOBOPT_INLINE const optimizer& get_optimizer() const;
+    // forward declarations:
+    class optimizer;
 
-	virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
+    class basic_method
+    {
+    public:
+        basic_method();
+        virtual ~basic_method();
 
-private:
-	friend class optimizer;
+        BOBOPT_INLINE const optimizer& get_optimizer() const;
 
-	BOBOPT_INLINE void set_optimizer(const optimizer* optimizer_instance);
+        virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
 
-	const optimizer* optimizer_;
-};
+    private:
+        friend class optimizer;
+
+        BOBOPT_INLINE void set_optimizer(const optimizer* optimizer_instance);
+
+        const optimizer* optimizer_;
+    };
 
 } // namespace
 

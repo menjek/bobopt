@@ -1,4 +1,4 @@
-namespace bobopt {
-
+namespace bobopt
+{
 
 } // namespace

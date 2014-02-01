@@ -423,7 +423,7 @@ namespace bobopt
 
                     auto path_id = path.ids[0];
                     auto path_complexity = path.complexity;
-                    
+
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
 
