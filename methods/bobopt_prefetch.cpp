@@ -625,18 +625,18 @@ namespace bobopt
 
                 named_inputs_type prefetched_names = prefetched.get_values();
 
-                sort(begin(prefetched_names), end(prefetched_names));
-                sort(begin(should_prefetch_names), end(should_prefetch_names));
+                std::sort(std::begin(prefetched_names), std::end(prefetched_names));
+                std::sort(std::begin(should_prefetch_names), std::end(should_prefetch_names));
 
                 named_inputs_type to_prefetch_names;
                 to_prefetch_names.reserve(should_prefetch_names.size());
 
-                set_difference(begin(should_prefetch_names),
-                               end(should_prefetch_names), // A
-                               begin(prefetched_names),
-                               end(prefetched_names),           // B
-                               back_inserter(to_prefetch_names) // A - B
-                               );
+                std::set_difference(std::begin(should_prefetch_names),
+                                    std::end(should_prefetch_names), // A
+                                    std::begin(prefetched_names),
+                                    std::end(prefetched_names),           // B
+                                    std::back_inserter(to_prefetch_names) // A - B
+                                    );
 
                 if (!to_prefetch_names.empty())
                 {

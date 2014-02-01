@@ -140,7 +140,6 @@ namespace bobopt
 
         } // namespace
 
-
         // cfg_data implementation.
         //======================================================================
 
@@ -186,7 +185,7 @@ namespace bobopt
                 cfg_data_builder builder(cfg);
                 data_ = builder.build();
             }
-            
+
             bool optimize()
             {
                 float goodness = get_goodness(data_);
@@ -212,7 +211,7 @@ namespace bobopt
                         break;
                     }
                 }
-                
+
                 return optimized;
             }
 
@@ -745,9 +744,6 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(const CFG& cfg)
         {
-            llvm::errs() << box_->getNameAsString() << "\n";
-            cfg.dump(box_->getASTContext().getLangOpts(), false);
-
             cfg_data data(cfg);
             if (data.optimize())
             {
