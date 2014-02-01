@@ -81,7 +81,6 @@ namespace bobopt
             clang::tooling::Replacements* replacements_;
 
             // constants:
-            static const size_t COMPLEXITY_THRESHOLD;
             static const method_override BOX_EXEC_METHOD_OVERRIDES[];
         };
 
