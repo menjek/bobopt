@@ -52,7 +52,7 @@ namespace bobopt
 
         /// \brief Optimal complexity for box execution.
         /// It is equivalent of 2 inner for loops with 5 calls to not inlined non trivial function (20*20*5*25 = 50000).
-        static const unsigned threshold = 50000u;
+        static const unsigned threshold = 20000u;
 
         // TU helpers.
         //======================================================================
@@ -84,6 +84,11 @@ namespace bobopt
 
                 const FunctionDecl* callee = call_expr->getDirectCallee();
 
+                if (callee->hasTrivialBody())
+                {
+                    return call_trivial_complexity;
+                }
+
                 if (callee->isConstexpr())
                 {
                     return call_constexpr_complexity;
@@ -92,11 +97,6 @@ namespace bobopt
                 if (callee->isInlined())
                 {
                     return call_inline_complexity;
-                }
-
-                if (callee->hasTrivialBody())
-                {
-                    return call_trivial_complexity;
                 }
 
                 return call_default_complexity;
@@ -476,7 +476,7 @@ namespace bobopt
                         stack_guard_type<unsigned> guard(loop_stack_, block.getBlockID());
                         BOBOPT_UNUSED_EXPRESSION(guard);
 
-                        process(body, next_id(), complexity);
+                        process(body, next_id(), 0u);
                     }
 
                     std::vector<unsigned> return_paths;
