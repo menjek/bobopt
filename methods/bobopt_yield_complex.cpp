@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
 using namespace clang;
 using namespace clang::ast_type_traits;
 
@@ -261,7 +260,7 @@ namespace bobopt
             private:
                 BOBOPT_NONCOPYMOVABLE(cfg_data_builder);
 
-                /// \brief Guards internal stacks. Class is responsible for push
+                /// \brief Guards detail stacks. Class is responsible for push
                 /// and pop of elements.
                 template <typename T>
                 class stack_guard_type
@@ -566,10 +565,8 @@ namespace bobopt
 
             static std::vector<block_data_type::path_data_type>::const_iterator find_path(unsigned id, const block_data_type& block)
             {
-                using namespace std;
-
-                return find_if(begin(block.paths), end(block.paths), [id](const block_data_type::path_data_type & path) {
-                    return find(begin(path.ids), end(path.ids), id) != end(path.ids);
+                return std::find_if(std::begin(block.paths), std::end(block.paths), [id](const block_data_type::path_data_type & path) {
+                    return std::find(std::begin(path.ids), std::end(path.ids), id) != std::end(path.ids);
                 });
             }
 

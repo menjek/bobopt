@@ -15,14 +15,13 @@
 #include <string>
 
 using namespace clang;
-using namespace std;
 
 #include BOBOPT_INLINE_IN_SOURCE(bobopt_diagnostic)
 
 namespace bobopt
 {
 
-    namespace internal
+    namespace detail
     {
 
         BOBOPT_INLINE bool in_range(size_t begin, size_t end, size_t offset)
@@ -30,22 +29,22 @@ namespace bobopt
             return (begin <= offset) && (offset < end);
         }
 
-        BOBOPT_INLINE string read_message_line(string& message)
+        BOBOPT_INLINE std::string read_message_line(std::string& message)
         {
             size_t nl = message.find_first_of('\n');
-            if (nl != string::npos)
+            if (nl != std::string::npos)
             {
-                string result = message.substr(0, nl);
+                std::string result = message.substr(0, nl);
                 message = message.substr(nl + 1);
                 return result;
             }
 
-            string result = message;
+            std::string result = message;
             message.clear();
             return result;
         }
 
-        string create_pointers_line(string line, size_t begin, size_t end)
+        std::string create_pointers_line(std::string line, size_t begin, size_t end)
         {
             for (size_t i = 0; i < line.size(); ++i)
             {
@@ -105,7 +104,7 @@ namespace bobopt
         SourceRange range = decl->getSourceRange();
         if (is_macro_expansion)
         {
-            pair<SourceLocation, SourceLocation> expansion_range = source_manager.getExpansionRange(last_expansion_location);
+            std::pair<SourceLocation, SourceLocation> expansion_range = source_manager.getExpansionRange(last_expansion_location);
             SourceLocation expansion_range_end = Lexer::getLocForEndOfToken(expansion_range.second,
                                                                             /* offset= */ 0,
                                                                             source_manager,
@@ -121,7 +120,7 @@ namespace bobopt
         return source_message(type, range, SourceRange(location, location_end), message);
     }
 
-    source_message diagnostic::get_message_call_expr(source_message::types type, const CallExpr* call_expr, const string& message) const
+    source_message diagnostic::get_message_call_expr(source_message::types type, const CallExpr* call_expr, const std::string& message) const
     {
         return source_message(type, call_expr->getSourceRange(), call_expr->getSourceRange(), message);
     }
@@ -181,13 +180,13 @@ namespace bobopt
         size_t point_offset_end = source_manager.getCharacterData(message.get_point_range().getEnd()) - range_begin;
 
         size_t offset_begin = 0;
-        string range_string(range_begin, range_end);
+        std::string range_string(range_begin, range_end);
         while (!range_string.empty())
         {
-            string line = internal::read_message_line(range_string);
+            std::string line = detail::read_message_line(range_string);
             size_t offset_end = offset_begin + line.size();
 
-            if (internal::in_range(offset_begin, offset_end, point_offset_begin) || internal::in_range(offset_begin, offset_end, point_offset_end))
+            if (detail::in_range(offset_begin, offset_end, point_offset_begin) || detail::in_range(offset_begin, offset_end, point_offset_end))
             {
                 llvm::outs() << line << '\n';
 
@@ -195,7 +194,7 @@ namespace bobopt
                 size_t pointers_end = (point_offset_end < offset_end) ? point_offset_end : offset_end;
 
                 llvm::outs().changeColor(s_pointers_color.fg_color, s_pointers_color.bold);
-                llvm::outs() << internal::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
+                llvm::outs() << detail::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
                 llvm::outs().resetColor();
             }
             else

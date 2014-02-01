@@ -8,7 +8,8 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
-using namespace std;
+#include <string>
+
 using namespace clang;
 using namespace clang::ast_matchers;
 
@@ -33,7 +34,7 @@ namespace bobopt
         }
     }
 
-    bool overrides(const CXXMethodDecl* method_decl, const string& parent_name)
+    bool overrides(const CXXMethodDecl* method_decl, const std::string& parent_name)
     {
         for (auto it = method_decl->begin_overridden_methods(); it != method_decl->end_overridden_methods(); ++it)
         {

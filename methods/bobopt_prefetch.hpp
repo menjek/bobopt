@@ -62,7 +62,7 @@ namespace bobopt
     {
 
         // forward declarations:
-        namespace internal
+        namespace detail
         {
             class prefetched_collector;
             class should_prefetch_collector;
@@ -118,10 +118,10 @@ namespace bobopt
             void collect_inputs();
             void collect_functions();
 
-            bool analyze_init(internal::prefetched_collector& prefetched) const;
-            bool analyze_sync(internal::should_prefetch_collector& should_prefetch) const;
-            bool analyze_body(internal::should_prefetch_collector& should_prefetch) const;
-            void add_prefetch(const named_inputs_type& to_prefetch, const internal::should_prefetch_collector& should_prefetch);
+            bool analyze_init(detail::prefetched_collector& prefetched) const;
+            bool analyze_sync(detail::should_prefetch_collector& should_prefetch) const;
+            bool analyze_body(detail::should_prefetch_collector& should_prefetch) const;
+            void add_prefetch(const named_inputs_type& to_prefetch, const detail::should_prefetch_collector& should_prefetch);
 
             clang::CXXMethodDecl* get_input(const std::string& name) const;
 

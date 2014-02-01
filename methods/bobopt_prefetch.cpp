@@ -21,10 +21,9 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
-#include <algorithm>
-#include <iterator>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 BOBOPT_TODO("Couldn't find anything in llvm code base for input stream :(");
@@ -34,7 +33,6 @@ using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::ast_type_traits;
 using namespace clang::tooling;
-using namespace std;
 
 namespace bobopt
 {
@@ -42,7 +40,7 @@ namespace bobopt
     namespace methods
     {
 
-        namespace internal
+        namespace detail
         {
 
             // inputs_collector_helper definition.
@@ -59,7 +57,7 @@ namespace bobopt
             public:
 
                 /// \brief Type of container for holding pointers to declarations of input type function member getters.
-                typedef vector<CXXMethodDecl*> inputs_type;
+                typedef std::vector<CXXMethodDecl*> inputs_type;
 
                 /// \brief Visit member function and store pointer to this declaration if it's not getter for input by name.
                 bool VisitCXXMethodDecl(CXXMethodDecl* decl)
@@ -89,18 +87,18 @@ namespace bobopt
                 inputs_type inputs_;
 
                 // constants:
-                static const string INPUTS_RETURN_TYPE_NAME;
-                static const string INPUTS_GETTER_NAME;
+                static const std::string INPUTS_RETURN_TYPE_NAME;
+                static const std::string INPUTS_GETTER_NAME;
             };
 
             // inputs_collector_helper implementation.
             //==============================================================================
 
             /// \brief Name of bobox box input type.
-            const string inputs_collector_helper::INPUTS_RETURN_TYPE_NAME("input_index_type");
+            const std::string inputs_collector_helper::INPUTS_RETURN_TYPE_NAME("input_index_type");
 
             /// \brief Nmae of getter for input by its name.
-            const string inputs_collector_helper::INPUTS_GETTER_NAME("get_input_by_name");
+            const std::string inputs_collector_helper::INPUTS_GETTER_NAME("get_input_by_name");
 
             // inputs_collector definition.
             //==============================================================================
@@ -140,14 +138,14 @@ namespace bobopt
                 inputs_collector_helper collector_helper_;
 
                 // constants:
-                static const string INPUTS_STRUCT_NAME;
+                static const std::string INPUTS_STRUCT_NAME;
             };
 
             // inputs_collector implementation.
             //==============================================================================
 
             /// \brief Name of structure that holds bobox box inputs.
-            const string inputs_collector::INPUTS_STRUCT_NAME("inputs");
+            const std::string inputs_collector::INPUTS_STRUCT_NAME("inputs");
 
             // extract_type_helper definition.
             //==============================================================================
@@ -161,7 +159,7 @@ namespace bobopt
             public:
 
                 /// \brief Container to hold call expressions related to box input.
-                typedef vector<CallExpr*> inputs_type;
+                typedef std::vector<CallExpr*> inputs_type;
 
                 /// \brief AST matchers use \c ASTContext class so we need this to be functional.
                 explicit extract_input_helper(ASTContext* context)
@@ -265,12 +263,12 @@ namespace bobopt
             ///
             /// It looks for \c prefetched_envelope() calls in code that will be surely
             /// visited and collects input names that are prefetched.
-            class prefetched_collector : public control_flow_search<prefetched_collector, string>
+            class prefetched_collector : public control_flow_search<prefetched_collector, std::string>
             {
             public:
 
                 /// \brief Type of base class.
-                typedef control_flow_search<prefetched_collector, string> base_type;
+                typedef control_flow_search<prefetched_collector, std::string> base_type;
 
                 /// \relates control_flow_search
                 /// \brief Function member required by base class used to prototype current object.
@@ -315,7 +313,7 @@ namespace bobopt
 
                     if (arg->getType().getAsString() == PREFETCH_ARG_TYPE_NAME)
                     {
-                        string prefetched;
+                        std::string prefetched;
                         CallExpr* prefetched_expr;
                         if (extract_type(arg, prefetched, prefetched_expr))
                         {
@@ -338,7 +336,7 @@ namespace bobopt
                 /// |       `-DeclRefExpr 0x4708110 <col:21, col:29> 'input_index_type (void)' lvalue CXXMethod 0x4703770 'right' 'input_index_type
                 /// (void)'
                 /// \endverbatim
-                BOBOPT_INLINE static bool extract_type(Expr* arg, string& prefetched, CallExpr*& prefetched_expr)
+                BOBOPT_INLINE static bool extract_type(Expr* arg, std::string& prefetched, CallExpr*& prefetched_expr)
                 {
                     // CXXConstructExpr node.
                     CXXConstructExpr* construct_expr = llvm::dyn_cast_or_null<CXXConstructExpr>(arg);
@@ -380,18 +378,18 @@ namespace bobopt
                 }
 
                 // constants:
-                static const string PREFETCH_NAME;
-                static const string PREFETCH_ARG_TYPE_NAME;
+                static const std::string PREFETCH_NAME;
+                static const std::string PREFETCH_ARG_TYPE_NAME;
             };
 
             // prefetched_collector implementation.
             //==============================================================================
 
             /// \brief Name of bobox box member to prefetch envelope of input.
-            const string prefetched_collector::PREFETCH_NAME("prefetch_envelope");
+            const std::string prefetched_collector::PREFETCH_NAME("prefetch_envelope");
 
             /// \brief Name of bobox box input type name and argument of prefetch member function.
-            const string prefetched_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
+            const std::string prefetched_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
 
             // should_prefetch_collector definition.
             //==============================================================================
@@ -402,12 +400,12 @@ namespace bobopt
             ///
             /// It looks for all input streams objects and expects input to be prefetched
             /// if \b any member function is called on input stream object.
-            class should_prefetch_collector : public control_flow_search<should_prefetch_collector, string>
+            class should_prefetch_collector : public control_flow_search<should_prefetch_collector, std::string>
             {
             public:
 
                 /// \brief Type of class base.
-                typedef control_flow_search<should_prefetch_collector, string> base_type;
+                typedef control_flow_search<should_prefetch_collector, std::string> base_type;
 
                 /// \brief Type of container for holding values. Inherited from base class.
                 typedef base_type::values_type values_type;
@@ -516,7 +514,7 @@ namespace bobopt
                         const extract_input_helper::inputs_type& inputs = helper.get_inputs();
                         if (inputs.size() == 1)
                         {
-                            input_streams_.insert(make_pair(var_def, inputs.front()));
+                            input_streams_.insert(std::make_pair(var_def, inputs.front()));
                         }
                     }
                 }
@@ -535,20 +533,20 @@ namespace bobopt
                 }
 
                 // data members:
-                map<VarDecl*, CallExpr*> input_streams_;
+                std::map<VarDecl*, CallExpr*> input_streams_;
                 ASTContext* context_;
 
                 // constants:
-                static const string INPUT_TYPE_NAME;
+                static const std::string INPUT_TYPE_NAME;
             };
 
             // should_prefetch_collector implementation.
             //==============================================================================
 
             /// \brief Name of input stream variable type.
-            const string should_prefetch_collector::INPUT_TYPE_NAME("bobox::input_stream<>");
+            const std::string should_prefetch_collector::INPUT_TYPE_NAME("bobox::input_stream<>");
 
-        } // namespace internal
+        } // namespace detail
 
         // prefetch implementation.
         //==============================================================================
@@ -597,14 +595,14 @@ namespace bobopt
             {
                 collect_functions();
 
-                internal::prefetched_collector prefetched;
+                detail::prefetched_collector prefetched;
                 if (!analyze_init(prefetched))
                 {
                     // Don't optimize.
                     return;
                 }
 
-                internal::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
+                detail::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
                 if (!analyze_sync(should_prefetch))
                 {
                     // Don't optimize.
@@ -661,7 +659,7 @@ namespace bobopt
         {
             BOBOPT_ASSERT(box_ != nullptr);
 
-            internal::inputs_collector collector;
+            detail::inputs_collector collector;
             bool found = !collector.TraverseDecl(box_->getCanonicalDecl());
 
             if (found)
@@ -715,9 +713,9 @@ namespace bobopt
 
         /// \brief Analyze \c init_impl() member function.
         ///
-        /// \param prefetched Reference to internal \link intenral::prefetched_collector prefetched_collector \endlink object.
+        /// \param prefetched Reference to detail \link intenral::prefetched_collector prefetched_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_init(internal::prefetched_collector& prefetched) const
+        bool prefetch::analyze_init(detail::prefetched_collector& prefetched) const
         {
             if (init_ == nullptr)
             {
@@ -739,9 +737,9 @@ namespace bobopt
 
         /// \brief Analyze \c sync_mach_etwas() member function.
         ///
-        /// \param should_prefetch Reference to internal \link internal::should_prefetch_collector should_prefetch_collector \endlink object.
+        /// \param should_prefetch Reference to detail \link detail::should_prefetch_collector should_prefetch_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_sync(internal::should_prefetch_collector& should_prefetch) const
+        bool prefetch::analyze_sync(detail::should_prefetch_collector& should_prefetch) const
         {
             if (!sync_->hasBody())
             {
@@ -755,9 +753,9 @@ namespace bobopt
 
         /// \brief Analyze \c sync_body() member function.
         ///
-        /// \param should_prefetch Reference to internal \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
+        /// \param should_prefetch Reference to detail \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_body(internal::should_prefetch_collector& should_prefetch) const
+        bool prefetch::analyze_body(detail::should_prefetch_collector& should_prefetch) const
         {
             if (body_ == nullptr)
             {
@@ -779,7 +777,7 @@ namespace bobopt
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
         /// \param should_prefetch Holder of source locations for reasoning why inputs should be prefetched.
-        void prefetch::add_prefetch(const named_inputs_type& to_prefetch, const internal::should_prefetch_collector& should_prefetch)
+        void prefetch::add_prefetch(const named_inputs_type& to_prefetch, const detail::should_prefetch_collector& should_prefetch)
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
@@ -809,14 +807,14 @@ namespace bobopt
                     continue;
                 }
 
-                string prefetch_call_source = string("prefetch_envelope(inputs::") + named_input + "())";
+                std::string prefetch_call_source = std::string("prefetch_envelope(inputs::") + named_input + "())";
 
                 bool update_init_impl = false;
                 if (get_optimizer().verbose())
                 {
                     emit_input_declaration(input_decl);
 
-                    internal::should_prefetch_collector::locations_type locations = should_prefetch.get_locations(named_input);
+                    detail::should_prefetch_collector::locations_type locations = should_prefetch.get_locations(named_input);
                     for (auto location : locations)
                     {
                         const CallExpr* call_expr = location.get<CallExpr>();
@@ -828,7 +826,7 @@ namespace bobopt
                     }
                     llvm::outs() << '\n';
 
-                    string update_message_text = string("should be updated with ") + prefetch_call_source + " call:";
+                    std::string update_message_text = std::string("should be updated with ") + prefetch_call_source + " call:";
                     source_message update_message = diag.get_message_decl(source_message::suggestion, init_, update_message_text);
                     diag.emit(update_message);
 
@@ -839,7 +837,7 @@ namespace bobopt
                         {
                             llvm::outs() << "Do you wish to update source [y/n]?: ";
                             llvm::outs().flush();
-                            cin >> answer;
+                            std::cin >> answer;
                             answer = static_cast<char>(tolower(answer));
                         }
 
@@ -871,7 +869,7 @@ namespace bobopt
         }
 
         /// \brief Access input member function declaration to access input by name.
-        CXXMethodDecl* prefetch::get_input(const string& name) const
+        CXXMethodDecl* prefetch::get_input(const std::string& name) const
         {
             for (auto input : inputs_)
             {
@@ -918,19 +916,19 @@ namespace bobopt
         }
 
         /// \brief Name of bobox box initialization virtual member function to be overriden.
-        const string prefetch::BOX_INIT_FUNCTION_NAME("init_impl");
+        const std::string prefetch::BOX_INIT_FUNCTION_NAME("init_impl");
         /// \brief Name of parent overriden functions for init. Just to check if it is not overloaded virtual.
-        const string prefetch::BOX_INIT_OVERRIDEN_PARENT_NAME("bobox::box");
+        const std::string prefetch::BOX_INIT_OVERRIDEN_PARENT_NAME("bobox::box");
 
         /// \brief Name of bobox box sync virtual member function to be overriden.
-        const string prefetch::BOX_SYNC_FUNCTION_NAME("sync_mach_etwas");
+        const std::string prefetch::BOX_SYNC_FUNCTION_NAME("sync_mach_etwas");
         /// \brief Name of parent overriden functions for sync. Just to check if it is not overloaded virtual.
-        const string prefetch::BOX_SYNC_OVERRIDEN_PARENT_NAME("bobox::basic_box");
+        const std::string prefetch::BOX_SYNC_OVERRIDEN_PARENT_NAME("bobox::basic_box");
 
         /// \brief Name of bobox box body virtual member function to be overriden.
-        const string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
+        const std::string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
         /// \brief Name of parent overriden functions for body. Just to check if it is not overloaded virtual.
-        const string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
+        const std::string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
 
     } // namespace methods
 

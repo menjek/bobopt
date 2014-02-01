@@ -531,8 +531,6 @@ namespace bobopt
     BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
     control_flow_search<Derived, Value, PrototypePolicy>::get_values() const
     {
-        using namespace std;
-
         values_type result;
         result.reserve(values_map_.size());
 
@@ -551,7 +549,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::has_value(const value_type& val) const
     {
-        return (values_map_.find(val) != end(values_map_));
+        return (values_map_.find(val) != std::end(values_map_));
     }
 
     /// \brief Access locations for chosen value.
@@ -563,7 +561,7 @@ namespace bobopt
     control_flow_search<Derived, Value, PrototypePolicy>::get_locations(const value_type& val) const
     {
         auto found = values_map_.find(val);
-        BOBOPT_ASSERT(found != end(values_map_));
+        BOBOPT_ASSERT(found != std::end(values_map_));
         return found->second;
     }
 
@@ -622,7 +620,6 @@ namespace bobopt
         // Store results of recursive traversal.
         values_type values = cond_visitor.get().get_values();
 
-        using namespace std;
         if (then_visitor.valid())
         {
             values_type then_values = then_visitor.get().get_values();
@@ -630,11 +627,11 @@ namespace bobopt
             {
                 values_type else_values = else_visitor.get().get_values();
                 values_type both_values = make_intersection(then_values, else_values);
-                copy(begin(both_values), end(both_values), back_inserter(values));
+                std::copy(std::begin(both_values), std::end(both_values), std::back_inserter(values));
             }
             else
             {
-                copy(begin(then_values), end(then_values), back_inserter(values));
+                std::copy(std::begin(then_values), std::end(then_values), std::back_inserter(values));
             }
         }
         else
@@ -642,7 +639,7 @@ namespace bobopt
             if (else_visitor.valid())
             {
                 values_type else_values = else_visitor.get().get_values();
-                copy(begin(else_values), end(else_values), back_inserter(values));
+                std::copy(std::begin(else_values), std::end(else_values), std::back_inserter(values));
             }
         }
 
@@ -959,11 +956,9 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::insert_value(const value_type& val)
     {
-        using namespace std;
-
         if (values_map_.find(val) == end(values_map_))
         {
-            values_map_.insert(make_pair(val, locations_type()));
+            values_map_.insert(std::make_pair(val, locations_type()));
         }
     }
 
@@ -975,13 +970,11 @@ namespace bobopt
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::insert_value_location(const value_type& val,
                                                                                                    clang::ast_type_traits::DynTypedNode location)
     {
-        using namespace std;
-
         auto found = values_map_.find(val);
-        if (found == end(values_map_))
+        if (found == std::end(values_map_))
         {
             locations_type locations(1, location);
-            values_map_.insert(make_pair(val, move(locations)));
+            values_map_.insert(std::make_pair(val, std::move(locations)));
         }
         else
         {
@@ -1032,8 +1025,6 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::append_values(const instance_type& visitor)
     {
-        using namespace std;
-
         if (visitor.valid())
         {
             const container_type& visitor_map = static_cast<const base_type&>(visitor.get()).values_map_;
@@ -1044,7 +1035,7 @@ namespace bobopt
                 const locations_type& visitor_locations = it.second;
 
                 locations.reserve(locations.size() + visitor_locations.size());
-                copy(begin(visitor_locations), end(visitor_locations), back_inserter(locations));
+                std::copy(std::begin(visitor_locations), std::end(visitor_locations), std::back_inserter(locations));
             }
         }
     }
@@ -1083,7 +1074,7 @@ namespace bobopt
                 {
                     const locations_type& visitor_locations = found->second;
                     locations.reserve(locations.size() + visitor_locations.size());
-                    copy(begin(visitor_locations), end(visitor_locations), back_inserter(locations));
+                    std::copy(std::begin(visitor_locations), std::end(visitor_locations), std::back_inserter(locations));
                 }
             }
         }
@@ -1096,12 +1087,10 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::make_unique(values_type& values)
     {
-        using namespace std;
+        std::sort(std::begin(values), std::end(values));
 
-        sort(begin(values), end(values));
-
-        auto unique_end = unique(begin(values), end(values));
-        values.erase(unique_end, end(values));
+        auto unique_end = std::unique(std::begin(values), std::end(values));
+        values.erase(unique_end, std::end(values));
     }
 
     /// \brief Create container with intersection of values from other containers.
@@ -1118,7 +1107,7 @@ namespace bobopt
         values_type result;
         result.reserve(lhs.size() + rhs.size());
 
-        set_intersection(begin(lhs), end(lhs), begin(rhs), end(rhs), back_inserter(result));
+        std::set_intersection(std::begin(lhs), std::end(lhs), std::begin(rhs), std::end(rhs), std::back_inserter(result));
 
         return result;
     }
@@ -1131,10 +1120,8 @@ namespace bobopt
     BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
     control_flow_search<Derived, Value, PrototypePolicy>::make_union(values_type lhs, const values_type& rhs)
     {
-        using namespace std;
-
         lhs.reserve(lhs.size() + rhs.size());
-        copy(begin(rhs), end(rhs), back_inserter(lhs));
+        std::copy(std::begin(rhs), std::end(rhs), std::back_inserter(lhs));
         make_unique(lhs);
 
         return lhs;
