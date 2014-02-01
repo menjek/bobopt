@@ -15,6 +15,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -32,101 +33,130 @@ namespace bobopt
     namespace methods
     {
 
-        // helpers implementation.
-        //==============================================================================
+        // Algorithm constants.
+        //======================================================================
 
+        /// \brief Complexity of not inlined non trivial call. Call defined probably in different TU.
         static const unsigned call_default_complexity = 25u;
-        static const unsigned call_trivial_complexity = 10u;
+        /// \brief Complexity of trivial call. Trivial function is function that doesn't require code generation, i.e., body is empty.
+        static const unsigned call_trivial_complexity = 1u;
+        /// \brief Complexity of function defined as inline. User should be carefull with inline keyword.
         static const unsigned call_inline_complexity = 5u;
+        /// \brief Complexity of contexpr function call. Call is resolved at compile time.
         static const unsigned call_constexpr_complexity = 1u;
 
+        /// \brief Multiplier for body complexity of for loop.
         static const unsigned multiplier_for = 20u;
+        /// \brief Multiplier for body complexity of while and do/while loops.
         static const unsigned multiplier_while = 25u;
 
+        /// \brief Optimal complexity for box execution.
+        /// It is equivalent of 2 inner for loops with 5 calls to not inlined non trivial function (20*20*5*25 = 50000).
         static const unsigned threshold = 50000u;
 
-        static bool is_yield_call(const CallExpr* call_expr)
+        // TU helpers.
+        //======================================================================
+
+        namespace
         {
-            BOBOPT_ASSERT(call_expr != nullptr);
 
-            const CXXMemberCallExpr* member_call_expr = llvm::dyn_cast<CXXMemberCallExpr>(call_expr);
-            if (member_call_expr == nullptr)
+            /// \brief Function detects whether call expression is Bobox yield().
+            bool is_yield_call(const CallExpr* call_expr)
             {
-                return false;
-            }
+                BOBOPT_ASSERT(call_expr != nullptr);
 
-            const CXXMethodDecl* method_decl = member_call_expr->getMethodDecl();
-            const CXXRecordDecl* record_decl = member_call_expr->getRecordDecl();
-
-            return (method_decl->getNameAsString() == "yield") && (record_decl->getNameAsString() == "basic_box");
-        }
-
-        static unsigned get_call_complexity(const CallExpr* call_expr)
-        {
-            BOBOPT_ASSERT(call_expr != nullptr);
-
-            const FunctionDecl* callee = call_expr->getDirectCallee();
-
-            if (callee->isConstexpr())
-            {
-                return call_constexpr_complexity;
-            }
-
-            if (callee->isInlined())
-            {
-                return call_inline_complexity;
-            }
-
-            if (callee->hasTrivialBody())
-            {
-                return call_trivial_complexity;
-            }
-
-            return call_default_complexity;
-        }
-
-        static unsigned get_element_complexity(const CFGElement& element)
-        {
-            if (element.getKind() != CFGElement::Kind::Statement)
-            {
-                return 1u;
-            }
-
-            const Stmt* stmt = element.castAs<CFGStmt>().getStmt();
-            BOBOPT_ASSERT(stmt != nullptr);
-
-            ast_nodes_collector<CallExpr> collector;
-            collector.TraverseStmt(const_cast<Stmt*>(stmt));
-
-            unsigned result = 1u;
-            for (auto it = collector.nodes_begin(), end = collector.nodes_end(); it != end; ++it)
-            {
-                const CallExpr* call_expr = *it;
-
-                if (is_yield_call(call_expr))
+                const CXXMemberCallExpr* member_call_expr = llvm::dyn_cast<CXXMemberCallExpr>(call_expr);
+                if (member_call_expr == nullptr)
                 {
-                    return 0u;
+                    return false;
                 }
 
-                result += get_call_complexity(call_expr);
+                const CXXMethodDecl* method_decl = member_call_expr->getMethodDecl();
+                const CXXRecordDecl* record_decl = member_call_expr->getRecordDecl();
+
+                return (method_decl->getNameAsString() == "yield") && (record_decl->getNameAsString() == "basic_box");
             }
 
-            return result;
-        }
+            /// \brief Function returns complexity of call expression.
+            unsigned get_call_complexity(const CallExpr* call_expr)
+            {
+                BOBOPT_ASSERT(call_expr != nullptr);
 
-        template <typename T, typename A>
-        void append(std::vector<T, A>& lhs, const std::vector<T, A>& rhs)
-        {
-            lhs.insert(std::end(lhs), std::begin(rhs), std::end(rhs));
-        }
+                const FunctionDecl* callee = call_expr->getDirectCallee();
+
+                if (callee->isConstexpr())
+                {
+                    return call_constexpr_complexity;
+                }
+
+                if (callee->isInlined())
+                {
+                    return call_inline_complexity;
+                }
+
+                if (callee->hasTrivialBody())
+                {
+                    return call_trivial_complexity;
+                }
+
+                return call_default_complexity;
+            }
+
+            /// \brief Function returns complexity of single CFG element.
+            unsigned get_element_complexity(const CFGElement& element)
+            {
+                if (element.getKind() != CFGElement::Kind::Statement)
+                {
+                    return 1u;
+                }
+
+                const Stmt* stmt = element.castAs<CFGStmt>().getStmt();
+                BOBOPT_ASSERT(stmt != nullptr);
+
+                ast_nodes_collector<CallExpr> collector;
+                collector.TraverseStmt(const_cast<Stmt*>(stmt));
+
+                unsigned result = 1u;
+                for (auto it = collector.nodes_begin(), end = collector.nodes_end(); it != end; ++it)
+                {
+                    const CallExpr* call_expr = *it;
+
+                    if (is_yield_call(call_expr))
+                    {
+                        return 0u;
+                    }
+
+                    result += get_call_complexity(call_expr);
+                }
+
+                return result;
+            }
+
+            /// \brief Append \c std::vector to another \c std::vector.
+            template <typename T, typename A>
+            void append(std::vector<T, A>& dst, const std::vector<T, A>& src)
+            {
+                dst.insert(std::end(dst), std::begin(src), std::end(src));
+            }
+
+        } // namespace
+
 
         // cfg_data implementation.
-        //==============================================================================
+        //======================================================================
 
+        /// \brief Structure used to hold additional data to analyzer CFG.
+        ///
+        /// Such additional data are paths passing through block, their
+        /// complexities, whether block is yield and some temporary data for
+        /// handling loops.
         class cfg_data
         {
+
+            /// \brief Additional data for single block.
             struct block_data_type
             {
+                /// \brief Additional data for paths with the same complexity.
                 struct path_data_type
                 {
                     std::vector<unsigned> ids;
@@ -138,6 +168,8 @@ namespace bobopt
                 std::unordered_map<unsigned, unsigned> loops;
             };
 
+            typedef std::unordered_map<unsigned, block_data_type> data_type;
+
             static block_data_type::path_data_type make_path_data(unsigned id, unsigned complexity)
             {
                 block_data_type::path_data_type result;
@@ -146,9 +178,8 @@ namespace bobopt
                 return result;
             }
 
-            typedef std::unordered_map<unsigned, block_data_type> data_type;
-
         public:
+
             explicit cfg_data(const CFG& cfg)
                 : cfg_(cfg)
                 , data_()
@@ -156,10 +187,11 @@ namespace bobopt
                 cfg_data_builder builder(cfg);
                 data_ = builder.build();
             }
-
-            void optimize()
+            
+            bool optimize()
             {
                 float goodness = get_goodness(data_);
+                bool optimized = false;
 
                 for (;;)
                 {
@@ -172,6 +204,7 @@ namespace bobopt
                     float temp_goodness = get_goodness(result.first);
                     if (temp_goodness < goodness)
                     {
+                        optimized = true;
                         goodness = temp_goodness;
                         data_.swap(result.first);
                     }
@@ -180,8 +213,11 @@ namespace bobopt
                         break;
                     }
                 }
+                
+                return optimized;
             }
 
+            /// \brief Apply data to source code.
             void apply() const
             {
                 BOBOPT_TODO("Implement.")
@@ -190,6 +226,11 @@ namespace bobopt
         private:
             BOBOPT_NONCOPYMOVABLE(cfg_data);
 
+            /// \brief Builder of additional CFG data from analyzer CFG.
+            ///
+            /// Class uses context when building additional data and tries to
+            /// encapsulate this context into single class for being less
+            /// error-prone.
             class cfg_data_builder
             {
             public:
@@ -220,6 +261,8 @@ namespace bobopt
             private:
                 BOBOPT_NONCOPYMOVABLE(cfg_data_builder);
 
+                /// \brief Guards internal stacks. Class is responsible for push
+                /// and pop of elements.
                 template <typename T>
                 class stack_guard_type
                 {
@@ -709,8 +752,10 @@ namespace bobopt
             cfg.dump(box_->getASTContext().getLangOpts(), false);
 
             cfg_data data(cfg);
-            data.optimize();
-            data.apply();
+            if (data.optimize())
+            {
+                data.apply();
+            }
         }
 
     } // namespace
