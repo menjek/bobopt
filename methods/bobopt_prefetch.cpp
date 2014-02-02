@@ -159,7 +159,6 @@ namespace bobopt
             /// \brief Name of structure that holds bobox box inputs.
             const std::string inputs_collector::INPUTS_STRUCT_NAME("inputs");
 
-
             // init_collector definition.
             //==================================================================
 
@@ -293,7 +292,6 @@ namespace bobopt
 
             /// \brief Name of bobox box input type name and argument of prefetch member function.
             const std::string init_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
-
 
             // body_collector definition.
             //==================================================================
@@ -444,7 +442,7 @@ namespace bobopt
                         insert_value_location(input_call_expr->getDirectCallee()->getNameAsString(), DynTypedNode::create(*member_call_expr));
                     }
                 }
-                
+
                 /// \brief Declaration of bobox::input_stream<> variable and call to inputs::name() functions.
                 std::map<VarDecl*, CallExpr*> input_streams_;
                 ASTContext* context_;
@@ -463,7 +461,6 @@ namespace bobopt
             const StatementMatcher body_collector::INPUT_INDEX_TYPE_CALL_MATCHER = callExpr(hasType(asString("input_index_type"))).bind("call_expr");
 
         } // namespace detail
-
 
         // prefetch implementation.
         //======================================================================
@@ -532,7 +529,7 @@ namespace bobopt
 
                 named_inputs_type should_prefetch_names = should_prefetch.get_values();
                 if (should_prefetch_names.empty())
-                {                  
+                {
                     return;
                 }
 
@@ -689,7 +686,6 @@ namespace bobopt
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
-            BOBOPT_ASSERT(init_->getBody() != nullptr);
 
             CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
             if (body == nullptr)
@@ -697,27 +693,35 @@ namespace bobopt
                 return;
             }
 
-            if (get_optimizer().verbose())
+            std::string body_indent;
+            SourceManager& sm = get_optimizer().get_compiler().getSourceManager();
+            if (body->body_empty())
+            {
+                body_indent = decl_indent(sm, init_) + "\t";
+            }
+            else
+            {
+                body_indent = stmt_indent(sm, body->body_back());
+            }
+
+            const bool verbose = get_optimizer().verbose();
+            if (verbose)
             {
                 emit_header();
                 emit_box_declaration();
-                llvm::outs() << "\n\n";
             }
 
+            bool update_source = false;
+
+            std::string prefetch_source;
             const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
             for (auto named_input : to_prefetch)
             {
                 CXXMethodDecl* input_decl = get_input(named_input);
+                BOBOPT_ASSERT(input_decl != nullptr);
 
-                if (input_decl == nullptr)
-                {
-                    continue;
-                }
-
-                std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "())";
-
-                bool update_init_impl = false;
-                if (get_optimizer().verbose())
+                std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
+                if (verbose)
                 {
                     emit_input_declaration(input_decl);
 
@@ -725,53 +729,44 @@ namespace bobopt
                     for (auto location : locations)
                     {
                         const CallExpr* call_expr = location.get<CallExpr>();
-                        if (call_expr != nullptr)
-                        {
-                            source_message use_message = diag.get_message_call_expr(source_message::info, call_expr, "used here:");
-                            diag.emit(use_message);
-                        }
+                        BOBOPT_ASSERT(call_expr != nullptr);
+
+                        diag.emit(diag.get_message_call_expr(source_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << '\n';
 
-                    std::string update_message_text = "box initialization phase should call " + prefetch_call_source;
-                    source_message update_message = diag.get_message_decl(source_message::suggestion, init_, update_message_text);
-                    diag.emit(update_message);
+                    diag.emit(diag.get_message_decl(source_message::suggestion, init_, "prefetch input in init:"));
 
                     if (get_optimizer().get_mode() == MODE_INTERACTIVE)
                     {
                         char answer = 0;
                         while ((answer != 'y') && (answer != 'n'))
                         {
-                            llvm::outs() << "Do you wish to update source [y/n]?: ";
+                            llvm::outs() << "Do you wish to update source with this call [y/n]?: ";
                             llvm::outs().flush();
-                            std::cin >> answer;
+                            std::cin.get(answer);
                             answer = static_cast<char>(tolower(answer));
                         }
 
-                        update_init_impl = (answer == 'y');
+                        if (answer == 'y')
+                        {
+                            update_source = true;
+                            prefetch_source += '\n' + body_indent + prefetch_call_source;
+                        }
+
                         llvm::outs() << "\n\n";
                     }
-                }
-
-                if (update_init_impl || (get_optimizer().get_mode() == MODE_BUILD))
-                {
-                    CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
-                    BOBOPT_ASSERT(body != nullptr);
-
-                    SourceLocation insert_location = Lexer::getLocForEndOfToken(
-                        body->getLBracLoc(), 0, get_optimizer().get_compiler().getSourceManager(), get_optimizer().get_compiler().getLangOpts());
-
-                    Replacement replacement(get_optimizer().get_compiler().getSourceManager(), insert_location, 0, prefetch_call_source + "; ");
-
-                    replacements_->insert(replacement);
-
-                    if (get_optimizer().verbose())
+                    else
                     {
-                        source_message opt_message = diag.get_message_decl(source_message::optimization, init_, prefetch_call_source + " added.");
-                        diag.emit(opt_message);
-                        llvm::outs() << "\n\n";
+                        prefetch_source += '\n' + body_indent + prefetch_call_source;
                     }
                 }
+            }
+
+            if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
+            {
+                SourceLocation location = Lexer::getLocForEndOfToken(body->getLBracLoc(), 0, sm, get_optimizer().get_compiler().getLangOpts());
+                replacements_->insert(Replacement(sm, location, 0, prefetch_source + '\n'));
             }
         }
 
@@ -811,6 +806,8 @@ namespace bobopt
 
             source_message box_message = diag.get_message_decl(source_message::info, box_, "declared here:");
             diag.emit(box_message);
+
+            llvm::outs() << '\n';
         }
 
         /// \brief Emit info about input declaration.

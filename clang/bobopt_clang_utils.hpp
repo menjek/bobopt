@@ -11,6 +11,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/type_traits.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Basic/SourceLocation.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <iterator>
@@ -40,6 +41,11 @@ namespace bobopt
 
     /// \brief Tests whether member function overrides bobox basic box virtual member function.
     bool overrides(const clang::CXXMethodDecl* method_decl, const std::string& parent_name);
+
+    /// \brief Receive indent of AST node/location.
+    std::string location_indent(const clang::SourceManager& sm, clang::SourceLocation location);
+    std::string decl_indent(const clang::SourceManager& sm, const clang::Decl* decl);
+    std::string stmt_indent(const clang::SourceManager& sm, const clang::Stmt* stmt);
 
 
     // ast_match_finder definition.
