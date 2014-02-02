@@ -450,8 +450,8 @@ namespace bobopt
         bool TraverseCXXTryStmt(clang::CXXTryStmt* try_stmt);
         bool VisitCXXTryStmt(clang::CXXTryStmt* try_stmt);
 
-        bool TraverseBinaryOperator(clang::BinaryOperator* binary_operator);
-        bool VisitBinaryOperator(clang::BinaryOperator* binary_operator);
+        bool TraverseBinLAnd(clang::BinaryOperator* binary_operator);
+        bool TraverseBinLOr(clang::BinaryOperator* binary_operator);
 
         bool VisitBreakStmt(clang::BreakStmt* break_stmt);
         bool VisitContinueStmt(clang::ContinueStmt* continue_stmt);
@@ -572,7 +572,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseIfStmt(clang::IfStmt* if_stmt)
     {
-        return VisitIfStmt(if_stmt) && should_continue();
+        return WalkUpFromIfStmt(if_stmt) && should_continue();
     }
 
     /// \brief Function will handle recursive traversal and value evaluation of if statement.
@@ -657,7 +657,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseForStmt(clang::ForStmt* for_stmt)
     {
-        bool result = VisitForStmt(for_stmt);
+        bool result = WalkUpFromForStmt(for_stmt);
         result &= ((flags_ & cff_return) == 0);
         return result;
     }
@@ -735,7 +735,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseWhileStmt(clang::WhileStmt* while_stmt)
     {
-        bool result = VisitWhileStmt(while_stmt);
+        bool result = WalkUpFromWhileStmt(while_stmt);
         result &= ((flags_ & cff_return) == 0);
         return result;
     }
@@ -788,7 +788,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseSwitchStmt(clang::SwitchStmt* switch_stmt)
     {
-        bool result = VisitSwitchStmt(switch_stmt);
+        bool result = WalkUpFromSwitchStmt(switch_stmt);
         result &= ((flags_ & cff_return) == 0);
         return result;
     }
@@ -824,7 +824,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseCXXTryStmt(clang::CXXTryStmt* try_stmt)
     {
-        bool result = VisitCXXTryStmt(try_stmt);
+        bool result = WalkUpFromCXXTryStmt(try_stmt);
         result &= ((flags_ & cff_return) == 0);
         return result;
     }
@@ -853,47 +853,30 @@ namespace bobopt
         return true;
     }
 
-    /// \brief Recursive traversal of binary operator expression will be handled by VisitBinaryOperator member function.
+    /// \brief Recursive traversal of logical AND will forward job only to LHS.
     template <typename Derived,
               typename Value,
               template <typename>
               class PrototypePolicy>
-    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseBinaryOperator(clang::BinaryOperator* binary_operator)
+    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseBinLAnd(clang::BinaryOperator* binary_operator)
     {
-        if (!binary_operator->isLogicalOp())
-        {
-            return base_type::TraverseBinaryOperator(binary_operator);
-        }
-
-        bool result = VisitBinaryOperator(binary_operator);
-        result = ((flags_ & cff_return) == 0);
+        bool result = WalkUpFromBinaryOperator(binary_operator);
+        result &= TraverseStmt(binary_operator->getLHS());
+        result &= ((flags_ & cff_return) == 0);
         return result;
     }
 
-    /// \brief Function will handle recursive traversal and value evaluation of for statement.
-    ///
-    /// Since there's short-circuit evaluation of binary logical expression, only first expression
-    /// is search for values.
+    /// \brief Recursive traversal of logical OR will forward job only to LHS.
     template <typename Derived,
               typename Value,
               template <typename>
               class PrototypePolicy>
-    bool control_flow_search<Derived, Value, PrototypePolicy>::VisitBinaryOperator(clang::BinaryOperator* binary_operator)
+    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseBinLOr(clang::BinaryOperator* binary_operator)
     {
-        if (binary_operator->isLogicalOp())
-        {
-            clang::Expr* lhs_expr = binary_operator->getLHS();
-            BOBOPT_ASSERT(lhs_expr != nullptr);
-
-            scoped_prototype<control_flow_search> lhs_visitor(*this);
-            BOBOPT_ASSERT(lhs_visitor.valid());
-            lhs_visitor.get().TraverseStmt(lhs_expr);
-            flags_ |= lhs_visitor.get().flags_;
-
-            append_values(lhs_visitor.raw());
-        }
-
-        return true;
+        bool result = WalkUpFromBinaryOperator(binary_operator);
+        result &= TraverseStmt(binary_operator->getLHS());
+        result &= ((flags_ & cff_return) == 0);
+        return result;
     }
 
     /// \brief Handles \c break; statement by finishing traversal and setting flag.

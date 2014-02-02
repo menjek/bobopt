@@ -64,8 +64,8 @@ namespace bobopt
         // forward declarations:
         namespace detail
         {
-            class prefetched_collector;
-            class should_prefetch_collector;
+            class init_collector;
+            class body_collector;
         }
 
         /// \brief Main class responsible for prefetch optimization.
@@ -113,19 +113,18 @@ namespace bobopt
             typedef std::vector<clang::CXXMethodDecl*> body_functions_type;
 
             // helpers:
-            void pre_optimize();
+            void prepare();
 
             void collect_inputs();
             void collect_functions();
 
-            bool analyze_init(detail::prefetched_collector& prefetched) const;
-            bool analyze_sync(detail::should_prefetch_collector& should_prefetch) const;
-            bool analyze_body(detail::should_prefetch_collector& should_prefetch) const;
-            void add_prefetch(const named_inputs_type& to_prefetch, const detail::should_prefetch_collector& should_prefetch);
+            bool analyze_init(detail::init_collector& prefetched) const;
+            bool analyze_sync(detail::body_collector& should_prefetch) const;
+            bool analyze_body(detail::body_collector& should_prefetch) const;
+            void insert_prefetch(const named_inputs_type& to_prefetch, const detail::body_collector& should_prefetch);
 
             clang::CXXMethodDecl* get_input(const std::string& name) const;
-
-            bool is_verbose() const;
+           
             void emit_header() const;
             void emit_box_declaration() const;
             void emit_input_declaration(clang::CXXMethodDecl* decl) const;

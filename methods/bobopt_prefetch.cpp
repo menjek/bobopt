@@ -64,11 +64,12 @@ namespace bobopt
             //==================================================================
 
             /// \relates inputs_collector
-            /// \brief Collects all member functions returning input type of bobox boxes.
+            /// \brief Collects all member functions returning input type of
+            /// bobox boxes.
             ///
-            /// It expects certain layout of inputs structure. The one created by
-            /// \c BOBOX_BOX_INPUT_LIST macro, where the last member function is getter for
-            /// input type by its name.
+            /// It expects certain layout of inputs structure. The one created
+            /// by \c BOBOX_BOX_INPUT_LIST macro, where the last member function
+            /// is getter for input type by its name.
             class inputs_collector_helper : public RecursiveASTVisitor<inputs_collector_helper>
             {
             public:
@@ -106,7 +107,7 @@ namespace bobopt
             };
 
             // inputs_collector_helper implementation.
-            //==============================================================================
+            //==================================================================
 
             /// \brief Name of bobox box input type.
             const std::string inputs_collector_helper::INPUTS_RETURN_TYPE_NAME("input_index_type");
@@ -115,7 +116,7 @@ namespace bobopt
             const std::string inputs_collector_helper::INPUTS_GETTER_NAME("get_input_by_name");
 
             // inputs_collector definition.
-            //==============================================================================
+            //==================================================================
 
             /// \relates inputs_collector_helper
             /// \brief Search in bobox box for \c inputs structure and forward job to helper.
@@ -153,138 +154,34 @@ namespace bobopt
             };
 
             // inputs_collector implementation.
-            //==============================================================================
+            //==================================================================
 
             /// \brief Name of structure that holds bobox box inputs.
             const std::string inputs_collector::INPUTS_STRUCT_NAME("inputs");
 
-            // extract_type_helper definition.
-            //==============================================================================
 
-            /// \brief Helper class to extract input expression from part of AST tree.
-            ///
-            /// It uses \link bobopt::recursive_match_finder recursive_match_finder \endlink
-            /// helper to find matches of \c inputs::name() expressions in subtree.
-            class extract_input_helper
-            {
-            public:
-
-                /// \brief Container to hold call expressions related to box input.
-                typedef std::vector<CallExpr*> inputs_type;
-
-                /// \brief AST matchers use \c ASTContext class so we need this to be functional.
-                explicit extract_input_helper(ASTContext* context)
-                    : context_(context)
-                    , callback_()
-                {
-                    BOBOPT_ASSERT(context != nullptr);
-                }
-
-                /// \brief Traverse part of AST Tree where root is Stmt node.
-                void TraverseStmt(Stmt* stmt)
-                {
-                    MatchFinder finder;
-                    finder.addMatcher(INPUT_TYPE_MATCHER, &callback_);
-                    recursive_match_finder recursive_finder(&finder, context_);
-                    recursive_finder.TraverseStmt(stmt);
-                }
-
-                /// \brief Traverse part of AST Tree where root is Decl node.
-                void TraverseDecl(Decl* decl)
-                {
-                    MatchFinder finder;
-                    finder.addMatcher(INPUT_TYPE_MATCHER, &callback_);
-                    recursive_match_finder recursive_finder(&finder, context_);
-                    recursive_finder.TraverseDecl(decl);
-                }
-
-                /// \brief Traverse part of AST Tree where root is Type node.
-                void TraverseType(QualType type)
-                {
-                    MatchFinder finder;
-                    finder.addMatcher(INPUT_TYPE_MATCHER, &callback_);
-                    recursive_match_finder recursive_finder(&finder, context_);
-                    recursive_finder.TraverseType(type);
-                }
-
-                /// \brief Access collected results.
-                BOBOPT_INLINE const inputs_type& get_inputs() const
-                {
-                    return callback_.get_inputs();
-                }
-
-            private:
-
-                /// \brief Callback definition for matcher.
-                ///
-                /// We expect to hold only one instance of this matcher callback so
-                /// it can hold all values by itself.
-                class finder_callback : public MatchFinder::MatchCallback
-                {
-                public:
-
-                    /// \brief Default construction.
-                    finder_callback() : inputs_()
-                    {
-                    }
-
-                    /// \brief Overriden virtual to handle match result.
-                    virtual void run(const MatchFinder::MatchResult& result) BOBOPT_OVERRIDE
-                    {
-                        CallExpr* call_expr = const_cast<CallExpr*>(result.Nodes.getNodeAs<CallExpr>("callExpr"));
-                        if (call_expr != nullptr)
-                        {
-                            inputs_.push_back(call_expr);
-                        }
-                    }
-
-                    /// \brief Access to collected inputs.
-                    BOBOPT_INLINE const inputs_type& get_inputs() const
-                    {
-                        return inputs_;
-                    }
-
-                private:
-                    BOBOPT_NONCOPYMOVABLE(finder_callback);
-                    inputs_type inputs_;
-                };
-
-                extract_input_helper();
-
-                ASTContext* context_;
-                finder_callback callback_;
-
-                static const StatementMatcher INPUT_TYPE_MATCHER;
-            };
-
-            // extract_type_helper implementation.
-            //==============================================================================
-
-            /// \brief Matcher for calling expressions that returns bobox box input type.
-            const StatementMatcher extract_input_helper::INPUT_TYPE_MATCHER = callExpr(hasType(asString("input_index_type"))).bind("callExpr");
-
-            // prefetched_collector definition.
-            //==============================================================================
+            // init_collector definition.
+            //==================================================================
 
             /// \relates control_flow_search
             /// \brief Class responsible for handling contain of \c init_impl function.
             ///
             /// It looks for \c prefetched_envelope() calls in code that will be surely
             /// visited and collects input names that are prefetched.
-            class prefetched_collector : public control_flow_search<prefetched_collector, std::string>
+            class init_collector : public control_flow_search<init_collector, std::string>
             {
             public:
 
                 /// \brief Type of base class.
-                typedef control_flow_search<prefetched_collector, std::string> base_type;
+                typedef control_flow_search<init_collector, std::string> base_type;
 
                 /// \relates control_flow_search
                 /// \brief Function member required by base class used to prototype current object.
                 ///
                 /// Object doesn't hold any state so prototyped object is just default constructed one.
-                prefetched_collector prototype() const
+                init_collector prototype() const
                 {
-                    return prefetched_collector();
+                    return init_collector();
                 }
 
                 /// \brief Function handles member call expressions.
@@ -388,17 +285,18 @@ namespace bobopt
                 static const std::string PREFETCH_ARG_TYPE_NAME;
             };
 
-            // prefetched_collector implementation.
-            //==============================================================================
+            // init_collector implementation.
+            //==================================================================
 
             /// \brief Name of bobox box member to prefetch envelope of input.
-            const std::string prefetched_collector::PREFETCH_NAME("prefetch_envelope");
+            const std::string init_collector::PREFETCH_NAME("prefetch_envelope");
 
             /// \brief Name of bobox box input type name and argument of prefetch member function.
-            const std::string prefetched_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
+            const std::string init_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
 
-            // should_prefetch_collector definition.
-            //==============================================================================
+
+            // body_collector definition.
+            //==================================================================
 
             /// \relates control_flow_search
             /// \brief Class responsible for handling \c sync_mach_etwas member function of
@@ -406,25 +304,25 @@ namespace bobopt
             ///
             /// It looks for all input streams objects and expects input to be prefetched
             /// if \b any member function is called on input stream object.
-            class should_prefetch_collector : public control_flow_search<should_prefetch_collector, std::string>
+            class body_collector : public control_flow_search<body_collector, std::string>
             {
             public:
 
                 /// \brief Type of class base.
-                typedef control_flow_search<should_prefetch_collector, std::string> base_type;
+                typedef control_flow_search<body_collector, std::string> base_type;
 
                 /// \brief Type of container for holding values. Inherited from base class.
                 typedef base_type::values_type values_type;
 
                 /// \brief Default constructed \b invalid collector.
-                should_prefetch_collector()
+                body_collector()
                     : input_streams_()
                     , context_(nullptr)
                 {
                 }
 
                 /// \brief Collector needs to be created with AST context.
-                explicit should_prefetch_collector(ASTContext* context)
+                explicit body_collector(ASTContext* context)
                     : input_streams_()
                     , context_(context)
                 {
@@ -440,25 +338,23 @@ namespace bobopt
 
                 /// \relates control_flow_search
                 /// \brief New object should inherited list of defined input streams and associated inputs.
-                BOBOPT_INLINE should_prefetch_collector prototype() const
+                BOBOPT_INLINE body_collector prototype() const
                 {
-                    should_prefetch_collector instance;
+                    body_collector instance;
                     instance.input_streams_ = input_streams_;
                     return instance;
                 }
 
-                /// \brief Handles all variables declarations since it is node where input stream variable will be declared.
+                /// \brief Looking up bobox::input_stream<> variables definitions.
                 bool VisitVarDecl(VarDecl* var_decl)
                 {
-                    if (var_decl->getType().getAsString() != INPUT_TYPE_NAME)
+                    if (var_decl->getType().getAsString() != INPUT_STREAM_TYPE_NAME)
                     {
                         return true;
                     }
 
                     if (!var_decl->hasDefinition())
                     {
-                        // We are not able to know what input should be prefetched.
-                        // Continue.
                         return true;
                     }
 
@@ -466,8 +362,7 @@ namespace bobopt
                     return true;
                 }
 
-                /// \brief Handles all member calls on any object in control flow path since it is node where member
-                /// function will be called on input stream object.
+                /// \brief Looking up member calls of bobox::input_stream<> variables.
                 bool VisitCXXMemberCallExpr(CXXMemberCallExpr* member_call_expr)
                 {
                     MemberExpr* callee_expr = llvm::dyn_cast_or_null<MemberExpr>(member_call_expr->getCallee());
@@ -499,21 +394,41 @@ namespace bobopt
 
             private:
 
-                /// \brief Insert input stream into container based on its definition.
-                void add_input_stream(VarDecl* var_def)
+                /// \brief Extract stream name from definition of bobox::input_stream<> variable.
+                void add_input_stream(VarDecl* var_decl)
                 {
-                    BOBOPT_ASSERT(var_def != nullptr);
-                    Expr* init_expr = var_def->getInit();
-                    if (init_expr != nullptr)
-                    {
-                        extract_input_helper helper(context_);
-                        helper.TraverseStmt(init_expr);
+                    BOBOPT_ASSERT(var_decl != nullptr);
 
-                        const extract_input_helper::inputs_type& inputs = helper.get_inputs();
-                        if (inputs.size() == 1)
+                    Expr* init_expr = var_decl->getInit();
+                    if (init_expr == nullptr)
+                    {
+                        return;
+                    }
+
+                    struct finder_callback : public MatchFinder::MatchCallback
+                    {
+                        virtual void run(const MatchFinder::MatchResult& result) BOBOPT_OVERRIDE
                         {
-                            input_streams_.insert(std::make_pair(var_def, inputs.front()));
+                            CallExpr* call_expr = const_cast<CallExpr*>(result.Nodes.getNodeAs<CallExpr>("call_expr"));
+                            if (call_expr != nullptr)
+                            {
+                                inputs.push_back(call_expr);
+                            }
                         }
+
+                        std::vector<CallExpr*> inputs;
+                    };
+
+                    MatchFinder finder;
+                    finder_callback callback;
+                    finder.addMatcher(INPUT_INDEX_TYPE_CALL_MATCHER, &callback);
+                    recursive_match_finder recursive_finder(&finder, context_);
+                    recursive_finder.TraverseStmt(init_expr);
+
+                    // Ignore either ambigous or none.
+                    if (callback.inputs.size() == 1)
+                    {
+                        input_streams_.insert(std::make_pair(var_decl, callback.inputs.front()));
                     }
                 }
 
@@ -529,23 +444,29 @@ namespace bobopt
                         insert_value_location(input_call_expr->getDirectCallee()->getNameAsString(), DynTypedNode::create(*member_call_expr));
                     }
                 }
-
+                
+                /// \brief Declaration of bobox::input_stream<> variable and call to inputs::name() functions.
                 std::map<VarDecl*, CallExpr*> input_streams_;
                 ASTContext* context_;
 
-                static const std::string INPUT_TYPE_NAME;
+                static const std::string INPUT_STREAM_TYPE_NAME;
+                static const StatementMatcher INPUT_INDEX_TYPE_CALL_MATCHER;
             };
 
-            // should_prefetch_collector implementation.
-            //==============================================================================
+            // body_collector implementation.
+            //==================================================================
 
             /// \brief Name of input stream variable type.
-            const std::string should_prefetch_collector::INPUT_TYPE_NAME("bobox::input_stream<>");
+            const std::string body_collector::INPUT_STREAM_TYPE_NAME("bobox::input_stream<>");
+
+            /// \brief Matcher for call to static inputs::name() function.
+            const StatementMatcher body_collector::INPUT_INDEX_TYPE_CALL_MATCHER = callExpr(hasType(asString("input_index_type"))).bind("call_expr");
 
         } // namespace detail
 
+
         // prefetch implementation.
-        //==============================================================================
+        //======================================================================
 
         /// \brief Construct default empty invalid prefetch object.
         prefetch::prefetch()
@@ -579,7 +500,7 @@ namespace bobopt
             BOBOPT_ASSERT(box != nullptr);
             BOBOPT_ASSERT(replacements != nullptr);
 
-            pre_optimize();
+            prepare();
 
             box_ = box;
             replacements_ = replacements;
@@ -591,13 +512,13 @@ namespace bobopt
             {
                 collect_functions();
 
-                detail::prefetched_collector prefetched;
+                detail::init_collector prefetched;
                 if (!analyze_init(prefetched))
                 {
                     return;
                 }
 
-                detail::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
+                detail::body_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
                 if (!analyze_sync(should_prefetch))
                 {
                     return;
@@ -632,13 +553,13 @@ namespace bobopt
 
                 if (!to_prefetch_names.empty())
                 {
-                    add_prefetch(to_prefetch_names, should_prefetch);
+                    insert_prefetch(to_prefetch_names, should_prefetch);
                 }
             }
         }
 
         /// \brief Prepare object to optimization.
-        void prefetch::pre_optimize()
+        void prefetch::prepare()
         {
             inputs_.clear();
             init_ = nullptr;
@@ -705,9 +626,9 @@ namespace bobopt
 
         /// \brief Analyze \c init_impl() member function.
         ///
-        /// \param prefetched Reference to detail \link intenral::prefetched_collector prefetched_collector \endlink object.
+        /// \param prefetched Reference to detail \link intenral::init_collector init_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_init(detail::prefetched_collector& prefetched) const
+        bool prefetch::analyze_init(detail::init_collector& prefetched) const
         {
             if (init_ == nullptr)
             {
@@ -727,9 +648,9 @@ namespace bobopt
 
         /// \brief Analyze \c sync_mach_etwas() member function.
         ///
-        /// \param should_prefetch Reference to detail \link detail::should_prefetch_collector should_prefetch_collector \endlink object.
+        /// \param should_prefetch Reference to detail \link detail::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_sync(detail::should_prefetch_collector& should_prefetch) const
+        bool prefetch::analyze_sync(detail::body_collector& should_prefetch) const
         {
             if (!sync_->hasBody())
             {
@@ -742,9 +663,9 @@ namespace bobopt
 
         /// \brief Analyze \c sync_body() member function.
         ///
-        /// \param should_prefetch Reference to detail \link intenral::should_prefetch_collector should_prefetch_collector \endlink object.
+        /// \param should_prefetch Reference to detail \link intenral::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_body(detail::should_prefetch_collector& should_prefetch) const
+        bool prefetch::analyze_body(detail::body_collector& should_prefetch) const
         {
             if (body_ == nullptr)
             {
@@ -764,7 +685,7 @@ namespace bobopt
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
         /// \param should_prefetch Holder of source locations for reasoning why inputs should be prefetched.
-        void prefetch::add_prefetch(const named_inputs_type& to_prefetch, const detail::should_prefetch_collector& should_prefetch)
+        void prefetch::insert_prefetch(const named_inputs_type& to_prefetch, const detail::body_collector& should_prefetch)
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
@@ -873,7 +794,7 @@ namespace bobopt
         {
             llvm::raw_ostream& out = llvm::outs();
 
-            out.changeColor(llvm::raw_ostream::WHITE, false);
+            out.changeColor(llvm::raw_ostream::WHITE, true);
             out << "[prefetch]";
             out.resetColor();
             out << " optimization of box ";
