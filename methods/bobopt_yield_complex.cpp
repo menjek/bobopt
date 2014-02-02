@@ -259,8 +259,8 @@ namespace bobopt
             private:
                 BOBOPT_NONCOPYMOVABLE(cfg_data_builder);
 
-                /// \brief Guards detail stacks. Class is responsible for push
-                /// and pop of elements.
+                /// \brief Guard internal stacks. Class is responsible for push
+                /// and pop of elements using RAII.
                 template <typename T>
                 class stack_guard_type
                 {

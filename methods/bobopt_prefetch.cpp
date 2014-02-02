@@ -39,12 +39,29 @@ namespace bobopt
 
     namespace methods
     {
+        // Constants.
+        //======================================================================
+
+        /// \brief Name of bobox box initialization virtual member function to be overriden.
+        const std::string prefetch::BOX_INIT_FUNCTION_NAME("init_impl");
+        /// \brief Name of parent overriden functions for init. Just to check if it is not overloaded virtual.
+        const std::string prefetch::BOX_INIT_OVERRIDEN_PARENT_NAME("bobox::box");
+
+        /// \brief Name of bobox box sync virtual member function to be overriden.
+        const std::string prefetch::BOX_SYNC_FUNCTION_NAME("sync_mach_etwas");
+        /// \brief Name of parent overriden functions for sync. Just to check if it is not overloaded virtual.
+        const std::string prefetch::BOX_SYNC_OVERRIDEN_PARENT_NAME("bobox::basic_box");
+
+        /// \brief Name of bobox box body virtual member function to be overriden.
+        const std::string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
+        /// \brief Name of parent overriden functions for body. Just to check if it is not overloaded virtual.
+        const std::string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
 
         namespace detail
         {
 
             // inputs_collector_helper definition.
-            //==============================================================================
+            //==================================================================
 
             /// \relates inputs_collector
             /// \brief Collects all member functions returning input type of bobox boxes.
@@ -82,11 +99,8 @@ namespace bobopt
                 }
 
             private:
-
-                // data members:
                 inputs_type inputs_;
 
-                // constants:
                 static const std::string INPUTS_RETURN_TYPE_NAME;
                 static const std::string INPUTS_GETTER_NAME;
             };
@@ -133,11 +147,8 @@ namespace bobopt
                 }
 
             private:
-
-                // data member:
                 inputs_collector_helper collector_helper_;
 
-                // constants:
                 static const std::string INPUTS_STRUCT_NAME;
             };
 
@@ -238,14 +249,11 @@ namespace bobopt
                     inputs_type inputs_;
                 };
 
-                // do not create without AST context:
                 extract_input_helper();
 
-                // data members:
                 ASTContext* context_;
                 finder_callback callback_;
 
-                // constants:
                 static const StatementMatcher INPUT_TYPE_MATCHER;
             };
 
@@ -365,7 +373,6 @@ namespace bobopt
                         return false;
                     }
 
-                    // Try to get callee node.
                     FunctionDecl* direct_callee = call_expr->getDirectCallee();
                     if (direct_callee != nullptr)
                     {
@@ -377,7 +384,6 @@ namespace bobopt
                     return false;
                 }
 
-                // constants:
                 static const std::string PREFETCH_NAME;
                 static const std::string PREFETCH_ARG_TYPE_NAME;
             };
@@ -467,31 +473,23 @@ namespace bobopt
                     MemberExpr* callee_expr = llvm::dyn_cast_or_null<MemberExpr>(member_call_expr->getCallee());
                     if (callee_expr == nullptr)
                     {
-                        // Something unexpected happened.
-                        // Continue.
                         return true;
                     }
 
                     DeclRefExpr* base_expr = llvm::dyn_cast_or_null<DeclRefExpr>(callee_expr->getBase());
                     if (base_expr == nullptr)
                     {
-                        // Process only expressions called directly on object, not any other expression.
-                        // Continue.
                         return true;
                     }
 
                     VarDecl* var_decl = llvm::dyn_cast_or_null<VarDecl>(base_expr->getDecl());
                     if (var_decl == nullptr)
                     {
-                        // Something unexpected happened.
-                        // Continue.
                         return true;
                     }
 
                     if (!var_decl->hasDefinition())
                     {
-                        // Process only defined variables.
-                        // Continue.
                         return true;
                     }
 
@@ -532,11 +530,9 @@ namespace bobopt
                     }
                 }
 
-                // data members:
                 std::map<VarDecl*, CallExpr*> input_streams_;
                 ASTContext* context_;
 
-                // constants:
                 static const std::string INPUT_TYPE_NAME;
             };
 
@@ -598,28 +594,24 @@ namespace bobopt
                 detail::prefetched_collector prefetched;
                 if (!analyze_init(prefetched))
                 {
-                    // Don't optimize.
                     return;
                 }
 
                 detail::should_prefetch_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
                 if (!analyze_sync(should_prefetch))
                 {
-                    // Don't optimize.
                     return;
                 }
 
                 // Do not analyze body if there's sync.
                 if ((sync_ == nullptr) && !analyze_body(should_prefetch))
                 {
-                    // Don't optimize.
                     return;
                 }
 
                 named_inputs_type should_prefetch_names = should_prefetch.get_values();
                 if (should_prefetch_names.empty())
-                {
-                    // Nothing to optimize.
+                {                  
                     return;
                 }
 
@@ -720,14 +712,12 @@ namespace bobopt
             if (init_ == nullptr)
             {
                 // (global.2) There's no overriden init_impl() function.
-                // Do not optimize.
                 return false;
             }
 
             if (!init_->hasBody())
             {
                 // (global.3) Method can't access definition of init_impl() overriden function.
-                // Do not optimize.
                 return false;
             }
 
@@ -743,7 +733,6 @@ namespace bobopt
         {
             if (!sync_->hasBody())
             {
-                // Do not optimize.
                 return false;
             }
 
@@ -759,13 +748,11 @@ namespace bobopt
         {
             if (body_ == nullptr)
             {
-                // Do not optimize.
                 return false;
             }
 
             if (!body_->hasBody())
             {
-                // Do not optimize.
                 return false;
             }
 
@@ -803,18 +790,17 @@ namespace bobopt
 
                 if (input_decl == nullptr)
                 {
-                    // We don't have input with this name.
                     continue;
                 }
 
-                std::string prefetch_call_source = std::string("prefetch_envelope(inputs::") + named_input + "())";
+                std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "())";
 
                 bool update_init_impl = false;
                 if (get_optimizer().verbose())
                 {
                     emit_input_declaration(input_decl);
 
-                    detail::should_prefetch_collector::locations_type locations = should_prefetch.get_locations(named_input);
+                    auto locations = should_prefetch.get_locations(named_input);
                     for (auto location : locations)
                     {
                         const CallExpr* call_expr = location.get<CallExpr>();
@@ -826,7 +812,7 @@ namespace bobopt
                     }
                     llvm::outs() << '\n';
 
-                    std::string update_message_text = std::string("should be updated with ") + prefetch_call_source + " call:";
+                    std::string update_message_text = "box initialization phase should call " + prefetch_call_source;
                     source_message update_message = diag.get_message_decl(source_message::suggestion, init_, update_message_text);
                     diag.emit(update_message);
 
@@ -887,7 +873,7 @@ namespace bobopt
         {
             llvm::raw_ostream& out = llvm::outs();
 
-            out.changeColor(llvm::raw_ostream::WHITE, true);
+            out.changeColor(llvm::raw_ostream::WHITE, false);
             out << "[prefetch]";
             out.resetColor();
             out << " optimization of box ";
@@ -914,21 +900,6 @@ namespace bobopt
             source_message input_message = diag.get_message_decl(source_message::info, decl, "missing prefetch for input declared here:");
             diag.emit(input_message);
         }
-
-        /// \brief Name of bobox box initialization virtual member function to be overriden.
-        const std::string prefetch::BOX_INIT_FUNCTION_NAME("init_impl");
-        /// \brief Name of parent overriden functions for init. Just to check if it is not overloaded virtual.
-        const std::string prefetch::BOX_INIT_OVERRIDEN_PARENT_NAME("bobox::box");
-
-        /// \brief Name of bobox box sync virtual member function to be overriden.
-        const std::string prefetch::BOX_SYNC_FUNCTION_NAME("sync_mach_etwas");
-        /// \brief Name of parent overriden functions for sync. Just to check if it is not overloaded virtual.
-        const std::string prefetch::BOX_SYNC_OVERRIDEN_PARENT_NAME("bobox::basic_box");
-
-        /// \brief Name of bobox box body virtual member function to be overriden.
-        const std::string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
-        /// \brief Name of parent overriden functions for body. Just to check if it is not overloaded virtual.
-        const std::string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
 
     } // namespace methods
 
