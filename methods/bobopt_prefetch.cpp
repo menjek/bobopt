@@ -130,8 +130,6 @@ namespace bobopt
                 /// \brief Visit \c struct definition and if its name matches, forward job to helper.
                 bool VisitCXXRecordDecl(CXXRecordDecl* decl)
                 {
-                    BOBOPT_ASSERT(decl != nullptr);
-
                     if (decl->getNameAsString() == INPUTS_STRUCT_NAME)
                     {
                         BOBOPT_CHECK(!collector_helper_.TraverseDecl(decl->getCanonicalDecl()));
@@ -471,7 +469,11 @@ namespace bobopt
             , replacements_(nullptr)
             , inputs_()
             , init_(nullptr)
+            , sync_(nullptr)
             , body_(nullptr)
+            , decl_indent_()
+            , line_indent_()
+            , line_end_()
         {
         }
 
@@ -502,55 +504,63 @@ namespace bobopt
             box_ = box;
             replacements_ = replacements;
 
+            collect_functions();
+
+            if ((body_ == nullptr) && (sync_ == nullptr))
+            {
+                // (global.1) There are no functions.
+                return;
+            }
+
             collect_inputs();
 
-            // (global.1) There are no inputs. Don't optimize.
-            if (!inputs_.empty())
+            if (inputs_.empty())
             {
-                collect_functions();
+                // (global.2) There are no inputs.
+                return;
+            }
 
-                detail::init_collector prefetched;
-                if (!analyze_init(prefetched))
+            detail::init_collector prefetched;
+            if (!analyze_init(prefetched))
+            {
+                return;
+            }
+
+            auto& context = get_optimizer().get_compiler().getASTContext();
+            detail::body_collector used(&context);
+            analyze_sync(used);
+            analyze_body(used);
+
+            named_inputs_type used_names = used.get_values();
+            if (used_names.empty())
+            {
+                return;
+            }
+
+            named_inputs_type prefetched_names = prefetched.get_values();
+
+            std::sort(std::begin(prefetched_names), std::end(prefetched_names));
+            std::sort(std::begin(used_names), std::end(used_names));
+
+            named_inputs_type to_prefetch_names;
+            to_prefetch_names.reserve(used_names.size());
+
+            std::set_difference(std::begin(used_names),
+                                std::end(used_names), // A
+                                std::begin(prefetched_names),
+                                std::end(prefetched_names),           // B
+                                std::back_inserter(to_prefetch_names) // A - B
+                                );
+
+            if (!to_prefetch_names.empty())
+            {
+                if (init_ != nullptr)
                 {
-                    return;
+                    insert_into_body(to_prefetch_names, used);
                 }
-
-                detail::body_collector should_prefetch(&(basic_method::get_optimizer().get_compiler().getASTContext()));
-                if (!analyze_sync(should_prefetch))
+                else
                 {
-                    return;
-                }
-
-                // Do not analyze body if there's sync.
-                if ((sync_ == nullptr) && !analyze_body(should_prefetch))
-                {
-                    return;
-                }
-
-                named_inputs_type should_prefetch_names = should_prefetch.get_values();
-                if (should_prefetch_names.empty())
-                {
-                    return;
-                }
-
-                named_inputs_type prefetched_names = prefetched.get_values();
-
-                std::sort(std::begin(prefetched_names), std::end(prefetched_names));
-                std::sort(std::begin(should_prefetch_names), std::end(should_prefetch_names));
-
-                named_inputs_type to_prefetch_names;
-                to_prefetch_names.reserve(should_prefetch_names.size());
-
-                std::set_difference(std::begin(should_prefetch_names),
-                                    std::end(should_prefetch_names), // A
-                                    std::begin(prefetched_names),
-                                    std::end(prefetched_names),           // B
-                                    std::back_inserter(to_prefetch_names) // A - B
-                                    );
-
-                if (!to_prefetch_names.empty())
-                {
-                    insert_prefetch(to_prefetch_names, should_prefetch);
+                    insert_init_impl(to_prefetch_names, used);
                 }
             }
         }
@@ -567,23 +577,19 @@ namespace bobopt
         /// \brief Collect declarations of inputs from box definition.
         void prefetch::collect_inputs()
         {
-            BOBOPT_ASSERT(box_ != nullptr);
-
             detail::inputs_collector collector;
             bool found = !collector.TraverseDecl(box_->getCanonicalDecl());
 
             if (found)
             {
-                BOBOPT_ASSERT(!collector.get_inputs().empty());
                 inputs_ = collector.get_inputs();
+                BOBOPT_ASSERT(!inputs_.empty());
             }
         }
 
         /// \brief Collect \c init_impl() and \c sync_mach_etwas() and \c sync_body() function sdeclarations from box definition.
         void prefetch::collect_functions()
         {
-            BOBOPT_ASSERT(box_ != nullptr);
-
             for (auto method_it = box_->method_begin(); method_it != box_->method_end(); ++method_it)
             {
                 CXXMethodDecl* method = *method_it;
@@ -629,8 +635,7 @@ namespace bobopt
         {
             if (init_ == nullptr)
             {
-                // (global.2) There's no overriden init_impl() function.
-                return false;
+                return true;
             }
 
             if (!init_->hasBody())
@@ -645,59 +650,60 @@ namespace bobopt
 
         /// \brief Analyze \c sync_mach_etwas() member function.
         ///
-        /// \param should_prefetch Reference to detail \link detail::body_collector body_collector \endlink object.
+        /// \param used Reference to detail \link detail::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_sync(detail::body_collector& should_prefetch) const
+        void prefetch::analyze_sync(detail::body_collector& used) const
         {
-            if (!sync_->hasBody())
+            if (sync_ == nullptr)
             {
-                return false;
+                return;
             }
 
-            should_prefetch.TraverseStmt(sync_->getBody());
-            return true;
+            if (!sync_->hasBody())
+            {
+                return;
+            }
+
+            used.TraverseStmt(sync_->getBody());
         }
 
         /// \brief Analyze \c sync_body() member function.
         ///
-        /// \param should_prefetch Reference to detail \link intenral::body_collector body_collector \endlink object.
+        /// \param used Reference to detail \link intenral::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_body(detail::body_collector& should_prefetch) const
+        void prefetch::analyze_body(detail::body_collector& used) const
         {
             if (body_ == nullptr)
             {
-                return false;
+                return;
             }
 
             if (!body_->hasBody())
             {
-                return false;
+                return;
             }
 
-            should_prefetch.TraverseStmt(body_->getBody());
-            return true;
+            used.TraverseStmt(body_->getBody());
         }
 
-        /// \brief Insert prefetch calls to \c init_impl() overriden member function.
+        /// \brief Insert prefetch calls to overriden \c init_impl() member function.
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
         /// \param should_prefetch Holder of source locations for reasoning why inputs should be prefetched.
-        void prefetch::insert_prefetch(const named_inputs_type& to_prefetch, const detail::body_collector& should_prefetch)
+        void prefetch::insert_into_body(const named_inputs_type& to_prefetch, const detail::body_collector& used)
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
 
             CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
-            if (body == nullptr)
-            {
-                return;
-            }
+            BOBOPT_ASSERT(body != nullptr);
 
             std::string body_indent;
             SourceManager& sm = get_optimizer().get_compiler().getSourceManager();
             if (body->body_empty())
             {
-                body_indent = decl_indent(sm, init_) + "\t";
+                detect_line_indent();
+                body_indent = decl_indent(sm, init_) + line_indent_;
             }
             else
             {
@@ -725,7 +731,7 @@ namespace bobopt
                 {
                     emit_input_declaration(input_decl);
 
-                    auto locations = should_prefetch.get_locations(named_input);
+                    auto locations = used.get_locations(named_input);
                     for (auto location : locations)
                     {
                         const CallExpr* call_expr = location.get<CallExpr>();
@@ -765,9 +771,23 @@ namespace bobopt
 
             if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
             {
+                if (!body->body_empty())
+                {
+                    prefetch_source += '\n';
+                }
+
                 SourceLocation location = Lexer::getLocForEndOfToken(body->getLBracLoc(), 0, sm, get_optimizer().get_compiler().getLangOpts());
-                replacements_->insert(Replacement(sm, location, 0, prefetch_source + '\n'));
+                replacements_->insert(Replacement(sm, location, 0, prefetch_source));
             }
+        }
+
+        /// \brief Create overriden \c init_impl() implementation, calling base and prefething input.
+        void prefetch::insert_init_impl(const named_inputs_type& to_prefetch, const detail::body_collector& used)
+        {
+            BOBOPT_UNUSED_EXPRESSION(to_prefetch);
+            BOBOPT_UNUSED_EXPRESSION(used);
+
+            const std::string declaration = "virtual void init_impl() override";
         }
 
         /// \brief Access input member function declaration to access input by name.
@@ -817,6 +837,112 @@ namespace bobopt
 
             source_message input_message = diag.get_message_decl(source_message::info, decl, "missing prefetch for input declared here:");
             diag.emit(input_message);
+        }
+
+        /// \brief Detect indentation of method declaration in box.
+        void prefetch::detect_decl_indent()
+        {
+            auto& sm = get_optimizer().get_compiler().getSourceManager();
+            decl_indent_.clear();
+
+            std::map<std::string, unsigned> occurrences;
+            for (auto it = box_->method_begin(), end = box_->method_end(); it != end; ++it)
+            {
+                auto indent = decl_indent(sm, *it);
+                auto found = occurrences.find(indent);
+                if (found == std::end(occurrences))
+                {
+                    occurrences[indent] = 0;
+                }
+                else
+                {
+                    ++(found->second);
+                }
+            }
+
+            BOBOPT_ASSERT(!occurrences.empty());
+
+            auto max_indent = std::max_element(
+                std::begin(occurrences),
+                std::end(occurrences),
+                [](const std::pair<std::string, unsigned> & lhs, const std::pair<std::string, unsigned> & rhs) { return lhs.second < rhs.second; });
+
+            decl_indent_ = max_indent->first;
+        }
+
+        /// \brief Detect line indentation in box.
+        void prefetch::detect_line_indent()
+        {
+            auto& sm = get_optimizer().get_compiler().getSourceManager();
+            decl_indent_.clear();
+
+            auto range = box_->getSourceRange();
+            const char* first = sm.getCharacterData(range.getBegin());
+            const char* last = sm.getCharacterData(range.getEnd());
+
+            auto is_indent = [](char c) { return (c == ' ') || (c == '\t') || (c == '\r'); };
+
+            std::map<std::string, unsigned> occurrences;
+
+            std::string last_indent;
+            while (first < last)
+            {
+                auto line_start = std::find_if_not(first, last, is_indent);
+                if (line_start == last)
+                {
+                    break;
+                }
+
+                auto line_end = std::find(line_start, last, '\n');
+                if (line_start == line_end)
+                {
+                    first = line_end + 1;
+                    continue;
+                }
+
+                std::string line_indent(first, line_start);
+                if (last_indent.size() > line_indent.size())
+                {
+                    if (last_indent.substr(0, line_indent.size()) == line_indent)
+                    {
+                        auto indent = last_indent.substr(line_indent.size());
+                        ++occurrences[indent];
+                        last_indent = line_indent;
+                    }
+                }
+                else if (line_indent.size() > last_indent.size())
+                {
+                    if (line_indent.substr(0, last_indent.size()) == last_indent)
+                    {
+                        auto indent = line_indent.substr(last_indent.size());
+                        ++occurrences[indent];
+                        last_indent = line_indent;
+                    }
+                }
+
+                first = line_end + 1;
+            }
+
+            // If there's not at least very minimal differences between two
+            // following lines, choose tabs. It won't break anything, code
+            // is already messy anyway.
+            if (occurrences.empty())
+            {
+                decl_indent_ = '\t';
+                return;
+            }
+
+            auto max_indent = std::max_element(
+                std::begin(occurrences),
+                std::end(occurrences),
+                [](const std::pair<std::string, unsigned> & lhs, const std::pair<std::string, unsigned> & rhs) { return lhs.second < rhs.second; });
+
+            line_indent_ = max_indent->first;
+        }
+
+        /// \brief Detect line ending.
+        void prefetch::detect_line_end()
+        {
         }
 
     } // namespace methods

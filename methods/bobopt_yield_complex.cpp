@@ -131,13 +131,6 @@ namespace bobopt
                 return result;
             }
 
-            /// \brief Append \c std::vector to another \c std::vector.
-            template <typename T, typename A>
-            void append(std::vector<T, A>& dst, const std::vector<T, A>& src)
-            {
-                dst.insert(std::end(dst), std::begin(src), std::end(src));
-            }
-
         } // namespace
 
         // cfg_data implementation.

@@ -7,6 +7,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace bobopt
 {
@@ -66,6 +67,14 @@ namespace bobopt
     auto value_distance(T a, U b) -> decltype((a > b) ? (a - b) : (b - a))
     {
         return (a > b) ? (a - b) : (b - a);
+    }
+
+    // append.
+    //==========================================================================
+    template <typename T, typename A>
+    void append(std::vector<T, A>& dst, const std::vector<T, A>& src)
+    {
+        dst.insert(std::end(dst), std::begin(src), std::end(src));
     }
 
 } // namespace

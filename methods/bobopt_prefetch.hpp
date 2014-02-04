@@ -79,12 +79,12 @@ namespace bobopt
         /// \endnote
         ///
         /// Method doesn't do \b any optimizations if:
-        /// - (global.1) There are no inputs.
+        /// - (global.1) There are no functions.
+        ///   Rationale: No input is used in known functions.
+        /// - (global.2) There are no inputs.
         ///   Rationale: Nothing to optimize.
-        /// - (global.2) There's no overriden \c init_impl() function.
-        ///   Rationale: \c init_impl() is defined elsewhere in inheritance tree and likely can prefetch inputs. Example: bobox::dummy_box base.
-        /// - (global.3) Method can't access definition of \c init_impl() overriden function.
-        ///   Rationale: There's body definition somewhere, but method won't be able to put anything there + ODR.
+        /// - (global.3) Optimizer can't access definition of overriden \c init_impl() function.
+        ///   Rationale: There's definition somewhere, but optimizer won't be able to put anything there + ODR.
         ///
         /// Method doesn't optimize \b single input if:
         /// - (single.1) ...
@@ -119,15 +119,20 @@ namespace bobopt
             void collect_functions();
 
             bool analyze_init(detail::init_collector& prefetched) const;
-            bool analyze_sync(detail::body_collector& should_prefetch) const;
-            bool analyze_body(detail::body_collector& should_prefetch) const;
-            void insert_prefetch(const named_inputs_type& to_prefetch, const detail::body_collector& should_prefetch);
+            void analyze_sync(detail::body_collector& used) const;
+            void analyze_body(detail::body_collector& used) const;
+            void insert_into_body(const named_inputs_type& to_prefetch, const detail::body_collector& used);
+            void insert_init_impl(const named_inputs_type& to_prefetch, const detail::body_collector& used);
 
             clang::CXXMethodDecl* get_input(const std::string& name) const;
-           
+
             void emit_header() const;
             void emit_box_declaration() const;
             void emit_input_declaration(clang::CXXMethodDecl* decl) const;
+
+            void detect_decl_indent();
+            void detect_line_indent();
+            void detect_line_end();
 
             // data members:
             clang::CXXRecordDecl* box_;
@@ -137,6 +142,10 @@ namespace bobopt
             init_function_type init_;
             sync_function_type sync_;
             body_function_type body_;
+
+            std::string decl_indent_;
+            std::string line_indent_;
+            std::string line_end_;
 
             // constants:
             static const std::string BOX_INIT_FUNCTION_NAME;

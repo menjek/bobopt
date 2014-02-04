@@ -6,9 +6,10 @@
 #define BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
 
 #include <bobopt_debug.hpp>
-#include <bobopt_language.hpp>
 #include <bobopt_inline.hpp>
+#include <bobopt_language.hpp>
 #include <bobopt_macros.hpp>
+#include <bobopt_utils.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/Casting.h"
@@ -939,7 +940,7 @@ namespace bobopt
               class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::insert_value(const value_type& val)
     {
-        if (values_map_.find(val) == end(values_map_))
+        if (values_map_.find(val) == std::end(values_map_))
         {
             values_map_.insert(std::make_pair(val, locations_type()));
         }
@@ -1011,14 +1012,9 @@ namespace bobopt
         if (visitor.valid())
         {
             const container_type& visitor_map = static_cast<const base_type&>(visitor.get()).values_map_;
-
             for (const auto& it : visitor_map)
             {
-                locations_type& locations = values_map_[it.first];
-                const locations_type& visitor_locations = it.second;
-
-                locations.reserve(locations.size() + visitor_locations.size());
-                std::copy(std::begin(visitor_locations), std::end(visitor_locations), std::back_inserter(locations));
+                append(values_map_[it.first], it.second);
             }
         }
     }
@@ -1053,11 +1049,9 @@ namespace bobopt
                 locations_type& locations = values_map_[val];
 
                 auto found = visitor_map.find(val);
-                if (found != end(visitor_map))
+                if (found != std::end(visitor_map))
                 {
-                    const locations_type& visitor_locations = found->second;
-                    locations.reserve(locations.size() + visitor_locations.size());
-                    std::copy(std::begin(visitor_locations), std::end(visitor_locations), std::back_inserter(locations));
+                    append(locations, found->second);
                 }
             }
         }
@@ -1103,8 +1097,7 @@ namespace bobopt
     BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
     control_flow_search<Derived, Value, PrototypePolicy>::make_union(values_type lhs, const values_type& rhs)
     {
-        lhs.reserve(lhs.size() + rhs.size());
-        std::copy(std::begin(rhs), std::end(rhs), std::back_inserter(lhs));
+        append(lhs, rhs);
         make_unique(lhs);
 
         return lhs;
