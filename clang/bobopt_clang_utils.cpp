@@ -30,19 +30,6 @@ namespace bobopt
         return false;
     }
 
-    std::string location_indent(const clang::SourceManager& sm, SourceLocation location)
-    {
-        auto buffer = sm.getBuffer(sm.getFileID(location));
-        const auto* bufferStart = buffer->getBufferStart();
-        const auto* locationStart = sm.getCharacterData(location);
-
-        const auto* lineStart = locationStart;
-        while ((lineStart > bufferStart) && (*lineStart != '\n'))
-        {
-            --lineStart;
-        }        
-
-        return std::string(lineStart + 1, locationStart);
-    }
+    
 
 } // namespace

@@ -4,6 +4,7 @@
 #include <bobopt_language.hpp>
 #include <bobopt_macros.hpp>
 #include <bobopt_optimizer.hpp>
+#include <bobopt_text_utils.hpp>
 #include <clang/bobopt_clang_utils.hpp>
 #include <clang/bobopt_control_flow_search.hpp>
 
@@ -702,7 +703,7 @@ namespace bobopt
             SourceManager& sm = get_optimizer().get_compiler().getSourceManager();
             if (body->body_empty())
             {
-                detect_line_indent();
+                line_indent_ = detect_line_indent(sm, box_);
                 body_indent = decl_indent(sm, init_) + line_indent_;
             }
             else
@@ -837,112 +838,6 @@ namespace bobopt
 
             source_message input_message = diag.get_message_decl(source_message::info, decl, "missing prefetch for input declared here:");
             diag.emit(input_message);
-        }
-
-        /// \brief Detect indentation of method declaration in box.
-        void prefetch::detect_decl_indent()
-        {
-            auto& sm = get_optimizer().get_compiler().getSourceManager();
-            decl_indent_.clear();
-
-            std::map<std::string, unsigned> occurrences;
-            for (auto it = box_->method_begin(), end = box_->method_end(); it != end; ++it)
-            {
-                auto indent = decl_indent(sm, *it);
-                auto found = occurrences.find(indent);
-                if (found == std::end(occurrences))
-                {
-                    occurrences[indent] = 0;
-                }
-                else
-                {
-                    ++(found->second);
-                }
-            }
-
-            BOBOPT_ASSERT(!occurrences.empty());
-
-            auto max_indent = std::max_element(
-                std::begin(occurrences),
-                std::end(occurrences),
-                [](const std::pair<std::string, unsigned> & lhs, const std::pair<std::string, unsigned> & rhs) { return lhs.second < rhs.second; });
-
-            decl_indent_ = max_indent->first;
-        }
-
-        /// \brief Detect line indentation in box.
-        void prefetch::detect_line_indent()
-        {
-            auto& sm = get_optimizer().get_compiler().getSourceManager();
-            decl_indent_.clear();
-
-            auto range = box_->getSourceRange();
-            const char* first = sm.getCharacterData(range.getBegin());
-            const char* last = sm.getCharacterData(range.getEnd());
-
-            auto is_indent = [](char c) { return (c == ' ') || (c == '\t') || (c == '\r'); };
-
-            std::map<std::string, unsigned> occurrences;
-
-            std::string last_indent;
-            while (first < last)
-            {
-                auto line_start = std::find_if_not(first, last, is_indent);
-                if (line_start == last)
-                {
-                    break;
-                }
-
-                auto line_end = std::find(line_start, last, '\n');
-                if (line_start == line_end)
-                {
-                    first = line_end + 1;
-                    continue;
-                }
-
-                std::string line_indent(first, line_start);
-                if (last_indent.size() > line_indent.size())
-                {
-                    if (last_indent.substr(0, line_indent.size()) == line_indent)
-                    {
-                        auto indent = last_indent.substr(line_indent.size());
-                        ++occurrences[indent];
-                        last_indent = line_indent;
-                    }
-                }
-                else if (line_indent.size() > last_indent.size())
-                {
-                    if (line_indent.substr(0, last_indent.size()) == last_indent)
-                    {
-                        auto indent = line_indent.substr(last_indent.size());
-                        ++occurrences[indent];
-                        last_indent = line_indent;
-                    }
-                }
-
-                first = line_end + 1;
-            }
-
-            // If there's not at least very minimal differences between two
-            // following lines, choose tabs. It won't break anything, code
-            // is already messy anyway.
-            if (occurrences.empty())
-            {
-                decl_indent_ = '\t';
-                return;
-            }
-
-            auto max_indent = std::max_element(
-                std::begin(occurrences),
-                std::end(occurrences),
-                [](const std::pair<std::string, unsigned> & lhs, const std::pair<std::string, unsigned> & rhs) { return lhs.second < rhs.second; });
-
-            line_indent_ = max_indent->first;
-        }
-
-        /// \brief Detect line ending.
-        void prefetch::detect_line_end()
-        {
         }
 
     } // namespace methods

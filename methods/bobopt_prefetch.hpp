@@ -130,10 +130,6 @@ namespace bobopt
             void emit_box_declaration() const;
             void emit_input_declaration(clang::CXXMethodDecl* decl) const;
 
-            void detect_decl_indent();
-            void detect_line_indent();
-            void detect_line_end();
-
             // data members:
             clang::CXXRecordDecl* box_;
             clang::tooling::Replacements* replacements_;

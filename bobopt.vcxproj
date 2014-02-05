@@ -150,6 +150,7 @@
     <ClCompile Include="bobopt_optimizer.cpp">
       <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
     </ClCompile>
+    <ClCompile Include="bobopt_text_utils.cpp" />
     <ClCompile Include="clang\bobopt_clang_utils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="methods\bobopt_prefetch.cpp">
@@ -167,6 +168,7 @@
     <ClInclude Include="bobopt_optimizer.hpp" />
     <ClInclude Include="bobopt_debug.hpp" />
     <ClInclude Include="bobopt_utils.hpp" />
+    <ClInclude Include="bobopt_text_utils.hpp" />
     <ClInclude Include="clang\bobopt_clang_epilog.hpp" />
     <ClInclude Include="clang\bobopt_clang_prolog.hpp" />
     <ClInclude Include="clang\bobopt_clang_utils.hpp" />
@@ -179,6 +181,7 @@
     <None Include="bobopt_empty.inl" />
     <None Include="bobopt_method.inl" />
     <None Include="bobopt_optimizer.inl" />
+    <None Include="bobopt_text_utils.inl" />
     <None Include="clang\bobopt_clang_utils.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
