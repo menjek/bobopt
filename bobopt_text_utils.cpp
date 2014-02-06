@@ -1,4 +1,5 @@
 #include <bobopt_text_utils.hpp>
+
 #include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
 #include <bobopt_optimizer.hpp>
@@ -10,6 +11,8 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <iostream>
 #include <map>
 #include <string>
 
@@ -19,7 +22,31 @@ using namespace clang;
 
 namespace bobopt
 {
-    static const std::string defaultIndent = "\t";
+
+    // Input.
+    //==========================================================================
+
+    bool ask_yesno(const char* message)
+    {
+        std::string answer;
+        while ((answer != "yes") && (answer != "no"))
+        {
+            llvm::outs() << message << " [yes/no]: ";
+            llvm::outs().flush();
+            std::cin >> answer;
+
+            std::transform(std::begin(answer), std::end(answer), std::begin(answer), [](char c) { return static_cast<char>(tolower(c)); });
+        }
+
+        return answer == "yes";
+    }
+
+    // Formatting.
+    //==========================================================================
+
+    static const std::string default_indent = "\t";
+    static const std::string unix_endl = "\n";
+    static const std::string windows_endl = "\r\n";
 
     std::string location_indent(const SourceManager& sm, SourceLocation location)
     {
@@ -31,7 +58,7 @@ namespace bobopt
         while ((lineStart > bufferStart) && (*lineStart != '\n'))
         {
             --lineStart;
-        }        
+        }
 
         return std::string(lineStart + 1, locationStart);
     }
@@ -90,7 +117,7 @@ namespace bobopt
         // is already messy anyway.
         if (occurrences.empty())
         {
-            return defaultIndent;
+            return default_indent;
         }
 
         auto max_indent = std::max_element(
@@ -106,15 +133,19 @@ namespace bobopt
         std::map<std::string, unsigned> occurrences;
         for (auto it = decl->method_begin(), end = decl->method_end(); it != end; ++it)
         {
-            auto indent = decl_indent(sm, *it);
-            auto found = occurrences.find(indent);
-            if (found == std::end(occurrences))
+            const CXXMethodDecl* method_decl = *it;
+            if (method_decl->isUserProvided())
             {
-                occurrences[indent] = 0;
-            }
-            else
-            {
-                ++(found->second);
+                auto indent = decl_indent(sm, method_decl);
+                auto found = occurrences.find(indent);
+                if (found == std::end(occurrences))
+                {
+                    occurrences[indent] = 0;
+                }
+                else
+                {
+                    ++(found->second);
+                }
             }
         }
 
@@ -132,7 +163,8 @@ namespace bobopt
     {
         BOBOPT_UNUSED_EXPRESSION(sm);
         BOBOPT_UNUSED_EXPRESSION(decl);
-        return "";
+        BOBOPT_TODO("Implement.")
+        return unix_endl;
     }
 
     document_indent detect_document_indent(clang::SourceManager& sm, const clang::CXXRecordDecl* decl)

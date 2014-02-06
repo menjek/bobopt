@@ -27,9 +27,6 @@
 #include <utility>
 #include <vector>
 
-BOBOPT_TODO("Couldn't find anything in llvm code base for input stream :(");
-#include <iostream>
-
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::ast_type_traits;
@@ -470,11 +467,12 @@ namespace bobopt
             , replacements_(nullptr)
             , inputs_()
             , init_(nullptr)
+            , base_init_(nullptr)
             , sync_(nullptr)
             , body_(nullptr)
             , decl_indent_()
             , line_indent_()
-            , line_end_()
+            , endl_()
         {
         }
 
@@ -630,18 +628,28 @@ namespace bobopt
 
         /// \brief Analyze \c init_impl() member function.
         ///
-        /// \param prefetched Reference to detail \link intenral::init_collector init_collector \endlink object.
+        /// \param prefetched Reference to detail \link detail::init_collector init_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_init(detail::init_collector& prefetched) const
+        bool prefetch::analyze_init(detail::init_collector& prefetched)
         {
             if (init_ == nullptr)
             {
-                return true;
+                CXXRecordDecl* bobox_box = get_optimizer().get_bobox_box();
+                auto found_it = std::find_if(bobox_box->method_begin(), bobox_box->method_end(), [](const CXXMethodDecl * method) {
+                    return method->getNameAsString() == "init_impl";
+                });
+                BOBOPT_ASSERT(found_it != bobox_box->method_end());
+
+                base_init_ = (*found_it)->getCorrespondingMethodInClass(box_);
+                BOBOPT_ASSERT(base_init_ != nullptr);
+
+                // (global.4) Corresponding method is not the one from bobox::box and is private.
+                return ((base_init_->getParent() == bobox_box) || (base_init_->getAccess() != AS_private));
             }
 
             if (!init_->hasBody())
             {
-                // (global.3) Method can't access definition of init_impl() overriden function.
+                // (global.3) Method can't access definition of init_impl().
                 return false;
             }
 
@@ -720,6 +728,8 @@ namespace bobopt
 
             bool update_source = false;
 
+            endl_ = detect_line_end(sm, box_);
+
             std::string prefetch_source;
             const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
             for (auto named_input : to_prefetch)
@@ -727,7 +737,7 @@ namespace bobopt
                 CXXMethodDecl* input_decl = get_input(named_input);
                 BOBOPT_ASSERT(input_decl != nullptr);
 
-                std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
                 if (verbose)
                 {
                     emit_input_declaration(input_decl);
@@ -740,33 +750,24 @@ namespace bobopt
 
                         diag.emit(diag.get_message_call_expr(source_message::info, call_expr, "used here:"));
                     }
-                    llvm::outs() << '\n';
+                    llvm::outs() << endl_;
 
                     diag.emit(diag.get_message_decl(source_message::suggestion, init_, "prefetch input in init:"));
 
                     if (get_optimizer().get_mode() == MODE_INTERACTIVE)
                     {
-                        char answer = 0;
-                        while ((answer != 'y') && (answer != 'n'))
-                        {
-                            llvm::outs() << "Do you wish to update source with this call [y/n]?: ";
-                            llvm::outs().flush();
-                            std::cin.get(answer);
-                            answer = static_cast<char>(tolower(answer));
-                        }
-
-                        if (answer == 'y')
+                        if (ask_yesno("Do you wish to add call?"))
                         {
                             update_source = true;
-                            prefetch_source += '\n' + body_indent + prefetch_call_source;
+                            prefetch_source += endl_ + body_indent + prefetch_call_source;
                         }
 
-                        llvm::outs() << "\n\n";
+                        llvm::outs() << endl_ << endl_;
                     }
-                    else
-                    {
-                        prefetch_source += '\n' + body_indent + prefetch_call_source;
-                    }
+                }
+                else
+                {
+                    prefetch_source += endl_ + body_indent + prefetch_source;
                 }
             }
 
@@ -774,7 +775,7 @@ namespace bobopt
             {
                 if (!body->body_empty())
                 {
-                    prefetch_source += '\n';
+                    prefetch_source += endl_;
                 }
 
                 SourceLocation location = Lexer::getLocForEndOfToken(body->getLBracLoc(), 0, sm, get_optimizer().get_compiler().getLangOpts());
@@ -782,13 +783,79 @@ namespace bobopt
             }
         }
 
-        /// \brief Create overriden \c init_impl() implementation, calling base and prefething input.
+        /// \brief Create overriden \c init_impl() implementation, calling base and prefetching input.
         void prefetch::insert_init_impl(const named_inputs_type& to_prefetch, const detail::body_collector& used)
         {
-            BOBOPT_UNUSED_EXPRESSION(to_prefetch);
-            BOBOPT_UNUSED_EXPRESSION(used);
+            auto& sm = get_optimizer().get_compiler().getSourceManager();
 
             const std::string declaration = "virtual void init_impl() override";
+            line_indent_ = detect_line_indent(sm, box_);
+            decl_indent_ = detect_method_decl_indent(sm, box_);
+            endl_ = detect_line_end(sm, box_);
+
+            const bool verbose = get_optimizer().verbose();
+
+            if (verbose)
+            {
+                emit_header();
+                emit_box_declaration();
+            }
+
+            const std::string box_indent_ = decl_indent(sm, box_);
+            const std::string body_indent = decl_indent_ + line_indent_;
+            std::string implementation = box_indent_ + "public:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
+
+            BOBOPT_ASSERT(base_init_ != nullptr);
+            if (base_init_->getParent() != get_optimizer().get_bobox_box())
+            {
+                implementation += body_indent + base_init_->getParent()->getQualifiedNameAsString() + "::init_impl();" + endl_;
+            }
+
+            bool update_source = false;
+
+            const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
+            for (const auto& named_input : to_prefetch)
+            {
+                CXXMethodDecl* input_decl = get_input(named_input);
+                BOBOPT_ASSERT(input_decl != nullptr);
+
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
+                if (verbose)
+                {
+                    emit_input_declaration(input_decl);
+
+                    auto locations = used.get_locations(named_input);
+                    for (auto location : locations)
+                    {
+                        const CallExpr* call_expr = location.get<CallExpr>();
+                        BOBOPT_ASSERT(call_expr != nullptr);
+
+                        diag.emit(diag.get_message_call_expr(source_message::info, call_expr, "used here:"));
+                    }
+                    llvm::outs() << endl_;
+
+                    if (get_optimizer().get_mode() == MODE_INTERACTIVE)
+                    {
+                        if (ask_yesno("Do you wish to add call to newly created init_impl()?"))
+                        {
+                            update_source = true;
+                            implementation += body_indent + prefetch_call_source + endl_;
+                        }
+                    }
+                }
+                else
+                {
+                    implementation += body_indent + prefetch_call_source + endl_;
+                }
+            }
+
+            if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
+            {
+                implementation += decl_indent_ + "}" + endl_;
+
+                SourceLocation location = box_->getRBraceLoc();
+                replacements_->insert(Replacement(sm, location, 0, implementation));
+            }
         }
 
         /// \brief Access input member function declaration to access input by name.

@@ -30,6 +30,4 @@ namespace bobopt
         return false;
     }
 
-    
-
 } // namespace

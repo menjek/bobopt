@@ -9,6 +9,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
+#include <string>
 
 #include BOBOPT_INLINE_IN_SOURCE(bobopt_optimizer)
 
@@ -19,7 +20,51 @@ using namespace clang::tooling;
 namespace bobopt
 {
 
+    // Helpers.
+    //==========================================================================
+    static CXXRecordDecl* lookup_box(CXXRecordDecl* box, const std::string& name)
+    {
+        if (box->getQualifiedNameAsString() == name)
+        {
+            return box;
+        }
+
+        for (auto it = box->bases_begin(), end = box->bases_end(); it != end; ++it)
+        {
+            CXXRecordDecl* decl = it->getType()->getAsCXXRecordDecl();
+            if (decl != nullptr)
+            {
+                CXXRecordDecl* result = lookup_box(decl, name);
+                if (result != nullptr)
+                {
+                    return result;
+                }
+            }
+        }
+
+        for (auto it = box->vbases_begin(), end = box->vbases_end(); it != end; ++it)
+        {
+            CXXRecordDecl* decl = it->getType()->getAsCXXRecordDecl();
+            if (decl != nullptr)
+            {
+                CXXRecordDecl* result = lookup_box(decl, name);
+                if (result != nullptr)
+                {
+                    return result;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    // Constants.
+    //==========================================================================
+
     const DeclarationMatcher optimizer::BOX_MATCHER = recordDecl(isDerivedFrom("bobox::basic_box")).bind("box");
+
+    // Optimizer.
+    //==========================================================================
 
     optimizer::optimizer(modes mode, Replacements* replacements) : optimizer(mode, replacements, OL_EXTRA)
     {
@@ -27,6 +72,8 @@ namespace bobopt
 
     optimizer::optimizer(modes mode, Replacements* replacements, levels level)
         : mode_(mode)
+        , bobox_box_(nullptr)
+        , bobox_basic_box_(nullptr)
         , compiler_(nullptr)
         , replacements_(replacements)
         , diagnostic_(nullptr)
@@ -58,17 +105,27 @@ namespace bobopt
 
     void optimizer::run(const MatchFinder::MatchResult& result)
     {
-        // The rest of clang API uses pointer to non-const :(
-        auto box_declaration = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("box"));
-        if (box_declaration != nullptr)
+        auto box_decl = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("box"));
+        if (box_decl != nullptr)
         {
-            // Do not optimize boxes in system header files.
-            if (result.SourceManager->isInSystemHeader(box_declaration->getLocation()))
+            if (result.SourceManager->isInSystemHeader(box_decl->getLocation()))
             {
                 return;
             }
 
-            apply_methods(box_declaration);
+            if (bobox_box_ == nullptr)
+            {
+                bobox_box_ = lookup_box(box_decl, "bobox::box");
+                BOBOPT_ASSERT(bobox_box_ != nullptr);
+            }
+
+            if (bobox_basic_box_ == nullptr)
+            {
+                bobox_basic_box_ = lookup_box(box_decl, "bobox::basic_box");
+                BOBOPT_ASSERT(bobox_basic_box_ != nullptr);
+            }
+
+            apply_methods(box_decl);
         }
     }
 

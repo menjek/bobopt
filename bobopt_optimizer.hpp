@@ -77,6 +77,9 @@ namespace bobopt
         clang::CompilerInstance& get_compiler() const;
         void set_compiler(clang::CompilerInstance* compiler);
 
+        clang::CXXRecordDecl* get_bobox_box() const;
+        clang::CXXRecordDecl* get_bobox_basic_box() const;
+
         virtual void run(const clang::ast_matchers::MatchFinder::MatchResult& result) BOBOPT_OVERRIDE;
 
     private:
@@ -89,11 +92,13 @@ namespace bobopt
         void create_method(method_type method);
         void destroy_method(method_type method);
 
-        void apply_methods(clang::CXXRecordDecl* box_declaration) const;
+        void apply_methods(clang::CXXRecordDecl* box_decl) const;
 
         static method_iterator_pair get_level_methods(levels level);
 
         modes mode_;
+        clang::CXXRecordDecl* bobox_box_;
+        clang::CXXRecordDecl* bobox_basic_box_;
         clang::CompilerInstance* compiler_;
         clang::tooling::Replacements* replacements_;
         std::unique_ptr<diagnostic> diagnostic_;

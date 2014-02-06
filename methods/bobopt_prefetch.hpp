@@ -85,6 +85,8 @@ namespace bobopt
         ///   Rationale: Nothing to optimize.
         /// - (global.3) Optimizer can't access definition of overriden \c init_impl() function.
         ///   Rationale: There's definition somewhere, but optimizer won't be able to put anything there + ODR.
+        /// - (global.4) Corresponding method is not the one from bobox::box and is private.
+        ///   Rationale: It's not possible to call such method and that would change code semantic.
         ///
         /// Method doesn't optimize \b single input if:
         /// - (single.1) ...
@@ -118,7 +120,7 @@ namespace bobopt
             void collect_inputs();
             void collect_functions();
 
-            bool analyze_init(detail::init_collector& prefetched) const;
+            bool analyze_init(detail::init_collector& prefetched);
             void analyze_sync(detail::body_collector& used) const;
             void analyze_body(detail::body_collector& used) const;
             void insert_into_body(const named_inputs_type& to_prefetch, const detail::body_collector& used);
@@ -136,12 +138,13 @@ namespace bobopt
 
             inputs_type inputs_;
             init_function_type init_;
+            init_function_type base_init_;
             sync_function_type sync_;
             body_function_type body_;
 
             std::string decl_indent_;
             std::string line_indent_;
-            std::string line_end_;
+            std::string endl_;
 
             // constants:
             static const std::string BOX_INIT_FUNCTION_NAME;

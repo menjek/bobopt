@@ -8,7 +8,7 @@
 namespace bobopt
 {
 
-    // indent implementation.
+    // Formatting.
     //==========================================================================
 
     BOBOPT_INLINE std::string decl_indent(const clang::SourceManager& sm, const clang::Decl* decl)

@@ -70,6 +70,16 @@ namespace bobopt
         diagnostic_ = make_unique<diagnostic>(*compiler_);
     }
 
+    BOBOPT_INLINE clang::CXXRecordDecl* optimizer::get_bobox_box() const
+    {
+        return bobox_box_;
+    }
+
+    BOBOPT_INLINE clang::CXXRecordDecl* optimizer::get_bobox_basic_box() const
+    {
+        return bobox_basic_box_;
+    }
+
     BOBOPT_INLINE clang::CompilerInstance& optimizer::get_compiler() const
     {
         return *compiler_;

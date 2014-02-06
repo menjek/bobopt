@@ -42,7 +42,6 @@ namespace bobopt
     /// \brief Tests whether member function overrides bobox basic box virtual member function.
     bool overrides(const clang::CXXMethodDecl* method_decl, const std::string& parent_name);
 
-
     // ast_match_finder definition.
     //==========================================================================
 
@@ -78,7 +77,6 @@ namespace bobopt
         clang::ast_matchers::MatchFinder* match_finder_;
         clang::ASTContext* context_;
     };
-
 
     namespace detail
     {
@@ -150,7 +148,6 @@ namespace bobopt
         }
 
     } // namespace detail
-
 
     // ast_nodes_collector definition.
     //==========================================================================
@@ -228,7 +225,7 @@ namespace bobopt
         bool VisitType(clang::Type* type)
         {
             BOBOPT_ASSERT(type != nullptr);
-            
+
             NodeT* node = llvm::dyn_cast<NodeT>(stmt);
             if (node != nullptr)
             {
@@ -238,13 +235,13 @@ namespace bobopt
         }
     };
 
-    template<typename NodeT, typename Distinctizer>
+    template <typename NodeT, typename Distinctizer>
     auto begin(const ast_nodes_collector<NodeT, Distinctizer>& collector) -> decltype(collector.nodes_begin())
     {
         return collector.nodes_begin();
     }
 
-    template<typename NodeT, typename Distinctizer>
+    template <typename NodeT, typename Distinctizer>
     auto end(const ast_nodes_collector<NodeT, Distinctizer>& collector) -> decltype(collector.nodes_end())
     {
         return collector.nodes_end();

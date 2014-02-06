@@ -20,6 +20,16 @@ namespace clang
 namespace bobopt
 {
 
+    // Input.
+    //==========================================================================
+    
+    /// \brief Ask yes/no question to user.
+    bool ask_yesno(const char* message);
+
+
+    // Formatting.
+    //==========================================================================
+
     /// \brief Get indent string for specific location.
     std::string location_indent(const clang::SourceManager& sm, clang::SourceLocation location);
     /// \brief Get indent string for specific declaration. Function just forwards to \c location_indent.
