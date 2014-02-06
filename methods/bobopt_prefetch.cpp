@@ -530,18 +530,18 @@ namespace bobopt
             analyze_sync(used);
             analyze_body(used);
 
-            named_inputs_type used_names = used.get_values();
+            names_type used_names = used.get_values();
             if (used_names.empty())
             {
                 return;
             }
 
-            named_inputs_type prefetched_names = prefetched.get_values();
+            names_type prefetched_names = prefetched.get_values();
 
             std::sort(std::begin(prefetched_names), std::end(prefetched_names));
             std::sort(std::begin(used_names), std::end(used_names));
 
-            named_inputs_type to_prefetch_names;
+            names_type to_prefetch_names;
             to_prefetch_names.reserve(used_names.size());
 
             std::set_difference(std::begin(used_names),
@@ -699,7 +699,7 @@ namespace bobopt
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
         /// \param should_prefetch Holder of source locations for reasoning why inputs should be prefetched.
-        void prefetch::insert_into_body(const named_inputs_type& to_prefetch, const detail::body_collector& used)
+        void prefetch::insert_into_body(const names_type& to_prefetch, const detail::body_collector& used)
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
@@ -784,7 +784,7 @@ namespace bobopt
         }
 
         /// \brief Create overriden \c init_impl() implementation, calling base and prefetching input.
-        void prefetch::insert_init_impl(const named_inputs_type& to_prefetch, const detail::body_collector& used)
+        void prefetch::insert_init_impl(const names_type& to_prefetch, const detail::body_collector& used)
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
 

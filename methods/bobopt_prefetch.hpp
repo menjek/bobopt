@@ -105,15 +105,8 @@ namespace bobopt
             BOBOPT_NONCOPYMOVABLE(prefetch);
 
             // typedefs:
-            typedef std::vector<clang::CXXMethodDecl*> inputs_type;
-            typedef std::vector<std::string> named_inputs_type;
-
-            typedef clang::CXXMethodDecl* init_function_type;
-            typedef clang::CXXMethodDecl* sync_function_type;
-            typedef clang::CXXMethodDecl* body_function_type;
-            typedef std::vector<clang::CXXMethodDecl*> init_functions_type;
-            typedef std::vector<clang::CXXMethodDecl*> body_functions_type;
-
+            typedef std::vector<std::string> names_type;
+            
             // helpers:
             void prepare();
 
@@ -123,8 +116,8 @@ namespace bobopt
             bool analyze_init(detail::init_collector& prefetched);
             void analyze_sync(detail::body_collector& used) const;
             void analyze_body(detail::body_collector& used) const;
-            void insert_into_body(const named_inputs_type& to_prefetch, const detail::body_collector& used);
-            void insert_init_impl(const named_inputs_type& to_prefetch, const detail::body_collector& used);
+            void insert_into_body(const names_type& to_prefetch, const detail::body_collector& used);
+            void insert_init_impl(const names_type& to_prefetch, const detail::body_collector& used);
 
             clang::CXXMethodDecl* get_input(const std::string& name) const;
 
@@ -136,11 +129,11 @@ namespace bobopt
             clang::CXXRecordDecl* box_;
             clang::tooling::Replacements* replacements_;
 
-            inputs_type inputs_;
-            init_function_type init_;
-            init_function_type base_init_;
-            sync_function_type sync_;
-            body_function_type body_;
+            std::vector<clang::CXXMethodDecl*> inputs_;
+            clang::CXXMethodDecl* init_;
+            clang::CXXMethodDecl* base_init_;
+            clang::CXXMethodDecl* sync_;
+            clang::CXXMethodDecl* body_;
 
             std::string decl_indent_;
             std::string line_indent_;
