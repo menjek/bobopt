@@ -788,7 +788,7 @@ namespace bobopt
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
 
-            const std::string declaration = "virtual void init_impl() override";
+            const std::string declaration = "virtual void init_impl()";
             line_indent_ = detect_line_indent(sm, box_);
             decl_indent_ = detect_method_decl_indent(sm, box_);
             endl_ = detect_line_end(sm, box_);
@@ -803,7 +803,7 @@ namespace bobopt
 
             const std::string box_indent_ = decl_indent(sm, box_);
             const std::string body_indent = decl_indent_ + line_indent_;
-            std::string implementation = box_indent_ + "public:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
+            std::string implementation = box_indent_ + "protected:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
 
             BOBOPT_ASSERT(base_init_ != nullptr);
             if (base_init_->getParent() != get_optimizer().get_bobox_box())

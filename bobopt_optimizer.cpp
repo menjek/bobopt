@@ -72,7 +72,7 @@ namespace bobopt
         if ((user_box_decl != nullptr) && user_box_decl->isThisDeclarationADefinition())
         {
             // Compilation error.
-            if ((bobox_box_ != nullptr) || (bobox_basic_box_ != nullptr))
+            if ((bobox_box_ == nullptr) || (bobox_basic_box_ == nullptr))
             {
                 return;
             }
