@@ -50,7 +50,7 @@ namespace bobopt
 
     std::string location_indent(const SourceManager& sm, SourceLocation location)
     {
-        auto buffer = sm.getBuffer(sm.getFileID(location));
+        auto* buffer = sm.getBuffer(sm.getFileID(location));
         const auto* bufferStart = buffer->getBufferStart();
         const auto* locationStart = sm.getCharacterData(location);
 
@@ -161,9 +161,24 @@ namespace bobopt
 
     std::string detect_line_end(clang::SourceManager& sm, const clang::CXXRecordDecl* decl)
     {
-        BOBOPT_UNUSED_EXPRESSION(sm);
-        BOBOPT_UNUSED_EXPRESSION(decl);
-        BOBOPT_TODO("Implement.")
+        const auto location = decl->getLocation();
+        const char* data = sm.getCharacterData(location);
+
+        auto* buffer = sm.getBuffer(sm.getFileID(location));
+        const char* failsafe = buffer->getBufferEnd();
+
+        const char* endl = std::find(data + 1, failsafe, '\n');
+        if (endl == failsafe)
+        {
+            return unix_endl;
+        }
+
+        --endl;
+        if (*endl == '\r')
+        {
+            return windows_endl;
+        }
+
         return unix_endl;
     }
 

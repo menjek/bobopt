@@ -25,6 +25,11 @@ namespace bobopt
             {
                 return true;
             }
+
+            if (overrides(overridden, parent_name))
+            {
+                return true;
+            }
         }
 
         return false;
