@@ -182,13 +182,4 @@ namespace bobopt
         return unix_endl;
     }
 
-    document_indent detect_document_indent(clang::SourceManager& sm, const clang::CXXRecordDecl* decl)
-    {
-        document_indent document;
-        document.method_ = detect_method_decl_indent(sm, decl);
-        document.line_ = detect_line_indent(sm, decl);
-        document.endl_ = detect_line_end(sm, decl);
-        return document;
-    }
-
 } // namespace

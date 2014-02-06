@@ -21,4 +21,13 @@ namespace bobopt
         return location_indent(sm, stmt->getLocStart());
     }
 
+    BOBOPT_INLINE document_indent detect_document_indent(clang::SourceManager& sm, const clang::CXXRecordDecl* decl)
+    {
+        document_indent document;
+        document.method_ = detect_method_decl_indent(sm, decl);
+        document.line_ = detect_line_indent(sm, decl);
+        document.endl_ = detect_line_end(sm, decl);
+        return document;
+    }
+
 } // bobopt
