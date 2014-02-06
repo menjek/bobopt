@@ -53,7 +53,9 @@ namespace bobopt
     {
     public:
 
-        static const clang::ast_matchers::DeclarationMatcher BOX_MATCHER;
+        static const clang::ast_matchers::DeclarationMatcher BOBOX_BOX_MATCHER;
+        static const clang::ast_matchers::DeclarationMatcher BOBOX_BASIC_BOX_MATCHER;
+        static const clang::ast_matchers::DeclarationMatcher USER_BOX_MATCHER;
 
         optimizer(modes mode, clang::tooling::Replacements* replacements);
         optimizer(modes mode, clang::tooling::Replacements* replacements, levels level);

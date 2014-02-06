@@ -19,49 +19,12 @@ using namespace clang::tooling;
 
 namespace bobopt
 {
-
-    // Helpers.
-    //==========================================================================
-    static CXXRecordDecl* lookup_box(CXXRecordDecl* box, const std::string& name)
-    {
-        if (box->getQualifiedNameAsString() == name)
-        {
-            return box;
-        }
-
-        for (auto it = box->bases_begin(), end = box->bases_end(); it != end; ++it)
-        {
-            CXXRecordDecl* decl = it->getType()->getAsCXXRecordDecl();
-            if (decl != nullptr)
-            {
-                CXXRecordDecl* result = lookup_box(decl, name);
-                if (result != nullptr)
-                {
-                    return result;
-                }
-            }
-        }
-
-        for (auto it = box->vbases_begin(), end = box->vbases_end(); it != end; ++it)
-        {
-            CXXRecordDecl* decl = it->getType()->getAsCXXRecordDecl();
-            if (decl != nullptr)
-            {
-                CXXRecordDecl* result = lookup_box(decl, name);
-                if (result != nullptr)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return nullptr;
-    }
-
     // Constants.
     //==========================================================================
 
-    const DeclarationMatcher optimizer::BOX_MATCHER = recordDecl(isDerivedFrom("bobox::basic_box")).bind("box");
+    const DeclarationMatcher optimizer::BOBOX_BOX_MATCHER = recordDecl(hasName("bobox::box")).bind("bobox_box");
+    const DeclarationMatcher optimizer::BOBOX_BASIC_BOX_MATCHER = recordDecl(hasName("bobox::basic_box")).bind("bobox_basic_box");
+    const DeclarationMatcher optimizer::USER_BOX_MATCHER = recordDecl(isDerivedFrom("bobox::basic_box")).bind("user_box");
 
     // Optimizer.
     //==========================================================================
@@ -105,27 +68,36 @@ namespace bobopt
 
     void optimizer::run(const MatchFinder::MatchResult& result)
     {
-        auto box_decl = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("box"));
-        if (box_decl != nullptr)
+        auto user_box_decl = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("user_box"));
+        if ((user_box_decl != nullptr) && user_box_decl->isThisDeclarationADefinition())
         {
-            if (result.SourceManager->isInSystemHeader(box_decl->getLocation()))
+            // Compilation error.
+            if ((bobox_box_ != nullptr) || (bobox_basic_box_ != nullptr))
             {
                 return;
             }
 
-            if (bobox_box_ == nullptr)
+            // Do not edit system files.
+            if (result.SourceManager->isInSystemHeader(user_box_decl->getLocation()))
             {
-                bobox_box_ = lookup_box(box_decl, "bobox::box");
-                BOBOPT_ASSERT(bobox_box_ != nullptr);
+                return;
             }
 
-            if (bobox_basic_box_ == nullptr)
-            {
-                bobox_basic_box_ = lookup_box(box_decl, "bobox::basic_box");
-                BOBOPT_ASSERT(bobox_basic_box_ != nullptr);
-            }
+            apply_methods(user_box_decl);
+            return;
+        }
 
-            apply_methods(box_decl);
+        auto bobox_basic_box_decl = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("bobox_basic_box"));
+        if ((bobox_basic_box_decl != nullptr) && bobox_basic_box_decl->isThisDeclarationADefinition())
+        {
+            bobox_basic_box_ = bobox_basic_box_decl;
+            return;
+        }
+
+        auto bobox_box_decl = const_cast<CXXRecordDecl*>(result.Nodes.getNodeAs<CXXRecordDecl>("bobox_box"));
+        if ((bobox_box_decl != nullptr) && bobox_box_decl->isThisDeclarationADefinition())
+        {
+            bobox_box_ = bobox_box_decl;
         }
     }
 

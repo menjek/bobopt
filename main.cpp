@@ -133,7 +133,9 @@ int main(int argc, const char* argv[])
     bobopt::optimizer optimizer(opt_mode, &tool.getReplacements());
 
     MatchFinder finder;
-    finder.addMatcher(bobopt::optimizer::BOX_MATCHER, &optimizer);
+    finder.addMatcher(bobopt::optimizer::BOBOX_BOX_MATCHER, &optimizer);
+    finder.addMatcher(bobopt::optimizer::BOBOX_BASIC_BOX_MATCHER, &optimizer);
+    finder.addMatcher(bobopt::optimizer::USER_BOX_MATCHER, &optimizer);
 
     bobopt::optimizer_frontend_action_factory<MatchFinder> frontend_action_factory(&finder, &optimizer);
     int result = tool.runAndSave(&frontend_action_factory);
