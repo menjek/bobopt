@@ -154,12 +154,21 @@ namespace bobopt
                     unsigned complexity;
                 };
 
-                bool yield;
+                /// \brief Determines yield state of block.
+                enum class yield_state
+                {
+                    No,
+                    Planned,
+                    Present
+                };
+
+                yield_state yield;
                 std::vector<path_data_type> paths;
                 std::unordered_map<unsigned, unsigned> loops;
             };
 
             typedef std::unordered_map<unsigned, block_data_type> data_type;
+            typedef std::vector<std::pair<unsigned, block_data_type::yield_state>> yields_type;
 
             static block_data_type::path_data_type make_path_data(unsigned id, unsigned complexity)
             {
@@ -235,7 +244,7 @@ namespace bobopt
                 {
                 }
 
-                data_type build(const std::vector<unsigned>& yields = std::vector<unsigned>())
+                data_type build(const yields_type& yields = yields_type())
                 {
                     yields_ = yields;
 
@@ -310,9 +319,17 @@ namespace bobopt
                     return id_++;
                 }
 
-                BOBOPT_INLINE bool force_yield(unsigned id) const
+                BOBOPT_INLINE block_data_type::yield_state get_block_yield(unsigned id) const
                 {
-                    return std::binary_search(std::begin(yields_), std::end(yields_), id);
+                    for (const auto& block : yields_)
+                    {
+                        if (block.first == id)
+                        {
+                            return block.second;
+                        }
+                    }
+
+                    return block_data_type::yield_state::No;
                 }
 
                 BOBOPT_INLINE bool check_path_stack(unsigned id) const
@@ -327,8 +344,6 @@ namespace bobopt
                     id_ = 0;
                     path_stack_.clear();
                     loop_stack_.clear();
-
-                    std::sort(std::begin(yields_), std::end(yields_));
                 }
 
                 void postprocess()
@@ -360,10 +375,10 @@ namespace bobopt
                     BOBOPT_UNUSED_EXPRESSION(guard);
 
                     auto& block_data = data_[block_id];
-                    block_data.yield = force_yield(block_id);
+                    block_data.yield = get_block_yield(block_id);
 
                     unsigned block_complexity = 0u;
-                    if (!block_data.yield)
+                    if (block_data.yield == block_data_type::yield_state::No)
                     {
                         for (const CFGElement& element : block)
                         {
@@ -375,13 +390,13 @@ namespace bobopt
                             if (stmt_comlexity == 0u)
                             {
                                 block_complexity = 0u;
-                                block_data.yield = true;
+                                block_data.yield = block_data_type::yield_state::Present;
                                 break;
                             }
                         }
                     }
 
-                    if (block_data.yield)
+                    if (block_data.yield != block_data_type::yield_state::No)
                     {
                         // Save ending path.
                         block_data.paths.push_back(make_path_data(path, complexity));
@@ -492,23 +507,23 @@ namespace bobopt
 
                 data_type data_;
                 unsigned id_;
-                std::vector<unsigned> yields_;
+                yields_type yields_;
                 std::vector<unsigned> path_stack_;
                 std::vector<unsigned> loop_stack_;
             }; // cfg_data_builder
 
             std::pair<data_type, bool> optimize_step(const data_type& src_data)
             {
-                std::vector<unsigned> yields;
+                yields_type yields;
 
                 // Find all blocks where paths end, i.e., exit and yield blocks.
                 std::vector<const block_data_type*> end_blocks;
                 for (const auto& block : src_data)
                 {
-                    if (block.second.yield)
+                    if (block.second.yield != block_data_type::yield_state::No)
                     {
                         end_blocks.push_back(&(block.second));
-                        yields.push_back(block.first);
+                        yields.push_back(std::make_pair(block.first, block.second.yield));
                     }
                 }
 
@@ -523,7 +538,7 @@ namespace bobopt
                 bool optimized = false;
                 for (const auto& block : src_data)
                 {
-                    if (block.second.yield)
+                    if (block.second.yield != block_data_type::yield_state::No)
                     {
                         continue;
                     }
@@ -546,7 +561,7 @@ namespace bobopt
                 // destination data structure and recalculate cfg.
                 if (optimized)
                 {
-                    yields.push_back(block_id);
+                    yields.push_back(std::make_pair(block_id, block_data_type::yield_state::Planned));
 
                     cfg_data_builder builder(cfg_);
                     return std::make_pair(builder.build(yields), true);
@@ -617,7 +632,7 @@ namespace bobopt
             {
                 auto exit_it = data.find(cfg_.getExit().getBlockID());
                 BOBOPT_ASSERT(exit_it != std::end(data));
-                BOBOPT_ASSERT(!(exit_it->second.yield));
+                BOBOPT_ASSERT(exit_it->second.yield != block_data_type::yield_state::Planned);
 
                 unsigned distance = 0u;
                 unsigned count = 0u;
@@ -633,7 +648,7 @@ namespace bobopt
                 // Paths ending in yielded blocks.
                 for (const auto& block : data)
                 {
-                    if (block.second.yield)
+                    if (block.second.yield != block_data_type::yield_state::No)
                     {
                         for (const auto& path : block.second.paths)
                         {
