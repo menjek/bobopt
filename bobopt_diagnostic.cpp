@@ -6,7 +6,7 @@
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/raw_ostream.h"
 #include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
+#include "clang/AST/Stmt.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
 #include <clang/bobopt_clang_epilog.hpp>
@@ -120,9 +120,9 @@ namespace bobopt
         return source_message(type, range, SourceRange(location, location_end), message);
     }
 
-    source_message diagnostic::get_message_call_expr(source_message::types type, const CallExpr* call_expr, const std::string& message) const
+    source_message diagnostic::get_message_stmt(source_message::types type, const Stmt* stmt, const std::string& message) const
     {
-        return source_message(type, call_expr->getSourceRange(), call_expr->getSourceRange(), message);
+        return source_message(type, stmt->getSourceRange(), stmt->getSourceRange(), message);
     }
 
     void diagnostic::emit_header(const source_message& message) const
@@ -171,13 +171,13 @@ namespace bobopt
 
     void diagnostic::emit_source(const source_message& message, source_modes mode) const
     {
-        SourceManager& source_manager = compiler_.getSourceManager();
+        auto& sm = compiler_.getSourceManager();
 
-        const char* range_begin = source_manager.getCharacterData(message.get_range().getBegin());
-        const char* range_end = source_manager.getCharacterData(message.get_range().getEnd());
+        const char* range_begin = sm.getCharacterData(message.get_range().getBegin());
+        const char* range_end = sm.getCharacterData(message.get_range().getEnd());
 
-        size_t point_offset_begin = source_manager.getCharacterData(message.get_point_range().getBegin()) - range_begin;
-        size_t point_offset_end = source_manager.getCharacterData(message.get_point_range().getEnd()) - range_begin;
+        size_t point_offset_begin = sm.getCharacterData(message.get_point_range().getBegin()) - range_begin;
+        size_t point_offset_end = sm.getCharacterData(message.get_point_range().getEnd()) - range_begin;
 
         size_t offset_begin = 0;
         std::string range_string(range_begin, range_end);

@@ -753,7 +753,7 @@ namespace bobopt
                 return;
             }
 
-            optimize_body(body, *cfg);
+            optimize_body(method, body, *cfg);
         }
 
         typedef std::unordered_map<unsigned, const CFGBlock*> id_block_map;
@@ -788,8 +788,23 @@ namespace bobopt
             return result;
         }
 
+        /// \brief Emit box optimization header.
+        static void emit_header(CXXRecordDecl* decl)
+        {
+            llvm::raw_ostream& out = llvm::outs();
+
+            out.changeColor(llvm::raw_ostream::WHITE, true);
+            out << "[yield complex]";
+            out.resetColor();
+            out << " optimization of box ";
+            out.changeColor(llvm::raw_ostream::MAGENTA, true);
+            out << decl->getNameAsString();
+            out.resetColor();
+            out << "\n\n";
+        }
+
         /// \brief Optimize member function body represented by CFG.
-        void yield_complex::optimize_body(CompoundStmt* body, const CFG& cfg)
+        void yield_complex::optimize_body(CXXMethodDecl* method, CompoundStmt* body, const CFG& cfg)
         {
             cfg_data data(cfg);
             if (!data.optimize())
@@ -814,6 +829,14 @@ namespace bobopt
             std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
 
             endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
+
+            if (get_optimizer().verbose())
+            {
+                emit_header(box_);
+
+                auto& diag = get_optimizer().get_diagnostic();
+                diag.emit(diag.get_message_decl(source_message::types::info, method, "method takes too long time on some paths:"));
+            }
 
             // Insert yields.
             for (auto id : ids)
@@ -847,13 +870,30 @@ namespace bobopt
         } // namespace
 
         /// \brief Final phase for inserting \c yield() call to source code.
-        void yield_complex::inserter_invoke(SourceLocation location) const
+        void yield_complex::inserter_invoke(Stmt* stmt, SourceLocation location) const
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
 
-            std::string yield_code = "yield();" + endl_ + location_indent(sm, location);
+            bool update_code = false;
+            if (get_optimizer().verbose())
+            {
+                auto& diag = get_optimizer().get_diagnostic();
+                diag.emit(diag.get_message_stmt(source_message::types::suggestion, stmt, "placing yield() call just before statement:"));
 
-            replacements_->insert(Replacement(sm, location, 0, yield_code));
+                if (get_optimizer().get_mode() == MODE_INTERACTIVE)
+                {
+                    if (ask_yesno("Do you want to place yield() call to code?"))
+                    {
+                        update_code = true;
+                    }
+                }
+            }
+
+            if (update_code || (get_optimizer().get_mode() == MODE_BUILD))
+            {
+                std::string yield_code = "yield();" + endl_ + location_indent(sm, location);
+                replacements_->insert(Replacement(sm, location, 0, yield_code));
+            }
         }
 
         /// \brief Helper to analyze subtree of single statement in compound statement.
@@ -866,7 +906,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(if_stmt->getCond()))
                 {
-                    inserter_invoke(if_stmt->getLocStart());
+                    inserter_invoke(if_stmt, if_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -877,7 +917,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(for_stmt->getInit()))
                 {
-                    inserter_invoke(for_stmt->getLocStart());
+                    inserter_invoke(for_stmt, for_stmt->getLocStart());
                     return true;
                 }
 
@@ -885,7 +925,7 @@ namespace bobopt
                 if (!helper1.TraverseStmt(for_stmt->getInc()))
                 {
                     const CompoundStmt* body = llvm::dyn_cast_or_null<const CompoundStmt>(for_stmt->getBody());
-                    inserter_invoke(body->getRBracLoc());
+                    inserter_invoke(for_stmt->getInc(), body->getRBracLoc());
                     return true;
                 }
 
@@ -897,7 +937,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(while_stmt->getCond()))
                 {
-                    inserter_invoke(while_stmt->getLocStart());
+                    inserter_invoke(while_stmt, while_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -908,7 +948,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(switch_stmt->getCond()))
                 {
-                    inserter_invoke(switch_stmt->getLocStart());
+                    inserter_invoke(switch_stmt, switch_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -922,7 +962,7 @@ namespace bobopt
 
             if (!helper.TraverseStmt(dst_stmt))
             {
-                inserter_invoke(dst_stmt->getLocStart());
+                inserter_invoke(dst_stmt, dst_stmt->getLocStart());
                 return true;
             }
 

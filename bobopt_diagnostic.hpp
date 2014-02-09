@@ -18,7 +18,7 @@ namespace clang
 {
     class CompilerInstance;
     class Decl;
-    class CallExpr;
+    class Stmt;
 }
 
 namespace bobopt
@@ -69,7 +69,7 @@ namespace bobopt
 
         // source_message creation.
         source_message get_message_decl(source_message::types type, const clang::Decl* decl, const std::string& message) const;
-        source_message get_message_call_expr(source_message::types type, const clang::CallExpr* call_expr, const std::string& message) const;
+        source_message get_message_stmt(source_message::types type, const clang::Stmt* stmt, const std::string& message) const;
 
     private:
         BOBOPT_NONCOPYMOVABLE(diagnostic);

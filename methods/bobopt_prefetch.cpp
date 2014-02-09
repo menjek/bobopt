@@ -748,7 +748,7 @@ namespace bobopt
                         const CallExpr* call_expr = location.get<CallExpr>();
                         BOBOPT_ASSERT(call_expr != nullptr);
 
-                        diag.emit(diag.get_message_call_expr(source_message::info, call_expr, "used here:"));
+                        diag.emit(diag.get_message_stmt(source_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << endl_;
 
@@ -830,7 +830,7 @@ namespace bobopt
                         const CallExpr* call_expr = location.get<CallExpr>();
                         BOBOPT_ASSERT(call_expr != nullptr);
 
-                        diag.emit(diag.get_message_call_expr(source_message::info, call_expr, "used here:"));
+                        diag.emit(diag.get_message_stmt(source_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << endl_;
 
