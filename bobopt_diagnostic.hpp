@@ -24,9 +24,13 @@ namespace clang
 namespace bobopt
 {
 
-    class source_message
+    /// \brief Holder of all neccessary information to print (Clang-like) diagnostic
+    /// message with piece of source code.
+    class diagnostic_message
     {
     public:
+
+        /// \brief Supported message types.
         enum types
         {
             info,
@@ -35,7 +39,7 @@ namespace bobopt
         };
 
         // create:
-        source_message(types type, clang::SourceRange range, clang::SourceRange point_range, const std::string& message);
+        diagnostic_message(types type, clang::SourceRange range, clang::SourceRange point_range, const std::string& message);
 
         // access:
         types get_type() const;
@@ -52,9 +56,12 @@ namespace bobopt
         std::string message_;
     };
 
+    /// \brief Class responsible for printing diagnostic to application output.
     class diagnostic
     {
     public:
+
+        /// \brief Modes for printing source code.
         enum source_modes
         {
             pointers_only,
@@ -64,12 +71,12 @@ namespace bobopt
         // create:
         explicit diagnostic(clang::CompilerInstance& compiler);
 
-        // message emition.
-        void emit(const source_message& message, source_modes mode = pointers_only) const;
+        // message emition:
+        void emit(const diagnostic_message& message, source_modes mode = pointers_only) const;
 
-        // source_message creation.
-        source_message get_message_decl(source_message::types type, const clang::Decl* decl, const std::string& message) const;
-        source_message get_message_stmt(source_message::types type, const clang::Stmt* stmt, const std::string& message) const;
+        // source_message creation:
+        diagnostic_message get_message_decl(diagnostic_message::types type, const clang::Decl* decl, const std::string& message) const;
+        diagnostic_message get_message_stmt(diagnostic_message::types type, const clang::Stmt* stmt, const std::string& message) const;
 
     private:
         BOBOPT_NONCOPYMOVABLE(diagnostic);
@@ -80,9 +87,13 @@ namespace bobopt
             bool bold;
         };
 
-        void emit_header(const source_message& message) const;
-        void emit_source(const source_message& message, source_modes mode) const;
+        void emit_header(const diagnostic_message& message) const;
+        void emit_source(const diagnostic_message& message, source_modes mode) const;
 
+        // data members:
+        clang::CompilerInstance& compiler_;
+
+        // constants:
         static const console_color LOCATION_COLOR;
         static const console_color POINTERS_COLOR;
         static const console_color INFO_COLOR;
@@ -91,8 +102,6 @@ namespace bobopt
         static const console_color MESSAGE_COLOR;
 
         static const size_t MIN_DESIRED_MESSAGE_SIZE;
-
-        clang::CompilerInstance& compiler_;
     };
 
 } // namespace

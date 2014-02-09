@@ -835,7 +835,7 @@ namespace bobopt
                 emit_header(box_);
 
                 auto& diag = get_optimizer().get_diagnostic();
-                diag.emit(diag.get_message_decl(source_message::types::info, method, "method takes too long time on some paths:"));
+                diag.emit(diag.get_message_decl(diagnostic_message::types::info, method, "method takes too long time on some paths:"));
             }
 
             // Insert yields.
@@ -878,7 +878,7 @@ namespace bobopt
             if (get_optimizer().verbose())
             {
                 auto& diag = get_optimizer().get_diagnostic();
-                diag.emit(diag.get_message_stmt(source_message::types::suggestion, stmt, "placing yield() call just before statement:"));
+                diag.emit(diag.get_message_stmt(diagnostic_message::types::suggestion, stmt, "placing yield() call just before statement:"));
 
                 if (get_optimizer().get_mode() == MODE_INTERACTIVE)
                 {

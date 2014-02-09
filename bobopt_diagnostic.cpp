@@ -2,6 +2,7 @@
 
 #include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
+#include <bobopt_utils.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/raw_ostream.h"
@@ -11,6 +12,7 @@
 #include "clang/Lex/Lexer.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <string>
 
@@ -21,52 +23,40 @@ using namespace clang;
 namespace bobopt
 {
 
-    namespace detail
+    // helpers.
+    //==========================================================================
+
+    /// \brief Read line from string and update this string.
+    static BOBOPT_INLINE std::string read_message_line(std::string& message)
     {
-
-        BOBOPT_INLINE bool in_range(size_t begin, size_t end, size_t offset)
+        size_t nl = message.find_first_of('\n');
+        if (nl != std::string::npos)
         {
-            return (begin <= offset) && (offset < end);
-        }
-
-        BOBOPT_INLINE std::string read_message_line(std::string& message)
-        {
-            size_t nl = message.find_first_of('\n');
-            if (nl != std::string::npos)
-            {
-                std::string result = message.substr(0, nl);
-                message = message.substr(nl + 1);
-                return result;
-            }
-
-            std::string result = message;
-            message.clear();
+            std::string result = message.substr(0, nl);
+            message = message.substr(nl + 1);
             return result;
         }
 
-        std::string create_pointers_line(std::string line, size_t begin, size_t end)
-        {
-            for (size_t i = 0; i < line.size(); ++i)
-            {
-                if (in_range(begin, end, i))
-                {
-                    line[i] = (i == begin) ? '^' : '~';
-                }
-                else
-                {
-                    if (!isspace(line[i]))
-                    {
-                        line[i] = ' ';
-                    }
-                }
-            }
+        std::string result = message;
+        message.clear();
+        return result;
+    }
 
-            return line;
-        }
+    /// \brief Build line of pointers for message.
+    static std::string build_pointers_line(size_t begin, size_t end)
+    {
+        BOBOPT_ASSERT(begin < end);
+
+        std::string result(end, ' ');
+
+        result[begin] = '^';
+        std::fill_n(result.begin() + begin + 1, end - begin - 1, '~');
+
+        return result;
     }
 
     // diagnostic implementation.
-    //==============================================================================
+    //==========================================================================
 
     const diagnostic::console_color diagnostic::LOCATION_COLOR = { llvm::raw_ostream::WHITE, true };
     const diagnostic::console_color diagnostic::POINTERS_COLOR = { llvm::raw_ostream::GREEN, true };
@@ -77,13 +67,15 @@ namespace bobopt
 
     const size_t diagnostic::MIN_DESIRED_MESSAGE_SIZE = 50;
 
-    void diagnostic::emit(const source_message& message, source_modes mode) const
+    /// \brief Emit diagnostic message in desired mode.
+    void diagnostic::emit(const diagnostic_message& message, source_modes mode) const
     {
         emit_header(message);
         emit_source(message, mode);
     }
 
-    source_message diagnostic::get_message_decl(source_message::types type, const clang::Decl* decl, const std::string& message) const
+    /// \brief Create diagnostic message for desired declaration.
+    diagnostic_message diagnostic::get_message_decl(diagnostic_message::types type, const clang::Decl* decl, const std::string& message) const
     {
         SourceManager& source_manager = compiler_.getSourceManager();
         ;
@@ -114,15 +106,17 @@ namespace bobopt
                                                                  source_manager,
                                                                  compiler_.getLangOpts());
 
-        return source_message(type, range, SourceRange(location, location_end), message);
+        return diagnostic_message(type, range, SourceRange(location, location_end), message);
     }
 
-    source_message diagnostic::get_message_stmt(source_message::types type, const Stmt* stmt, const std::string& message) const
+    /// \brief Create diagnostic message for desired statement.
+    diagnostic_message diagnostic::get_message_stmt(diagnostic_message::types type, const Stmt* stmt, const std::string& message) const
     {
-        return source_message(type, stmt->getSourceRange(), stmt->getSourceRange(), message);
+        return diagnostic_message(type, stmt->getSourceRange(), stmt->getSourceRange(), message);
     }
 
-    void diagnostic::emit_header(const source_message& message) const
+    /// \brief Emit header message with source code location, type and user defined message.
+    void diagnostic::emit_header(const diagnostic_message& message) const
     {
         llvm::raw_ostream& out = llvm::outs();
 
@@ -133,21 +127,21 @@ namespace bobopt
         // Print message type.
         switch (message.get_type())
         {
-        case source_message::info:
+        case diagnostic_message::info:
         {
             out.changeColor(INFO_COLOR.fg_color, INFO_COLOR.bold);
             out << "info: ";
             break;
         }
 
-        case source_message::suggestion:
+        case diagnostic_message::suggestion:
         {
             out.changeColor(SUGGESTION_COLOR.fg_color, SUGGESTION_COLOR.bold);
             out << "suggestion: ";
             break;
         }
 
-        case source_message::optimization:
+        case diagnostic_message::optimization:
         {
             out.changeColor(OPTIMIZATION_COLOR.fg_color, OPTIMIZATION_COLOR.bold);
             out << "optimization: ";
@@ -166,7 +160,8 @@ namespace bobopt
         out << '\n';
     }
 
-    void diagnostic::emit_source(const source_message& message, source_modes mode) const
+    /// \brief Emit source code message part.
+    void diagnostic::emit_source(const diagnostic_message& message, source_modes mode) const
     {
         auto& sm = compiler_.getSourceManager();
 
@@ -189,10 +184,10 @@ namespace bobopt
         std::string range_string(range_begin, range_end);
         while (!range_string.empty())
         {
-            std::string line = detail::read_message_line(range_string);
+            std::string line = read_message_line(range_string);
             size_t offset_end = offset_begin + line.size();
 
-            if (detail::in_range(offset_begin, offset_end, point_offset_begin) || detail::in_range(offset_begin, offset_end, point_offset_end))
+            if (in_range(offset_begin, offset_end, point_offset_begin) || in_range(offset_begin, offset_end, point_offset_end))
             {
                 llvm::outs() << line << '\n';
 
@@ -200,7 +195,7 @@ namespace bobopt
                 size_t pointers_end = (point_offset_end < offset_end) ? point_offset_end : offset_end;
 
                 llvm::outs().changeColor(POINTERS_COLOR.fg_color, POINTERS_COLOR.bold);
-                llvm::outs() << detail::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
+                llvm::outs() << build_pointers_line(pointers_begin, pointers_end) << '\n';
                 llvm::outs().resetColor();
             }
             else

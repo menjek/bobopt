@@ -748,11 +748,11 @@ namespace bobopt
                         const CallExpr* call_expr = location.get<CallExpr>();
                         BOBOPT_ASSERT(call_expr != nullptr);
 
-                        diag.emit(diag.get_message_stmt(source_message::info, call_expr, "used here:"));
+                        diag.emit(diag.get_message_stmt(diagnostic_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << endl_;
 
-                    diag.emit(diag.get_message_decl(source_message::suggestion, init_, "prefetch input in init:"));
+                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, init_, "prefetch input in init:"));
 
                     if (get_optimizer().get_mode() == MODE_INTERACTIVE)
                     {
@@ -830,7 +830,7 @@ namespace bobopt
                         const CallExpr* call_expr = location.get<CallExpr>();
                         BOBOPT_ASSERT(call_expr != nullptr);
 
-                        diag.emit(diag.get_message_stmt(source_message::info, call_expr, "used here:"));
+                        diag.emit(diag.get_message_stmt(diagnostic_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << endl_;
 
@@ -892,7 +892,7 @@ namespace bobopt
         {
             const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 
-            source_message box_message = diag.get_message_decl(source_message::info, box_, "declared here:");
+            diagnostic_message box_message = diag.get_message_decl(diagnostic_message::info, box_, "declared here:");
             diag.emit(box_message);
 
             llvm::outs() << '\n';
@@ -903,7 +903,7 @@ namespace bobopt
         {
             const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
 
-            source_message input_message = diag.get_message_decl(source_message::info, decl, "missing prefetch for input declared here:");
+            diagnostic_message input_message = diag.get_message_decl(diagnostic_message::info, decl, "missing prefetch for input declared here:");
             diag.emit(input_message);
         }
 

@@ -77,6 +77,14 @@ namespace bobopt
         dst.insert(std::end(dst), std::begin(src), std::end(src));
     }
 
+    // in_range.
+    //==========================================================================
+    template <typename T>
+    bool in_range(T begin, T end, T value)
+    {
+        return (begin <= value) && (value < end);
+    }
+
 } // namespace
 
 #endif // guard
