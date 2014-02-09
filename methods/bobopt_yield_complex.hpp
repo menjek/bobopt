@@ -80,7 +80,7 @@ namespace bobopt
             void optimize_method(exec_function_type method);
             void optimize_body(clang::CompoundStmt* body, const clang::CFG& cfg);
 
-            void inserter_location(clang::SourceLocation location) const;
+            void inserter_invoke(clang::SourceLocation location) const;
             bool inserter_helper(clang::Stmt* dst_stmt, const clang::Stmt* src_stmt) const;
             bool inserter(const clang::CFGBlock& block, const clang::CompoundStmt* stmt) const;
             bool inserter(const clang::CFGBlock& block, const std::vector<const clang::CompoundStmt*>& stmts) const;
@@ -88,6 +88,8 @@ namespace bobopt
             // data members:
             clang::CXXRecordDecl* box_;
             clang::tooling::Replacements* replacements_;
+
+            std::string endl_;
 
             // constants:
             static const method_override BOX_EXEC_METHOD_OVERRIDES[];

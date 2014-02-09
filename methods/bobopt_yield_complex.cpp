@@ -4,6 +4,7 @@
 #include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
 #include <bobopt_optimizer.hpp>
+#include <bobopt_text_utils.hpp>
 #include <bobopt_utils.hpp>
 #include <clang/bobopt_clang_utils.hpp>
 
@@ -21,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -806,10 +808,14 @@ namespace bobopt
 
         } // namespace
 
-        void yield_complex::inserter_location(SourceLocation location) const
+        void yield_complex::inserter_invoke(SourceLocation location) const
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
-            replacements_->insert(Replacement(sm, location, 0, "yield();"));
+
+            const std::string indent = location_indent(sm, location);
+            std::string yield_code = "yield();" + endl_ + indent;
+
+            replacements_->insert(Replacement(sm, location, 0, yield_code));
         }
 
         bool yield_complex::inserter_helper(Stmt* dst_stmt, const Stmt* src_stmt) const
@@ -821,7 +827,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(if_stmt->getCond()))
                 {
-                    inserter_location(if_stmt->getLocStart());
+                    inserter_invoke(if_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -832,7 +838,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(for_stmt->getInit()))
                 {
-                    inserter_location(for_stmt->getLocStart());
+                    inserter_invoke(for_stmt->getLocStart());
                     return true;
                 }
 
@@ -840,7 +846,7 @@ namespace bobopt
                 if (!helper1.TraverseStmt(for_stmt->getInc()))
                 {
                     const CompoundStmt* body = llvm::dyn_cast_or_null<const CompoundStmt>(for_stmt->getBody());
-                    inserter_location(body->getRBracLoc());
+                    inserter_invoke(body->getRBracLoc());
                     return true;
                 }
 
@@ -852,7 +858,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(while_stmt->getCond()))
                 {
-                    inserter_location(while_stmt->getLocStart());
+                    inserter_invoke(while_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -863,7 +869,7 @@ namespace bobopt
             {
                 if (!helper.TraverseStmt(switch_stmt->getCond()))
                 {
-                    inserter_location(switch_stmt->getLocStart());
+                    inserter_invoke(switch_stmt->getLocStart());
                     return true;
                 }
                 return false;
@@ -877,7 +883,7 @@ namespace bobopt
 
             if (!helper.TraverseStmt(dst_stmt))
             {
-                inserter_location(dst_stmt->getLocStart());
+                inserter_invoke(dst_stmt->getLocStart());
                 return true;
             }
 
@@ -924,10 +930,10 @@ namespace bobopt
         {
             for (const auto* stmt : stmts)
             {
-                 if (inserter(block, stmt))
-                 {
+                if (inserter(block, stmt))
+                {
                     return true;
-                 }
+                }
             }
             return false;
         }
@@ -935,9 +941,6 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(CompoundStmt* body, const CFG& cfg)
         {
-            llvm::errs() << box_->getNameAsString() << "\n";
-            cfg.dump(get_optimizer().get_compiler().getLangOpts(), true);
-
             cfg_data data(cfg);
             if (!data.optimize())
             {
@@ -959,6 +962,8 @@ namespace bobopt
             ast_nodes_collector<CompoundStmt> compound_collector;
             compound_collector.TraverseStmt(body);
             std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
+
+            endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
 
             // Insert yields.
             for (auto id : ids)
