@@ -72,12 +72,9 @@ namespace bobopt
                 std::string parent_name;
             };
 
-            // typedefs:
-            typedef clang::CXXMethodDecl* exec_function_type;
-
             // helpers:
             void optimize_methods();
-            void optimize_method(exec_function_type method);
+            void optimize_method(clang::CXXMethodDecl* method);
             void optimize_body(clang::CompoundStmt* body, const clang::CFG& cfg);
 
             void inserter_invoke(clang::SourceLocation location) const;

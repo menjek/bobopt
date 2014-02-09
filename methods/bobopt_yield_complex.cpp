@@ -729,7 +729,7 @@ namespace bobopt
         }
 
         /// \brief Main optimization pass for single method.
-        void yield_complex::optimize_method(exec_function_type method)
+        void yield_complex::optimize_method(CXXMethodDecl* method)
         {
             BOBOPT_ASSERT(method != nullptr);
 
