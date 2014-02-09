@@ -17,6 +17,7 @@
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "clang/AST/ASTTypeTraits.h"
+#include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Refactoring.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
@@ -29,7 +30,10 @@ namespace clang
 {
     class CXXRecordDecl;
     class CXXMethodDecl;
+    class CompoundStmt;
+    class Stmt;
     class CFG;
+    class CFGBlock;
 }
 
 namespace bobopt
@@ -74,7 +78,12 @@ namespace bobopt
             // helpers:
             void optimize_methods();
             void optimize_method(exec_function_type method);
-            void optimize_body(const clang::CFG& cfg);
+            void optimize_body(clang::CompoundStmt* body, const clang::CFG& cfg);
+
+            void inserter_location(clang::SourceLocation location) const;
+            bool inserter_helper(clang::Stmt* dst_stmt, const clang::Stmt* src_stmt) const;
+            bool inserter(const clang::CFGBlock& block, const clang::CompoundStmt* stmt) const;
+            bool inserter(const clang::CFGBlock& block, const std::vector<const clang::CompoundStmt*>& stmts) const;
 
             // data members:
             clang::CXXRecordDecl* box_;

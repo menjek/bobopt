@@ -3,6 +3,7 @@
 #include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
+#include <bobopt_optimizer.hpp>
 #include <bobopt_utils.hpp>
 #include <clang/bobopt_clang_utils.hpp>
 
@@ -12,6 +13,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Analysis/CFG.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <algorithm>
@@ -24,6 +26,7 @@
 #include <vector>
 
 using namespace clang;
+using namespace clang::tooling;
 using namespace clang::ast_type_traits;
 
 namespace bobopt
@@ -143,7 +146,7 @@ namespace bobopt
         /// handling loops.
         class cfg_data
         {
-
+        public:
             /// \brief Additional data for single block.
             struct block_data_type
             {
@@ -157,9 +160,9 @@ namespace bobopt
                 /// \brief Determines yield state of block.
                 enum class yield_state
                 {
-                    No,
-                    Planned,
-                    Present
+                    no,
+                    planned,
+                    present
                 };
 
                 yield_state yield;
@@ -168,7 +171,9 @@ namespace bobopt
             };
 
             typedef std::unordered_map<unsigned, block_data_type> data_type;
-            typedef std::vector<std::pair<unsigned, block_data_type::yield_state>> yields_type;
+
+        private:
+            typedef std::vector<std::pair<unsigned, block_data_type::yield_state> > yields_type;
 
             static block_data_type::path_data_type make_path_data(unsigned id, unsigned complexity)
             {
@@ -217,10 +222,10 @@ namespace bobopt
                 return optimized;
             }
 
-            /// \brief Apply data to source code.
-            void apply() const
+            /// \brief Return calculated data.
+            data_type get_data() const
             {
-                BOBOPT_TODO("Implement.")
+                return data_;
             }
 
         private:
@@ -329,7 +334,7 @@ namespace bobopt
                         }
                     }
 
-                    return block_data_type::yield_state::No;
+                    return block_data_type::yield_state::no;
                 }
 
                 BOBOPT_INLINE bool check_path_stack(unsigned id) const
@@ -378,7 +383,7 @@ namespace bobopt
                     block_data.yield = get_block_yield(block_id);
 
                     unsigned block_complexity = 0u;
-                    if (block_data.yield == block_data_type::yield_state::No)
+                    if (block_data.yield == block_data_type::yield_state::no)
                     {
                         for (const CFGElement& element : block)
                         {
@@ -390,13 +395,13 @@ namespace bobopt
                             if (stmt_comlexity == 0u)
                             {
                                 block_complexity = 0u;
-                                block_data.yield = block_data_type::yield_state::Present;
+                                block_data.yield = block_data_type::yield_state::present;
                                 break;
                             }
                         }
                     }
 
-                    if (block_data.yield != block_data_type::yield_state::No)
+                    if (block_data.yield != block_data_type::yield_state::no)
                     {
                         // Save ending path.
                         block_data.paths.push_back(make_path_data(path, complexity));
@@ -520,10 +525,10 @@ namespace bobopt
                 std::vector<const block_data_type*> end_blocks;
                 for (const auto& block : src_data)
                 {
-                    if (block.second.yield != block_data_type::yield_state::No)
+                    if (block.second.yield != block_data_type::yield_state::no)
                     {
                         end_blocks.push_back(&(block.second));
-                        yields.push_back(std::make_pair(block.first, block.second.yield));
+                        yields.emplace_back(block.first, block.second.yield);
                     }
                 }
 
@@ -538,7 +543,7 @@ namespace bobopt
                 bool optimized = false;
                 for (const auto& block : src_data)
                 {
-                    if (block.second.yield != block_data_type::yield_state::No)
+                    if (block.second.yield != block_data_type::yield_state::no)
                     {
                         continue;
                     }
@@ -561,7 +566,7 @@ namespace bobopt
                 // destination data structure and recalculate cfg.
                 if (optimized)
                 {
-                    yields.push_back(std::make_pair(block_id, block_data_type::yield_state::Planned));
+                    yields.emplace_back(block_id, block_data_type::yield_state::planned);
 
                     cfg_data_builder builder(cfg_);
                     return std::make_pair(builder.build(yields), true);
@@ -632,7 +637,7 @@ namespace bobopt
             {
                 auto exit_it = data.find(cfg_.getExit().getBlockID());
                 BOBOPT_ASSERT(exit_it != std::end(data));
-                BOBOPT_ASSERT(exit_it->second.yield != block_data_type::yield_state::Planned);
+                BOBOPT_ASSERT(exit_it->second.yield != block_data_type::yield_state::planned);
 
                 unsigned distance = 0u;
                 unsigned count = 0u;
@@ -648,7 +653,7 @@ namespace bobopt
                 // Paths ending in yielded blocks.
                 for (const auto& block : data)
                 {
-                    if (block.second.yield != block_data_type::yield_state::No)
+                    if (block.second.yield != block_data_type::yield_state::no)
                     {
                         for (const auto& path : block.second.paths)
                         {
@@ -695,7 +700,7 @@ namespace bobopt
             BOBOPT_ASSERT(replacements != nullptr);
 
             box_ = box;
-            replacements_ = replacements_;
+            replacements_ = replacements;
 
             optimize_methods();
         }
@@ -746,16 +751,221 @@ namespace bobopt
                 return;
             }
 
-            optimize_body(*cfg);
+            optimize_body(body, *cfg);
+        }
+
+        typedef std::unordered_map<unsigned, const CFGBlock*> id_block_map;
+
+        static id_block_map build_block_map(const CFG& cfg)
+        {
+            id_block_map result;
+
+            std::vector<const CFGBlock*> proceed;
+            proceed.reserve(cfg.size());
+            proceed.push_back(&cfg.getEntry());
+
+            while (!proceed.empty())
+            {
+                const CFGBlock* block = proceed.back();
+                proceed.pop_back();
+
+                BOBOPT_ASSERT(result.count(block->getBlockID()) == 0);
+                result[block->getBlockID()] = block;
+
+                for (auto it = block->succ_begin(), end = block->succ_end(); it != end; ++it)
+                {
+                    const CFGBlock* succ = *it;
+                    if (result.count(succ->getBlockID()) == 0)
+                    {
+                        proceed.push_back(succ);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        namespace
+        {
+
+            class recursive_stmt_find_helper : public RecursiveASTVisitor<recursive_stmt_find_helper>
+            {
+            public:
+                recursive_stmt_find_helper(const Stmt* stmt) : stmt_(stmt)
+                {
+                }
+
+                bool VisitStmt(Stmt* stmt)
+                {
+                    return !(stmt_ == stmt);
+                }
+
+            private:
+                const Stmt* stmt_;
+            };
+
+        } // namespace
+
+        void yield_complex::inserter_location(SourceLocation location) const
+        {
+            auto& sm = get_optimizer().get_compiler().getSourceManager();
+            replacements_->insert(Replacement(sm, location, 0, "yield();"));
+        }
+
+        bool yield_complex::inserter_helper(Stmt* dst_stmt, const Stmt* src_stmt) const
+        {
+            recursive_stmt_find_helper helper(src_stmt);
+
+            IfStmt* if_stmt = llvm::dyn_cast<IfStmt>(dst_stmt);
+            if (if_stmt != nullptr)
+            {
+                if (!helper.TraverseStmt(if_stmt->getCond()))
+                {
+                    inserter_location(if_stmt->getLocStart());
+                    return true;
+                }
+                return false;
+            }
+
+            ForStmt* for_stmt = llvm::dyn_cast<ForStmt>(dst_stmt);
+            if (for_stmt != nullptr)
+            {
+                if (!helper.TraverseStmt(for_stmt->getInit()))
+                {
+                    inserter_location(for_stmt->getLocStart());
+                    return true;
+                }
+
+                recursive_stmt_find_helper helper1(src_stmt);
+                if (!helper1.TraverseStmt(for_stmt->getInc()))
+                {
+                    const CompoundStmt* body = llvm::dyn_cast_or_null<const CompoundStmt>(for_stmt->getBody());
+                    inserter_location(body->getRBracLoc());
+                    return true;
+                }
+
+                return false;
+            }
+
+            WhileStmt* while_stmt = llvm::dyn_cast<WhileStmt>(dst_stmt);
+            if (while_stmt != nullptr)
+            {
+                if (!helper.TraverseStmt(while_stmt->getCond()))
+                {
+                    inserter_location(while_stmt->getLocStart());
+                    return true;
+                }
+                return false;
+            }
+
+            SwitchStmt* switch_stmt = llvm::dyn_cast<SwitchStmt>(dst_stmt);
+            if (switch_stmt != nullptr)
+            {
+                if (!helper.TraverseStmt(switch_stmt->getCond()))
+                {
+                    inserter_location(switch_stmt->getLocStart());
+                    return true;
+                }
+                return false;
+            }
+
+            CompoundStmt* compound_stmt = llvm::dyn_cast<CompoundStmt>(dst_stmt);
+            if (compound_stmt != nullptr)
+            {
+                return false;
+            }
+
+            if (!helper.TraverseStmt(dst_stmt))
+            {
+                inserter_location(dst_stmt->getLocStart());
+                return true;
+            }
+
+            return false;
+        }
+
+        bool yield_complex::inserter(const CFGBlock& block, const CompoundStmt* stmt) const
+        {
+            if (block.empty())
+            {
+                return false;
+            }
+
+            // Find first statement in block.
+            const Stmt* block_stmt = nullptr;
+            for (auto it = block.begin(), end = block.end(); it != end; ++it)
+            {
+                if (it->getKind() == CFGElement::Kind::Statement)
+                {
+                    block_stmt = it->castAs<CFGStmt>().getStmt();
+                    break;
+                }
+            }
+
+            if (block_stmt == nullptr)
+            {
+                return false;
+            }
+
+            // Find whether this statement is in compound.
+            for (auto it = stmt->body_begin(), end = stmt->body_end(); it != end; ++it)
+            {
+                Stmt* local_stmt = *it;
+                if (inserter_helper(local_stmt, block_stmt))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool yield_complex::inserter(const CFGBlock& block, const std::vector<const CompoundStmt*>& stmts) const
+        {
+            for (const auto* stmt : stmts)
+            {
+                 if (inserter(block, stmt))
+                 {
+                    return true;
+                 }
+            }
+            return false;
         }
 
         /// \brief Optimize member function body represented by CFG.
-        void yield_complex::optimize_body(const CFG& cfg)
+        void yield_complex::optimize_body(CompoundStmt* body, const CFG& cfg)
         {
+            llvm::errs() << box_->getNameAsString() << "\n";
+            cfg.dump(get_optimizer().get_compiler().getLangOpts(), true);
+
             cfg_data data(cfg);
-            if (data.optimize())
+            if (!data.optimize())
             {
-                data.apply();
+                return;
+            }
+
+            auto optimized_data = data.get_data();
+            auto map = build_block_map(cfg);
+
+            std::vector<unsigned> ids;
+            for (const auto& block : optimized_data)
+            {
+                if (block.second.yield == cfg_data::block_data_type::yield_state::planned)
+                {
+                    ids.push_back(block.first);
+                }
+            }
+
+            ast_nodes_collector<CompoundStmt> compound_collector;
+            compound_collector.TraverseStmt(body);
+            std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
+
+            // Insert yields.
+            for (auto id : ids)
+            {
+                BOBOPT_ASSERT(map.count(id) == 1);
+                const CFGBlock& block = *(map.find(id)->second);
+                BOBOPT_CHECK(inserter(block, stmts));
             }
         }
 
