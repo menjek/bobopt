@@ -13,6 +13,7 @@
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/Casting.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include <clang/bobopt_clang_epilog.hpp>
@@ -156,7 +157,7 @@ namespace bobopt
         typedef value_policy<Derived> policy_type;
         typedef Derived derived_type;
 
-        /// \brief Proxy returned by created_instance() member function.
+        /// \brief Proxy returned by create_instance() member function.
         class proxy
         {
         public:
@@ -461,7 +462,7 @@ namespace bobopt
     protected:
 
         // create/destroy:
-        control_flow_search();
+        explicit control_flow_search(clang::ASTContext* context = nullptr);
         ~control_flow_search();
 
         // value management:
@@ -469,8 +470,9 @@ namespace bobopt
         void insert_value_location(const value_type& val, clang::ast_type_traits::DynTypedNode location);
         void remove_value(const value_type& val);
 
-    private:
+        clang::ASTContext* context_;
 
+    private:
         // helpers:
 
         /// \brief Flags for handling traversal situations.
@@ -485,7 +487,8 @@ namespace bobopt
         typedef std::map<Value, locations_type> container_type;
 
         // traversal helpers:
-        bool should_traverse_body(clang::Expr* expr) const;
+        bool traverse_for_body(clang::ForStmt* for_stmt) const;
+        bool traverse_while_body(clang::WhileStmt* while_stmt) const;
         bool should_continue() const;
 
         // value helpers:
@@ -699,7 +702,7 @@ namespace bobopt
         // Deeper analysis.
         scoped_prototype<control_flow_search> incr_visitor(*this, false);
         scoped_prototype<control_flow_search> body_visitor(*this, false);
-        if (should_traverse_body(cond_expr))
+        if (traverse_for_body(for_stmt))
         {
             clang::Stmt* body_stmt = for_stmt->getBody();
             if (body_stmt != nullptr)
@@ -763,7 +766,7 @@ namespace bobopt
 
         // Deeper analysis.
         scoped_prototype<control_flow_search> body_visitor(*this, false);
-        if (should_traverse_body(cond_expr))
+        if (traverse_while_body(while_stmt))
         {
             clang::Stmt* body_stmt = while_stmt->getBody();
             if (body_stmt != nullptr)
@@ -918,8 +921,9 @@ namespace bobopt
               typename Value,
               template <typename>
               class PrototypePolicy>
-    BOBOPT_INLINE control_flow_search<Derived, Value, PrototypePolicy>::control_flow_search()
-        : values_map_()
+    BOBOPT_INLINE control_flow_search<Derived, Value, PrototypePolicy>::control_flow_search(clang::ASTContext* context)
+        : context_(context) 
+        , values_map_()
         , flags_(0)
     {
     }
@@ -976,15 +980,54 @@ namespace bobopt
         values_map_.erase(val);
     }
 
+    /// \brief Function that evaluates whether for statement body will be executed at least once.
+    template <typename Derived,
+              typename Value,
+              template <typename>
+              class PrototypePolicy>
+    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::traverse_for_body(clang::ForStmt* for_stmt) const
+    {
+        clang::DeclStmt* decl_stmt = llvm::dyn_cast_or_null<clang::DeclStmt>(for_stmt->getInit());
+        if ((decl_stmt == nullptr) || !decl_stmt->isSingleDecl())
+        {
+            return false;
+        }
+
+        clang::VarDecl* var_decl = llvm::dyn_cast<clang::VarDecl>(decl_stmt->getSingleDecl());
+        if ((var_decl == nullptr) || !var_decl->checkInitIsICE())
+        {
+            return false;
+        }
+
+        clang::Expr* cond_expr = for_stmt->getCond();
+        if (cond_expr == nullptr)
+        {
+            return false;
+        }
+
+        const bool is_constexpr = var_decl->isConstexpr();
+        var_decl->setConstexpr(true);
+        bool eval = false;
+        BOBOPT_ASSERT(context_ != nullptr);
+        if (!cond_expr->EvaluateAsBooleanCondition(eval, *context_))
+        {
+            var_decl->setConstexpr(is_constexpr);
+            return false;
+        }
+
+        var_decl->setConstexpr(is_constexpr);
+        return eval;
+    }
+
     /// \brief Function used for deeper static analysis. It tries to evaluates if expression
     /// will be at least once true and body will be executed.
     template <typename Derived,
               typename Value,
               template <typename>
               class PrototypePolicy>
-    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::should_traverse_body(clang::Expr* expr) const
+    BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::traverse_while_body(clang::WhileStmt* while_stmt) const
     {
-        BOBOPT_UNUSED_EXPRESSION(expr);
+        BOBOPT_UNUSED_EXPRESSION(while_stmt);
         return false;
     }
 

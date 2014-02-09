@@ -170,13 +170,18 @@ namespace bobopt
                 /// \brief Type of base class.
                 typedef control_flow_search<init_collector, std::string> base_type;
 
+                /// \brief Construct using AST context.
+                explicit init_collector(ASTContext* context = nullptr) : base_type(context)
+                {
+                }
+
                 /// \relates control_flow_search
                 /// \brief Function member required by base class used to prototype current object.
                 ///
                 /// Object doesn't hold any state so prototyped object is just default constructed one.
                 init_collector prototype() const
                 {
-                    return init_collector();
+                    return init_collector(base_type::context_);
                 }
 
                 /// \brief Function handles member call expressions.
@@ -308,35 +313,18 @@ namespace bobopt
                 /// \brief Type of container for holding values. Inherited from base class.
                 typedef base_type::values_type values_type;
 
-                /// \brief Default constructed \b invalid collector.
-                body_collector()
-                    : input_streams_()
-                    , context_(nullptr)
-                {
-                }
-
                 /// \brief Collector needs to be created with AST context.
-                explicit body_collector(ASTContext* context)
-                    : input_streams_()
-                    , context_(context)
+                explicit body_collector(ASTContext* context = nullptr, std::map<VarDecl*, CallExpr*> input = std::map<VarDecl*, CallExpr*>())
+                    : base_type(context)
+                    , input_streams_(input)
                 {
-                    BOBOPT_ASSERT(context != nullptr);
-                }
-
-                /// \brief Validates collector by setting AST context.
-                BOBOPT_INLINE void set_ast_context(ASTContext* context)
-                {
-                    BOBOPT_ASSERT(context != nullptr);
-                    context_ = context;
                 }
 
                 /// \relates control_flow_search
-                /// \brief New object should inherited list of defined input streams and associated inputs.
+                /// \brief New object should inherite list of defined input streams and associated inputs.
                 BOBOPT_INLINE body_collector prototype() const
                 {
-                    body_collector instance;
-                    instance.input_streams_ = input_streams_;
-                    return instance;
+                    return body_collector(base_type::context_, input_streams_);
                 }
 
                 /// \brief Looking up bobox::input_stream<> variables definitions.
@@ -416,7 +404,7 @@ namespace bobopt
                     MatchFinder finder;
                     finder_callback callback;
                     finder.addMatcher(INPUT_INDEX_TYPE_CALL_MATCHER, &callback);
-                    recursive_match_finder recursive_finder(&finder, context_);
+                    recursive_match_finder recursive_finder(&finder, base_type::context_);
                     recursive_finder.TraverseStmt(init_expr);
 
                     // Ignore either ambigous or none.
@@ -441,7 +429,6 @@ namespace bobopt
 
                 /// \brief Declaration of bobox::input_stream<> variable and call to inputs::name() functions.
                 std::map<VarDecl*, CallExpr*> input_streams_;
-                ASTContext* context_;
 
                 static const std::string INPUT_STREAM_TYPE_NAME;
                 static const StatementMatcher INPUT_INDEX_TYPE_CALL_MATCHER;
@@ -519,13 +506,13 @@ namespace bobopt
                 return;
             }
 
-            detail::init_collector prefetched;
+            auto& context = get_optimizer().get_compiler().getASTContext();
+            detail::init_collector prefetched(&context);
             if (!analyze_init(prefetched))
             {
                 return;
             }
 
-            auto& context = get_optimizer().get_compiler().getASTContext();
             detail::body_collector used(&context);
             analyze_sync(used);
             analyze_body(used);
