@@ -758,6 +758,7 @@ namespace bobopt
 
         typedef std::unordered_map<unsigned, const CFGBlock*> id_block_map;
 
+        /// \brief Build map from block ids to pointers to blocks.
         static id_block_map build_block_map(const CFG& cfg)
         {
             id_block_map result;
@@ -787,9 +788,46 @@ namespace bobopt
             return result;
         }
 
+        /// \brief Optimize member function body represented by CFG.
+        void yield_complex::optimize_body(CompoundStmt* body, const CFG& cfg)
+        {
+            cfg_data data(cfg);
+            if (!data.optimize())
+            {
+                return;
+            }
+
+            auto optimized_data = data.get_data();
+            auto map = build_block_map(cfg);
+
+            std::vector<unsigned> ids;
+            for (const auto& block : optimized_data)
+            {
+                if (block.second.yield == cfg_data::block_data_type::yield_state::planned)
+                {
+                    ids.push_back(block.first);
+                }
+            }
+
+            ast_nodes_collector<CompoundStmt> compound_collector;
+            compound_collector.TraverseStmt(body);
+            std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
+
+            endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
+
+            // Insert yields.
+            for (auto id : ids)
+            {
+                BOBOPT_ASSERT(map.count(id) == 1);
+                const CFGBlock& block = *(map.find(id)->second);
+                BOBOPT_CHECK(inserter(block, stmts));
+            }
+        }
+
         namespace
         {
 
+            /// \brief Helper for looking up statement in AST subtree.
             class recursive_stmt_find_helper : public RecursiveASTVisitor<recursive_stmt_find_helper>
             {
             public:
@@ -808,16 +846,17 @@ namespace bobopt
 
         } // namespace
 
+        /// \brief Final phase for inserting \c yield() call to source code.
         void yield_complex::inserter_invoke(SourceLocation location) const
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
 
-            const std::string indent = location_indent(sm, location);
-            std::string yield_code = "yield();" + endl_ + indent;
+            std::string yield_code = "yield();" + endl_ + location_indent(sm, location);
 
             replacements_->insert(Replacement(sm, location, 0, yield_code));
         }
 
+        /// \brief Helper to analyze subtree of single statement in compound statement.
         bool yield_complex::inserter_helper(Stmt* dst_stmt, const Stmt* src_stmt) const
         {
             recursive_stmt_find_helper helper(src_stmt);
@@ -890,6 +929,7 @@ namespace bobopt
             return false;
         }
 
+        /// \brief Helper for insert yield for block into compound statement.
         bool yield_complex::inserter(const CFGBlock& block, const CompoundStmt* stmt) const
         {
             if (block.empty())
@@ -926,6 +966,7 @@ namespace bobopt
             return false;
         }
 
+        /// \brief Helper for insert of block yield into single compound statement from set of compound statements.
         bool yield_complex::inserter(const CFGBlock& block, const std::vector<const CompoundStmt*>& stmts) const
         {
             for (const auto* stmt : stmts)
@@ -936,42 +977,6 @@ namespace bobopt
                 }
             }
             return false;
-        }
-
-        /// \brief Optimize member function body represented by CFG.
-        void yield_complex::optimize_body(CompoundStmt* body, const CFG& cfg)
-        {
-            cfg_data data(cfg);
-            if (!data.optimize())
-            {
-                return;
-            }
-
-            auto optimized_data = data.get_data();
-            auto map = build_block_map(cfg);
-
-            std::vector<unsigned> ids;
-            for (const auto& block : optimized_data)
-            {
-                if (block.second.yield == cfg_data::block_data_type::yield_state::planned)
-                {
-                    ids.push_back(block.first);
-                }
-            }
-
-            ast_nodes_collector<CompoundStmt> compound_collector;
-            compound_collector.TraverseStmt(body);
-            std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
-
-            endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
-
-            // Insert yields.
-            for (auto id : ids)
-            {
-                BOBOPT_ASSERT(map.count(id) == 1);
-                const CFGBlock& block = *(map.find(id)->second);
-                BOBOPT_CHECK(inserter(block, stmts));
-            }
         }
 
     } // namespace
