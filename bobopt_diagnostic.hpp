@@ -83,12 +83,14 @@ namespace bobopt
         void emit_header(const source_message& message) const;
         void emit_source(const source_message& message, source_modes mode) const;
 
-        static console_color s_location_color;
-        static console_color s_pointers_color;
-        static console_color s_info_color;
-        static console_color s_suggestion_color;
-        static console_color s_optimization_color;
-        static console_color s_message_color;
+        static const console_color LOCATION_COLOR;
+        static const console_color POINTERS_COLOR;
+        static const console_color INFO_COLOR;
+        static const console_color SUGGESTION_COLOR;
+        static const console_color OPTIMIZATION_COLOR;
+        static const console_color MESSAGE_COLOR;
+
+        static const size_t MIN_DESIRED_MESSAGE_SIZE;
 
         clang::CompilerInstance& compiler_;
     };

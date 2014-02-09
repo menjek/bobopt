@@ -68,17 +68,14 @@ namespace bobopt
     // diagnostic implementation.
     //==============================================================================
 
-    diagnostic::console_color diagnostic::s_location_color = { llvm::raw_ostream::WHITE, true };
+    const diagnostic::console_color diagnostic::LOCATION_COLOR = { llvm::raw_ostream::WHITE, true };
+    const diagnostic::console_color diagnostic::POINTERS_COLOR = { llvm::raw_ostream::GREEN, true };
+    const diagnostic::console_color diagnostic::INFO_COLOR = { llvm::raw_ostream::BLACK, true };
+    const diagnostic::console_color diagnostic::SUGGESTION_COLOR = { llvm::raw_ostream::MAGENTA, true };
+    const diagnostic::console_color diagnostic::OPTIMIZATION_COLOR = { llvm::raw_ostream::RED, true };
+    const diagnostic::console_color diagnostic::MESSAGE_COLOR = { llvm::raw_ostream::WHITE, true };
 
-    diagnostic::console_color diagnostic::s_pointers_color = { llvm::raw_ostream::GREEN, true };
-
-    diagnostic::console_color diagnostic::s_info_color = { llvm::raw_ostream::BLACK, true };
-
-    diagnostic::console_color diagnostic::s_suggestion_color = { llvm::raw_ostream::MAGENTA, true };
-
-    diagnostic::console_color diagnostic::s_optimization_color = { llvm::raw_ostream::RED, true };
-
-    diagnostic::console_color diagnostic::s_message_color = { llvm::raw_ostream::WHITE, true };
+    const size_t diagnostic::MIN_DESIRED_MESSAGE_SIZE = 50;
 
     void diagnostic::emit(const source_message& message, source_modes mode) const
     {
@@ -130,7 +127,7 @@ namespace bobopt
         llvm::raw_ostream& out = llvm::outs();
 
         // Print location in sources.
-        out.changeColor(s_location_color.fg_color, s_location_color.bold);
+        out.changeColor(LOCATION_COLOR.fg_color, LOCATION_COLOR.bold);
         out << message.get_point_range().getBegin().printToString(compiler_.getSourceManager()) << ": ";
 
         // Print message type.
@@ -138,21 +135,21 @@ namespace bobopt
         {
         case source_message::info:
         {
-            out.changeColor(s_info_color.fg_color, s_info_color.bold);
+            out.changeColor(INFO_COLOR.fg_color, INFO_COLOR.bold);
             out << "info: ";
             break;
         }
 
         case source_message::suggestion:
         {
-            out.changeColor(s_suggestion_color.fg_color, s_suggestion_color.bold);
+            out.changeColor(SUGGESTION_COLOR.fg_color, SUGGESTION_COLOR.bold);
             out << "suggestion: ";
             break;
         }
 
         case source_message::optimization:
         {
-            out.changeColor(s_optimization_color.fg_color, s_optimization_color.bold);
+            out.changeColor(OPTIMIZATION_COLOR.fg_color, OPTIMIZATION_COLOR.bold);
             out << "optimization: ";
             break;
         }
@@ -162,7 +159,7 @@ namespace bobopt
         }
 
         // Print message.
-        out.changeColor(s_message_color.fg_color, s_message_color.bold);
+        out.changeColor(MESSAGE_COLOR.fg_color, MESSAGE_COLOR.bold);
         out << message.get_message();
         out.resetColor();
 
@@ -173,11 +170,20 @@ namespace bobopt
     {
         auto& sm = compiler_.getSourceManager();
 
-        const char* range_begin = sm.getCharacterData(message.get_range().getBegin());
-        const char* range_end = sm.getCharacterData(message.get_range().getEnd());
+        auto range = message.get_range();
+        const char* range_begin = sm.getCharacterData(range.getBegin());
+        const char* range_end = sm.getCharacterData(range.getEnd());
 
-        size_t point_offset_begin = sm.getCharacterData(message.get_point_range().getBegin()) - range_begin;
-        size_t point_offset_end = sm.getCharacterData(message.get_point_range().getEnd()) - range_begin;
+        if ((range_end - range_begin) < MIN_DESIRED_MESSAGE_SIZE)
+        {
+            auto* buffer = sm.getBuffer(sm.getFileID(range.getEnd()));
+            auto line_end = std::find(range_end, buffer->getBufferEnd(), '\n');
+            range_end = std::min(range_begin + MIN_DESIRED_MESSAGE_SIZE, line_end);
+        }
+
+        auto point_range = message.get_point_range();
+        size_t point_offset_begin = sm.getCharacterData(point_range.getBegin()) - range_begin;
+        size_t point_offset_end = sm.getCharacterData(point_range.getEnd()) - range_begin;
 
         size_t offset_begin = 0;
         std::string range_string(range_begin, range_end);
@@ -193,7 +199,7 @@ namespace bobopt
                 size_t pointers_begin = (point_offset_begin > offset_begin) ? (point_offset_begin - offset_begin) : 0;
                 size_t pointers_end = (point_offset_end < offset_end) ? point_offset_end : offset_end;
 
-                llvm::outs().changeColor(s_pointers_color.fg_color, s_pointers_color.bold);
+                llvm::outs().changeColor(POINTERS_COLOR.fg_color, POINTERS_COLOR.bold);
                 llvm::outs() << detail::create_pointers_line(line, pointers_begin, pointers_end) << '\n';
                 llvm::outs().resetColor();
             }
