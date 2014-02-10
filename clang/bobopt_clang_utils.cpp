@@ -18,7 +18,7 @@ namespace bobopt
 
     bool overrides(const CXXMethodDecl* method_decl, const std::string& parent_name)
     {
-        for (auto it = method_decl->begin_overridden_methods(); it != method_decl->end_overridden_methods(); ++it)
+        for (auto it = method_decl->begin_overridden_methods(), end = method_decl->end_overridden_methods(); it != end; ++it)
         {
             const CXXMethodDecl* overridden = *it;
             if (overridden->getParent()->getQualifiedNameAsString() == parent_name)

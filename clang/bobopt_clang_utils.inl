@@ -1,3 +1,5 @@
+#include <bobopt_inline.hpp>
+
 #include <clang/bobopt_clang_prolog.hpp>
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/Stmt.h"

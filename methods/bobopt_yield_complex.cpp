@@ -117,7 +117,7 @@ namespace bobopt
                 const Stmt* stmt = element.castAs<CFGStmt>().getStmt();
                 BOBOPT_ASSERT(stmt != nullptr);
 
-                ast_nodes_collector<CallExpr> collector;
+                nodes_collector<CallExpr> collector;
                 collector.TraverseStmt(const_cast<Stmt*>(stmt));
 
                 unsigned result = 1u;
@@ -824,7 +824,7 @@ namespace bobopt
                 }
             }
 
-            ast_nodes_collector<CompoundStmt> compound_collector;
+            nodes_collector<CompoundStmt> compound_collector;
             compound_collector.TraverseStmt(body);
             std::vector<const CompoundStmt*> stmts(compound_collector.nodes_begin(), compound_collector.nodes_end());
 
