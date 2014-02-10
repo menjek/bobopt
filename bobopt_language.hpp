@@ -6,6 +6,9 @@
 // constexpr specifier.
 //==============================================================================
 
+/// \def BOBOPT_CONSTEXPR
+/// Macro as C++11 \c constexpr replacement.
+
 // vs
 #if defined(_MSC_VER)
 #	define BOBOPT_CONSTEXPR
@@ -34,6 +37,9 @@
 // override specifier.
 //==============================================================================
 
+/// \def BOBOPT_OVERRIDE
+/// Macro for C++11 \c override replacement.
+
 // vs
 #if defined(_MSC_VER)
 #	define BOBOPT_OVERRIDE
@@ -49,6 +55,9 @@
 
 // final specifier.
 //==============================================================================
+
+/// \def BOBOPT_FINAL
+/// Macrot for C++11 \c final replacement.
 
 // vs
 #if defined(_MSC_VER)
@@ -66,6 +75,12 @@
 
 // defaulted and deleted functions.
 //==============================================================================
+
+/// \def BOBOPT_SPECIAL_DEFAULT
+/// Macro for C++11 \c default specialf functions replacements.
+
+/// \def BOBOPT_SPECIAL_DELETE
+/// Macro for C++11 \c delete special functions replacements.
 
 // vs
 #if defined(_MSC_VER)

@@ -1,4 +1,4 @@
-/// \file bobopt_debug.hpp File contains basic macros for debugging.
+/// \file bobopt_debug.hpp File contains definition of macros for debugging.
 
 #ifndef BOBOPT_DEBUG_HPP_GUARD_
 #define BOBOPT_DEBUG_HPP_GUARD_
@@ -10,6 +10,9 @@
 // BOBOPT_BREAK
 //==============================================================================
 
+/// \def BOBOPT_BREAK
+/// Platform specific macro that causes runtime environment to break on code.
+
 #ifndef NDEBUG
 
 #if defined(_MSC_VER)
@@ -19,7 +22,7 @@
 #elif defined(__clang__)
 #   define BOBOPT_BREAK __builtin_trap()
 #else
-#   define BOBOPT_BREAK ((void)0)
+#   define BOBOPT_BREAK
 #endif
 
 #else // NDEBUG
@@ -30,6 +33,10 @@
 
 // BOBOPT_ASSERT
 //==============================================================================
+
+/// \def BOBOPT_ASSERT
+/// Macro is able to break runtime environment on specific line of code which
+/// failed to pass condition.
 
 #ifndef NDEBUG
 
@@ -51,6 +58,11 @@
 // BOBOPT_CHECK
 //==============================================================================
 
+/// \def BOBOPT_CHECK
+/// The same behaviour as \c BOBOPT_ASSERT in debug mode. In non-debug mode,
+/// macro will execute code. Unlike \c BOBOPT_ASSERT which completely removes
+/// code.
+
 #ifndef NDEBUG
 #	define BOBOPT_CHECK(condition) BOBOPT_ASSERT(condition)
 #else // NDEBUG
@@ -60,6 +72,21 @@
 // BOBOPT_ERROR
 //==============================================================================
 
+/// \def BOBOPT_ERROR
+/// Fails on line execution with specific message.
+///
+/// Example of usage:
+/// \code
+/// switch (some_enum_type)
+/// {
+///     case some_enum_value1: { break; }
+///     case some_enum_value2: { break; }
+///     case some_enum_value3: { break; }
+///     // All enum values handled.
+///     default: BOBOPT_ERROR("Wrong enum value.");
+/// }
+/// \endcode
+
 #ifndef NDEBUG
 #	define BOBOPT_ERROR(text) BOBOPT_ASSERT_MSG(false, text)
 #else // NDEBUG
@@ -68,6 +95,10 @@
 
 // BOBOPT_TODO
 //==============================================================================
+
+/// \def BOBOPT_TODO
+/// Macro to define TODO message which may be turned into warning on some
+/// platforms.
 
 #if defined(_MSC_VER)
 #	define BOBOPT_TODO_PREFIX __FILE__ "(" BOBOPT_STRINGIFY2(__LINE__) ") : Warning: "

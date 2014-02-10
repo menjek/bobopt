@@ -1,9 +1,21 @@
-/// \file bobopt_inline.hpp Contains inlining helper macros.
+/// \file bobopt_inline.hpp File contains definition of inlining helper macros.
 
 #ifndef BOBOPT_INLINE_HPP_GUARD_
 #define BOBOPT_INLINE_HPP_GUARD_
 
 #include <bobopt_macros.hpp>
+
+/// \def BOBOPT_INLINE
+/// Replacement for \c inline keyword.
+
+/// \def BOBOPT_FORCE_INLINE
+/// Macro for non-standard forced inlining.
+
+/// \def BOBOPT_INLINE_IN_HEADER(file)
+/// Macro to include inline definition file in header.
+
+/// \def BOBOPT_INLINE_IN_SOURCE(file)
+/// Macro to include inline definition file in source.
 
 #if BOBOPT_NO_INLINE
 
