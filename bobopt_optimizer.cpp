@@ -129,7 +129,7 @@ namespace bobopt
         {
             if (method != nullptr)
             {
-                method->set_optimizer(this);
+                method->optimizer_ = this;
                 method->optimize(box_declaration, replacements_);
             }
         }

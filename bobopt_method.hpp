@@ -27,14 +27,13 @@ namespace bobopt
         basic_method();
         virtual ~basic_method();
 
-        BOBOPT_INLINE const optimizer& get_optimizer() const;
-
         virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
+
+    protected:
+        const optimizer& get_optimizer() const;
 
     private:
         friend class optimizer;
-
-        BOBOPT_INLINE void set_optimizer(const optimizer* optimizer_instance);
 
         const optimizer* optimizer_;
     };
