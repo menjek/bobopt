@@ -47,18 +47,38 @@ namespace bobopt
                 }
             }
         }
-        catch(const std::exception& e)
+        catch (const std::exception& e)
         {
             llvm::errs() << "Error: " << e.what() << '\n';
             return false;
         }
-        
+
         return true;
     }
 
     bool config_parser::save(const std::string& file_name) const
     {
-        BOBOPT_UNUSED_EXPRESSION(file_name);
+        std::ofstream file(file_name);
+        if (!file)
+        {
+            return false;
+        }
+
+        config_map& cfg = config_map::instance();
+        for (auto it = cfg.groups_begin(), end = cfg.groups_end(); it != end; ++it)
+        {
+            file << '[' << it->first << ']' << std::endl;
+            file << std::endl;
+
+            auto* group = it->second;
+            for (auto vit = group->variables_begin(), vend = group->variables_end(); vit != vend; ++vit)
+            {
+                file << vit->first << ": " << vit->second->default_value() << std::endl;
+            }
+
+            file << std::endl;
+        }
+
         return true;
     }
 

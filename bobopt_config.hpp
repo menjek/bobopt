@@ -25,6 +25,8 @@ namespace bobopt
     /// data structures are read-only.
     class config_map
     {
+        typedef std::map<std::string, config_group*> groups_type;
+
     public:
 
         /// \brief Meyers singleton access point.
@@ -48,8 +50,22 @@ namespace bobopt
             return found->second;
         }
 
+        // iterators:
+
+        typedef groups_type::const_iterator group_iterator;
+
+        group_iterator groups_begin() const
+        {
+            return std::begin(groups_);
+        }
+
+        group_iterator groups_end() const
+        {
+            return std::end(groups_);
+        }
+
     private:
-        std::map<std::string, config_group*> groups_;
+        groups_type groups_;
     };
 
     /// \brief Base class/interface for all configuration variables.
@@ -70,6 +86,8 @@ namespace bobopt
     /// \brief Configuration group to keep variables.
     class config_group
     {
+        typedef std::map<std::string, basic_config_variable*> variables_type;
+
     public:
 
         /// \brief Register in configuration map.
@@ -97,9 +115,23 @@ namespace bobopt
             return variables_.emplace(variable->get_name(), variable).second;
         }
 
+        // iterators:
+
+        typedef variables_type::const_iterator variable_iterator;
+
+        variable_iterator variables_begin() const
+        {
+            return std::begin(variables_);
+        }
+
+        variable_iterator variables_end() const
+        {
+            return std::end(variables_);
+        }
+
     private:
         std::string name_;
-        std::map<std::string, basic_config_variable*> variables_;
+        variables_type variables_;
     };
 
     /// \brief Configuration variable templated by type and parser.

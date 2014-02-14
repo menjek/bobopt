@@ -120,6 +120,8 @@ namespace bobopt
 static llvm::cl::opt<bool> opt_help("h", llvm::cl::desc("Help"));
 /// \brief Setting up configuration file from command line.
 static llvm::cl::opt<std::string> opt_config_file("c", llvm::cl::desc("Specify config filename."), llvm::cl::value_desc("config file"));
+/// \brief Generation of default configuration file.
+static llvm::cl::opt<std::string> opt_gen_config_file("g", llvm::cl::desc("Generate default config file."), llvm::cl::value_desc("config file"));
 
 /// \brief Command line option for program mode.
 static llvm::cl::opt<bobopt::modes>
@@ -134,6 +136,20 @@ int main(int argc, const char* argv[])
 {
     CommonOptionsParser options(argc, argv);
 
+    if (opt_gen_config_file.getNumOccurrences() > 0)
+    {
+        std::string file_name = opt_gen_config_file.c_str();
+
+        bobopt::config_parser parser;
+        if (!parser.save(file_name))
+        {
+            llvm::errs() << "Failed to save default configuration file to: " << file_name << '\n';
+            return 1;
+        }
+
+        return 0;
+    }
+
     if (opt_config_file.getNumOccurrences() > 0)
     {
         std::string file_name = opt_config_file.c_str();
@@ -141,7 +157,7 @@ int main(int argc, const char* argv[])
         bobopt::config_parser parser;
         if (!parser.load(file_name))
         {
-            llvm::errs() << "Failed to load configuration file: " << file_name << '\n';
+            llvm::errs() << "Failed to load configuration file: " << file_name << "... using defaults.\n";
         }
     }
 
