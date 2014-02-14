@@ -2,6 +2,7 @@
 #ifndef BOBOPT_PARSER_HPP_GUARD_
 #define BOBOPT_PARSER_HPP_GUARD_
 
+#include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
 
 #include <stdexcept>
@@ -15,11 +16,12 @@ namespace bobopt
     struct parser;
 
     /// \brief Specialization for bool.
-    /// Allowed text values are: (true, TRUE, True, 1) resp. (false, FALSE, False, 0).
+    ///
+    /// Allowed values: true, TRUE, True, 1, resp. false, FALSE, False, 0.
     template <>
     struct parser<bool>
     {
-        bool parse(const std::string& text)
+        BOBOPT_INLINE bool parse(const std::string& text)
         {
             if ((text == "true") || (text == "TRUE") || (text == "True") || (text == "1"))
             {
@@ -34,7 +36,7 @@ namespace bobopt
             throw std::invalid_argument(text + " is not boolean");
         }
 
-        std::string print(bool value) const
+        BOBOPT_INLINE std::string print(bool value) const
         {
             return value ? "true" : "false";
         }
@@ -44,12 +46,12 @@ namespace bobopt
     template <>
     struct parser<unsigned>
     {
-        unsigned parse(const std::string& text)
+        BOBOPT_INLINE unsigned parse(const std::string& text)
         {
             return std::stoul(text);
         }
 
-        std::string print(unsigned value) const
+        BOBOPT_INLINE std::string print(unsigned value) const
         {
             return std::to_string(value);
         }
@@ -59,12 +61,12 @@ namespace bobopt
     template <>
     struct parser<unsigned long>
     {
-        unsigned long parse(const std::string& text)
+        BOBOPT_INLINE unsigned long parse(const std::string& text)
         {
             return std::stoul(text);
         }
 
-        std::string print(unsigned long value) const
+        BOBOPT_INLINE std::string print(unsigned long value) const
         {
             return std::to_string(value);
         }
@@ -74,12 +76,12 @@ namespace bobopt
     template <>
     struct parser<unsigned long long>
     {
-        unsigned long long parse(const std::string& text)
+        BOBOPT_INLINE unsigned long long parse(const std::string& text)
         {
             return std::stoull(text);
         }
 
-        std::string print(unsigned long long value) const
+        BOBOPT_INLINE std::string print(unsigned long long value) const
         {
             return std::to_string(value);
         }
@@ -89,12 +91,12 @@ namespace bobopt
     template <>
     struct parser<int>
     {
-        int parse(const std::string& text)
+        BOBOPT_INLINE int parse(const std::string& text)
         {
             return std::stoi(text);
         }
 
-        std::string print(int value) const
+        BOBOPT_INLINE std::string print(int value) const
         {
             return std::to_string(value);
         }
@@ -104,12 +106,12 @@ namespace bobopt
     template <>
     struct parser<long>
     {
-        long parse(const std::string& text)
+        BOBOPT_INLINE long parse(const std::string& text)
         {
             return std::stol(text);
         }
 
-        std::string print(long value) const
+        BOBOPT_INLINE std::string print(long value) const
         {
             return std::to_string(value);
         }
@@ -119,12 +121,12 @@ namespace bobopt
     template <>
     struct parser<long long>
     {
-        long long parse(const std::string& text)
+        BOBOPT_INLINE long long parse(const std::string& text)
         {
             return std::stoll(text);
         }
 
-        std::string print(long long value) const
+        BOBOPT_INLINE std::string print(long long value) const
         {
             return std::to_string(value);
         }

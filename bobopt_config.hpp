@@ -4,6 +4,7 @@
 #define BOBOPT_CONFIG_HPP_GUARD_
 
 #include <bobopt_debug.hpp>
+#include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
 #include <bobopt_parser.hpp>
 
@@ -29,18 +30,18 @@ namespace bobopt
 
     public:
 
-        /// \brief Meyers singleton access point.
+        /// \brief Singleton access point.
         static config_map& instance()
         {
             static config_map obj;
             return obj;
         }
 
-        /// \brief Registration function for groups.
+        /// \brief Group registration called from config_group constructor.
         bool add(config_group* group);
 
-        /// \brief Access to the group information.
-        config_group* get_group(const std::string& name) const
+        /// \brief Access to group information by name.
+        BOBOPT_INLINE config_group* get_group(const std::string& name) const
         {
             auto found = groups_.find(name);
             if (found == std::end(groups_))
@@ -51,15 +52,14 @@ namespace bobopt
         }
 
         // iterators:
-
         typedef groups_type::const_iterator group_iterator;
 
-        group_iterator groups_begin() const
+        BOBOPT_INLINE group_iterator groups_begin() const
         {
             return std::begin(groups_);
         }
 
-        group_iterator groups_end() const
+        BOBOPT_INLINE group_iterator groups_end() const
         {
             return std::end(groups_);
         }
@@ -75,11 +75,11 @@ namespace bobopt
     {
     public:
 
-        /// \brief Get name of the variable
+        /// \brief Get name of the variable.
         virtual std::string get_name() const = 0;
-        /// \brief Set variable value from pure text.
+        /// \brief Set variable value from text.
         virtual void set(const std::string& text) = 0;
-        /// \brief Return default value as text.
+        /// \brief Return default variable value as text.
         virtual std::string default_value() const = 0;
     };
 
@@ -97,34 +97,33 @@ namespace bobopt
         }
 
         /// \brief Used for lookup in configuration map.
-        std::string get_name() const
+        BOBOPT_INLINE std::string get_name() const
         {
             return name_;
         }
 
         /// \brief Access configuration variable.
-        basic_config_variable& get_variable(const std::string& name)
+        BOBOPT_INLINE basic_config_variable& get_variable(const std::string& name) const
         {
             BOBOPT_ASSERT(variables_.find(name) != std::end(variables_));
             return *(variables_[name]);
         }
 
         /// \brief Add configuration variable to the group.
-        bool add(basic_config_variable* variable)
+        BOBOPT_INLINE  bool add(basic_config_variable* variable)
         {
             return variables_.emplace(variable->get_name(), variable).second;
         }
 
         // iterators:
-
         typedef variables_type::const_iterator variable_iterator;
 
-        variable_iterator variables_begin() const
+        BOBOPT_INLINE  variable_iterator variables_begin() const
         {
             return std::begin(variables_);
         }
 
-        variable_iterator variables_end() const
+        BOBOPT_INLINE variable_iterator variables_end() const
         {
             return std::end(variables_);
         }
@@ -150,6 +149,7 @@ namespace bobopt
             BOBOPT_CHECK(group.add(this));
         }
 
+        // inherited members:
         virtual std::string get_name() const override
         {
             return name_;
@@ -165,7 +165,8 @@ namespace bobopt
             return parser_.print(default_value_);
         }
 
-        ValueT get() const
+        /// \brief Access value of configuration variable.
+        BOBOPT_INLINE ValueT get() const
         {
             return value_;
         }
@@ -181,7 +182,7 @@ namespace bobopt
         ParserT parser_;
     };
 
-    /// \brief Helper used to parse configuration file.
+    /// \brief Helper for save/load of configuration file.
     class config_parser
     {
     public:
@@ -189,17 +190,20 @@ namespace bobopt
         {
         }
 
+        /// \brief Load configuration from specific file.
         bool load(const std::string& file_name);
+        /// \brief Save configuration to specific file.
         bool save(const std::string& file_name) const;
 
     private:
+        /// \brief Helper to parse single line of configuration file.
         bool parse_line(const std::string& line);
 
         config_group* group_;
 
+        // constants:
         static const std::regex REGEX_GROUP;
         static const std::regex REGEX_VARIABLE;
-
         static const std::regex REGEX_COMMENT;
         static const std::regex REGEX_EMPTY_LINE;
     };
