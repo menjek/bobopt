@@ -146,6 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bobopt_config.cpp" />
     <ClCompile Include="bobopt_diagnostic.cpp" />
     <ClCompile Include="bobopt_method.cpp" />
     <ClCompile Include="bobopt_method_factory.cpp" />
@@ -161,6 +162,7 @@
     <ClCompile Include="methods\bobopt_yield_complex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bobopt_config.hpp" />
     <ClInclude Include="bobopt_diagnostic.hpp" />
     <ClInclude Include="bobopt_method.hpp" />
     <ClInclude Include="bobopt_inline.hpp" />
@@ -169,6 +171,7 @@
     <ClInclude Include="bobopt_method_factory.hpp" />
     <ClInclude Include="bobopt_optimizer.hpp" />
     <ClInclude Include="bobopt_debug.hpp" />
+    <ClInclude Include="bobopt_parser.hpp" />
     <ClInclude Include="bobopt_utils.hpp" />
     <ClInclude Include="bobopt_text_utils.hpp" />
     <ClInclude Include="clang\bobopt_clang_epilog.hpp" />

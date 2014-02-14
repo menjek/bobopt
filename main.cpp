@@ -1,3 +1,4 @@
+#include <bobopt_config.hpp>
 #include <bobopt_optimizer.hpp>
 
 #include <clang/bobopt_clang_prolog.hpp>
@@ -9,7 +10,6 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <cstdarg>
-#include <ostream>
 #include <string>
 #include <vector>
 
@@ -116,6 +116,11 @@ namespace bobopt
 
 } // namespace
 
+/// \brief Help from command line.
+static llvm::cl::opt<bool> opt_help("h", llvm::cl::desc("Help"));
+/// \brief Setting up configuration file from command line.
+static llvm::cl::opt<std::string> opt_config_file("c", llvm::cl::desc("Specify config filename."), llvm::cl::value_desc("config file"));
+
 /// \brief Command line option for program mode.
 static llvm::cl::opt<bobopt::modes>
 opt_mode(llvm::cl::desc("Optimizer mode:"),
@@ -128,6 +133,18 @@ opt_mode(llvm::cl::desc("Optimizer mode:"),
 int main(int argc, const char* argv[])
 {
     CommonOptionsParser options(argc, argv);
+
+    if (opt_config_file.getNumOccurrences() > 0)
+    {
+        std::string file_name = opt_config_file.c_str();
+
+        bobopt::config_parser parser;
+        if (!parser.load(file_name))
+        {
+            llvm::errs() << "Failed to load configuration file: " << file_name << '\n';
+        }
+    }
+
     RefactoringTool tool(options.getCompilations(), options.getSourcePathList());
 
     bobopt::optimizer optimizer(opt_mode, &tool.getReplacements());

@@ -1,0 +1,105 @@
+#include <bobopt_config.hpp>
+
+#include <clang/bobopt_clang_prolog.hpp>
+#include "llvm/Support/raw_ostream.h"
+#include <clang/bobopt_clang_epilog.hpp>
+
+#include <fstream>
+
+namespace bobopt
+{
+
+    // Constants.
+    //==========================================================================
+
+    /// \brief Regular expression for line defining group.
+    const std::regex config_parser::REGEX_GROUP(R"(\[([a-zA-Z0-9_ ]+)\])");
+    /// \brief Regular expression for line defining variable.
+    const std::regex config_parser::REGEX_VARIABLE(R"(([a-zA-Z0-9_]+)\s*:\s*(.*))");
+    /// \brief Regular expression for line with comment.
+    const std::regex config_parser::REGEX_COMMENT(R"(\s*#.*)");
+    /// \brief Regular expression for empty line.
+    const std::regex config_parser::REGEX_EMPTY_LINE(R"(\s*)");
+
+    // Implementation.
+    //==========================================================================
+
+    bool config_map::add(config_group* group)
+    {
+        return groups_.emplace(group->get_name(), group).second;
+    }
+
+    bool config_parser::load(const std::string& file_name)
+    {
+        std::ifstream file(file_name);
+        if (!file)
+        {
+            return false;
+        }
+
+        try
+        {
+            for (std::string line; std::getline(file, line);)
+            {
+                if (!parse_line(line))
+                {
+                    return false;
+                }
+            }
+        }
+        catch(const std::exception& e)
+        {
+            llvm::errs() << "Error: " << e.what() << '\n';
+            return false;
+        }
+        
+        return true;
+    }
+
+    bool config_parser::save(const std::string& file_name) const
+    {
+        BOBOPT_UNUSED_EXPRESSION(file_name);
+        return true;
+    }
+
+    bool config_parser::parse_line(const std::string& line)
+    {
+        // Variable line should be the most frequent.
+        {
+            std::smatch m;
+            if (std::regex_match(line, m, REGEX_VARIABLE))
+            {
+                if (group_ == nullptr)
+                {
+                    return true;
+                }
+
+                auto& variable = group_->get_variable(m[1].str());
+                variable.set(m[2].str());
+                return true;
+            }
+        }
+
+        // Empty line should be the second most frequent
+        {
+            if (std::regex_match(line, REGEX_EMPTY_LINE))
+            {
+                return true;
+            }
+        }
+
+        // Group line the next most frequent.
+        {
+            std::smatch m;
+            if (std::regex_match(line, m, REGEX_GROUP))
+            {
+                group_ = config_map::instance().get_group(m[1].str());
+                return true;
+            }
+        }
+
+        // The last option is comment, otherwise misformed config file.
+        return std::regex_match(line, REGEX_COMMENT);
+    }
+
+} // bobopt

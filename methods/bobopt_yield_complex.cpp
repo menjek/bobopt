@@ -1,5 +1,6 @@
 #include <methods/bobopt_yield_complex.hpp>
 
+#include <bobopt_config.hpp>
 #include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
 #include <bobopt_macros.hpp>
@@ -37,26 +38,28 @@ namespace bobopt
     namespace methods
     {
 
-        // Algorithm constants.
+        // Configuration.
         //======================================================================
 
+        /// \brief Configuration group name.
+        static config_group config("yield complex");
         /// \brief Complexity of not inlined non trivial call. Call defined probably in different TU.
-        static const unsigned call_default_complexity = 25u;
+        static config_variable<unsigned> config_call_default_complexity(config, "call_default_complexity", 25u);
         /// \brief Complexity of trivial call. Trivial function is function that doesn't require code generation, i.e., body is empty.
-        static const unsigned call_trivial_complexity = 1u;
+        static config_variable<unsigned> config_call_trivial_complexity(config, "call_trivial_complexity", 1u);
         /// \brief Complexity of function defined as inline. User should be carefull with inline keyword.
-        static const unsigned call_inline_complexity = 5u;
+        static config_variable<unsigned> config_call_inline_complexity(config, "call_inline_complexity", 5u);
         /// \brief Complexity of contexpr function call. Call is resolved at compile time.
-        static const unsigned call_constexpr_complexity = 1u;
+        static config_variable<unsigned> config_call_constexpr_complexity(config, "call_constexpr_complexity", 1u);
 
         /// \brief Multiplier for body complexity of for loop.
-        static const unsigned multiplier_for = 20u;
+        static config_variable<unsigned> config_multiplier_for(config, "multiplier_for", 20u);
         /// \brief Multiplier for body complexity of while and do/while loops.
-        static const unsigned multiplier_while = 25u;
+        static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 25u);
 
         /// \brief Optimal complexity for box execution.
         /// It is equivalent of 2 inner for loops with 5 calls to not inlined non trivial function (20*20*5*25 = 50000).
-        static const unsigned threshold = 20000u;
+        static config_variable<unsigned> config_threshold(config, "threshold", 20000u);
 
         // TU helpers.
         //======================================================================
@@ -90,20 +93,20 @@ namespace bobopt
 
                 if (callee->hasTrivialBody())
                 {
-                    return call_trivial_complexity;
+                    return config_call_trivial_complexity.get();
                 }
 
                 if (callee->isConstexpr())
                 {
-                    return call_constexpr_complexity;
+                    return config_call_constexpr_complexity.get();
                 }
 
                 if (callee->isInlined())
                 {
-                    return call_inline_complexity;
+                    return config_call_inline_complexity.get();
                 }
 
-                return call_default_complexity;
+                return config_call_default_complexity.get();
             }
 
             /// \brief Function returns complexity of single CFG element.
@@ -433,17 +436,17 @@ namespace bobopt
 
                         if (llvm::dyn_cast<ForStmt>(stmt) != nullptr)
                         {
-                            return process_succ_loop(block, path, complexity, multiplier_for);
+                            return process_succ_loop(block, path, complexity, config_multiplier_for.get());
                         }
 
                         if (llvm::dyn_cast<WhileStmt>(stmt) != nullptr)
                         {
-                            return process_succ_loop(block, path, complexity, multiplier_while);
+                            return process_succ_loop(block, path, complexity, config_multiplier_while.get());
                         }
 
                         if (llvm::dyn_cast<DoStmt>(stmt) != nullptr)
                         {
-                            return process_succ_loop(block, path, complexity, multiplier_while);
+                            return process_succ_loop(block, path, complexity, config_multiplier_while.get());
                         }
                     }
 
@@ -596,12 +599,12 @@ namespace bobopt
                     unsigned ids_size = static_cast<unsigned>(path.ids.size());
                     count += ids_size;
 
-                    if (path.complexity > threshold)
+                    if (path.complexity > config_threshold.get())
                     {
                         over_threshold = true;
                     }
 
-                    distance += ids_size * value_distance(threshold, path.complexity);
+                    distance += ids_size * value_distance(config_threshold.get(), path.complexity);
                 }
 
                 if (!over_threshold)
@@ -614,7 +617,7 @@ namespace bobopt
                 {
                     for (const auto& path : end_block->paths)
                     {
-                        const auto path_distance = value_distance(threshold, path.complexity);
+                        const auto path_distance = value_distance(config_threshold.get(), path.complexity);
                         for (auto id : path.ids)
                         {
                             ++count;
@@ -627,7 +630,7 @@ namespace bobopt
                             }
 
                             auto new_complexity = path.complexity - found_it->complexity;
-                            distance += value_distance(threshold, new_complexity);
+                            distance += value_distance(config_threshold.get(), new_complexity);
                         }
                     }
                 }
@@ -649,7 +652,7 @@ namespace bobopt
                 {
                     const auto ids_count = static_cast<unsigned>(path.ids.size());
                     count += ids_count;
-                    distance += ids_count * value_distance(threshold, path.complexity);
+                    distance += ids_count * value_distance(config_threshold.get(), path.complexity);
                 }
 
                 // Paths ending in yielded blocks.
@@ -661,7 +664,7 @@ namespace bobopt
                         {
                             const auto ids_count = static_cast<unsigned>(path.ids.size());
                             count += ids_count;
-                            distance += ids_count * value_distance(threshold, path.complexity);
+                            distance += ids_count * value_distance(config_threshold.get(), path.complexity);
                         }
                     }
                 }

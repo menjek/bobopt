@@ -24,6 +24,7 @@
     </ClCompile>
     <ClCompile Include="bobopt_diagnostic.cpp" />
     <ClCompile Include="bobopt_text_utils.cpp" />
+    <ClCompile Include="bobopt_config.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="methods\bobopt_prefetch.hpp">
@@ -54,6 +55,8 @@
     <ClInclude Include="bobopt_utils.hpp" />
     <ClInclude Include="bobopt_diagnostic.hpp" />
     <ClInclude Include="bobopt_text_utils.hpp" />
+    <ClInclude Include="bobopt_config.hpp" />
+    <ClInclude Include="bobopt_parser.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bobopt_empty.inl" />
