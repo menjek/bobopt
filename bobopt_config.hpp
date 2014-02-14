@@ -103,7 +103,7 @@ namespace bobopt
         }
 
         /// \brief Access configuration variable.
-        BOBOPT_INLINE basic_config_variable& get_variable(const std::string& name) const
+        BOBOPT_INLINE basic_config_variable& get_variable(const std::string& name)
         {
             BOBOPT_ASSERT(variables_.find(name) != std::end(variables_));
             return *(variables_[name]);
