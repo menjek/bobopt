@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_SUPPRESS_REGENERATION true)
 
+if (MSVC)
+  add_definitions(/W4)
+endif ()
+
 # Find Clang/LLVM headers + libraries.
 # It's up to CMake user to setup basic path to project (e.g using CMAKE_PREFIX_PATH)
 
