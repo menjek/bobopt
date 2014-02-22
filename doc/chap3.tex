@@ -7,6 +7,7 @@ The structure Clang provides is not only abstract syntax tree of code, it's grap
 Unusually, class hierarchy of nodes doesn't have common ancestor. There are two large hierarchies with common ancestors in \code{Decl} and \code{Stmt}, some important ones with ancestors in \code{Type} and \code{DeclContext}, and a lot of classes that are accessible only from specific nodes. AST traversal starts in \code{TranslationUnitDecl} node. 
 
 \subsection{Traversal}
+\label{clang-ast-traversal}
 Template responsible for AST traversal is called \code{RecursiveASTVisitor}. It is implemented as \emph{Curiously Recurring Template Pattern (CRTP)}, when programmer is able to either react on AST node visit or manipulate with traversal. Due to character of AST class hierarchy, implementation of visitor is a bit cumbersome and got nickname \emph{macro monster}. It was promised, it will be reimplemented once and there's no guarantee interface won't change even though visitor is massively used in tools.
 
 \section{Source to source transformation}

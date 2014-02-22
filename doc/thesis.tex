@@ -29,26 +29,37 @@
 \usepackage[utf8]{inputenc}
 
 %% Ostatní balíčky
+\usepackage{array}
+\usepackage[shellescape]{gmp}
 \usepackage{graphicx}
 \usepackage{amsthm}
 \usepackage{enumitem}
+\usepackage[table]{xcolor}
 \usepackage{tikz}
 \usepackage{lmodern}
+\usepackage{url}
 \usepackage[T1]{fontenc}
-
 \usepackage{listings}
-\usepackage{xcolor}
+\usepackage{ifpdf}
+\ifpdf
+  \DeclareGraphicsRule{*}{mps}{*}{}
+\fi
+
+\bibliographystyle{plain}
+
 \lstset {
-	frame=bt,
+%	frame=bt,
     language=C++,
-%    backgroundcolor=\color{black!5},
-	backgroundcolor=\color{white},
-    numbers=left,
-    numbersep=5pt,
-    basicstyle=\footnotesize,
+    backgroundcolor=\color{black!5},
+%	backgroundcolor=\color{white},
+%    numbers=left,
+%    numbersep=5pt,
+    basicstyle=\footnotesize\ttfamily,
     keywordstyle=\bfseries,
     aboveskip=15pt,
     belowskip=15pt,
+    showstringspaces=false,
+    columns=fixed,
 }
 
 %% Balíček hyperref, kterým jdou vyrábět klikací odkazy v PDF,
@@ -60,6 +71,21 @@
 \hypersetup{pdfborder={0 0 0}}
 
 \usepackage{epstopdf}
+
+\usetikzlibrary{arrows,fit,positioning,calc,patterns} 
+\tikzset{
+    %Define standard arrow tip
+    >=stealth',
+    %Define style for boxes
+    title/.style={
+           text centered},
+    % Define arrow style
+    pil/.style={
+           ->,
+           thick,
+           shorten <=3pt,
+           shorten >=3pt,}
+}
 
 %%% Drobné úpravy stylu
 
@@ -275,7 +301,8 @@ bobox, static code analysis, optimization, code complexity, clang
 \include{epilog}
 
 %%% Seznam použité literatury
-\include{bibliography}
+%\include{bibliography}
+\bibliography{bibsource}
 
 %%% Tabulky v diplomové práci, existují-li.
 \chapwithtoc{List of Tables}

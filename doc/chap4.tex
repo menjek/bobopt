@@ -1,8 +1,123 @@
 \chapter{Optimizer}
-Basic introduction to optimizer. Working modes, optimization methods.
+Optimizer is implemented on top of Clang using LibTooling API combined with AST matchers API. It provides two different methods to optimize code that uses the Bobox framework, but is designed the way it's easy to implement new optimization methods. Both implemented algorithms will be described in more details in the following chapters.
+
+Tool is able to perform source-to-source transformations but only on text level. There's no check whether performed changes didn't break source code compilation or semantic of user code not related to the Bobox framework.
 
 \section{Design}
-Lookup of boxes in code. Invocation of methods.
+User code for the Bobox framework is mainly placed into the class derived from \code{bobox::basic\_box}. The first step, before optimization starts, is to find all user defined boxes in source code. AST matchers fits this purpose the best. The main \code{optimizer} class is also callback for AST matchers. The next step is to distribute handles to boxes to appropriate algorithms and providing them with optimizer runtime environment data.
+
+Based on command line parameter that defines optimization level\footnote{Very similar to what modern C++ compilers support, e.g. \emph{GCC} and \emph{Clang/LLVM} -Ox command line option and \emph{Microsoft Visual C++} /Ox command line option.}, the main optimizer object allocates objects representing optimization strategies and is responsible for their lifetime. Methods have to implement simple interface which accept handle to the AST node representing user box and handle to \code{Replacements} object provided by AST matchers library. The \code{optimizer} object also injects pointer to itself into every method when created so the method can access its public interface. Class serves as a gateway to all kind of information in tool runtime environment.
+
+\begin{figure}[h!]
+	\caption{Class diagram for optimizer core.}
+	\centering
+		\includegraphics{cd_core.1}
+\end{figure}
+
+Creation of new optimization method consists from these steps:
+\begin{enumerate}
+\item Implement \code{basic\_method} interface which consists from single member function to invoke box optimization.
+\item Register method factory function in \code{method\_factory} source. This mechanism is used to allocate optimization methods objects. Method factory function has to return pointer to method object giving up its ownership.
+\end{enumerate}
+
+The AST matchers API doesn't provide access to Clang compiler internals mentioned in the previous chapter. Only matched node, \code{clang::ASTContext} and \code{clang::SourceManager} are provided. For access to compiler internals, it was necessary to implement own wrappers for front-end action and consuming AST to catch handle to compiler main object in \code{clang::CompilerInstance} and reimplementing LibTooling mechanism. The other approach would be to directly change the Clang source code and implement necessary mechanism there, but it would bring significant problems. The first and the most important is that tool source code would need to be distributed together with the changed Clang source code, otherwise it would not be possible to build it. The second reason is for me personally resolving potential changes in the Clang tooling interface implementation semantic is easier in separate code base, potentially using version control system, rather than merging or updating when it's easier to lose changes.
+
+\begin{figure}[h!]
+	\caption{Class diagram for wrapping of Clang tooling API.}
+	\centering
+		\includegraphics{cd_wrap.1}
+\end{figure}
 
 \section{Working modes}
-Diagnostic, Interactive, Build modes description.
+Tool is primarily supposed to be used as optimizer when it is quietly executed as build step transforming code that is later compiled. But optimizer can operate in another two different modes, diagnostic and interactive. Both modes main difference is that they are verbose, printing reasons why they want to optimize user code.
+
+Supported tool modes with description \textit{(Bold text is command line argument used to switch to the mode.)}:
+\begin{description}
+\item[-build]{
+Tool runs quietly transforming source code. The only output is compiler diagnostic output. Rationale is that if there's compile error, user should see why optimizer doesn't work. Furthermore compile errors and warnings should not be ignored, but when desirable they can be filtered out by command line, e.g., either by JSON compilation database affecting Clang diagnostic or by redirection of tool output.
+
+Even though it is not necessary to make transformed code look pretty for human because transformed code is supposed to be immediately processed by compiler, build mode injects code keeping indentation and line endings. More about indentation detection will be described later in this chapter.
+}
+\item[-diagnostic]{
+Diagnostic mode is verbose only mode which doesn't do any code transformations. Optimizer describes problematic parts of user code, rationale behind suggestions and points directly to source code text. Diagnostic output is very similar to the one of Clang diagnostic output, but implemented separately.
+
+Rationale behind implementing such mode is that programmers still hesitate with using code transformation tools for C++ apart from formatters and simple refactoring tools. Unless optimizer output is not too verbose and can be processed by human, it's safer to allocate human resources for optimization process with tool as helper. Optimizer suggestions can be implemented by programmer directly in source code base and tool doesn't have to be used as build step thus making build faster.
+
+Another reason for this mode is that tool can be used in environments where source code is read-only. \emph{Perforce} revision control system may serve as an example. Perforce doesn't allow programmer to edit source code until he marks it as \emph{checked-out} and checking out whole code base for editing a couple of files is performance demanding for server side of revision control system.
+}
+\item[-interactive]{
+This mode is equivalent to diagnostic with one more feature. Each optimizer suggestion comes with yes/no type of question whether programmer desires to apply transformation on code immediately.
+
+Rationale behind this mode is to make processing optimizer diagnostic by human faster. If programmer sees that suggestion is relevant, he doesn't need to switch to another environment to write what he already sees on screen.
+
+As already mentioned, decision granularity is on the level of optimizer suggestions. Single optimization method may produce multiple suggestions for single box. Programmer may pick which of them will be applied.
+}
+\end{description}
+
+\subsection{Optimizer output}
+Tool tries to emulate Clang diagnostic output as much as possible even though it is implemented separately. Output is based mainly on pointing out places in source code. Tool diagnostic code functions get location in source code together with text message and type of the message. There are three different types of messages:
+
+\begin{description}
+\item[info]{General information about source code.}
+\item[optimization]{General message about optimization process.}
+\item[suggestion]{Suggested transformation to source code.}
+\end{description}
+
+Optimizer output then may look like
+
+\begin{figure}[h!]
+\label{outputexample}
+\caption{Example of tool diagnostic output}
+\begin{verbatim}
+boxes.hpp:60:32: info: missing prefetch for input declared here:
+BOBOX_BOX_INPUTS_LIST(left,0, right,1);
+                              ^~~~~
+\end{verbatim}
+\end{figure}
+
+As it can be seen in example \ref{outputexample}, tool diagnostic is aware of macro expansion. Though it doesn't show whole stack of macro expansion as Clang diagnostic does, but spelling location only.
+
+\section{Coding style detection}
+As part of being user-friendly with providing interactive mode, it is necessary to inject code the way it follows coding style as much as possible. Indentation is probably the most visible property of coding style. A lot of indent styles evolved over time, but currently implemented optimization methods are interested only in whitespaces on the begging of a non empty lines. Considering only this property, algorithm is pretty simple.
+
+Function to detect indentation properties in tool framework runs over class definition. Information from whole memory buffer which represents translation unit would be misleading since a lot of files from different libraries including standard library may be included. As you will see from algorithm class definition is big enough example to detect coding style.
+
+Detection of line endings, whether it's carriage return (CR) and line feed (LF) or just line feed is very simple. Algorithm to detect whitespaces used to indent code block processes memory buffer of box definition from start to end location.
+
+\begin{enumerate}
+\item{Remember indentation of the line, start with empty string.}
+\item{If algorithm didn't reach the end location continue in the next step, otherwise continue in the step 7.}
+\item{Find the first non whitespace character.}
+\item{If line contains only whitespace characters continue in step 2.}
+\item{Increase occurrences count for difference between last remembered indentation and current line indentation.}
+\item{Set the last line indentation to current line indentation and continue in the step 2.}
+\item{Pick the most occurred difference between two lines indentation. If there's no clear winner pick tabs.}
+\end{enumerate}
+
+Similar algorithm is used to detect indentation of member function declarations in class definition. Algorithm remembers whitespaces on the beginning of the line with member function declaration or definition and pick the one with most occurrences.
+
+\section{Configuration}
+\label{opt-configuration}
+One of the optimization methods tightly depends on multiple constants and their values may affect quality of the result. From the beginning, they were hard-coded and tuning them up meant recompile and link against Clang/LLVM libraries which was significant overhead that could be removed. Furthermore configuration can be used to tune up optimizer on different systems.
+
+Clang/LLVM code base doesn't provide any configuration facilities so it was necessary to write it from scratch\footnote{LLVM CommandLine 2.0 library served as an inspiration for design because of similarities with goal of configuration library.} and requirements are accordingly low. At minimum it is necessary to store values of multiple types paired with name which is used as key and thus has to be unique. Next step is to define scope of value names in which they have to be unique. Every configuration \emph{variable} has to be assigned to configuration \emph{group}. Group should have represented single optimization method from the beginning, but it was unnecessary limitation and was removed. Every group has name and this name has to be globally unique. It means that if there's need to create configuration group for every instance of single class, its name has to be generated to be unique.
+
+\begin{figure}[h!]
+	\label{cdconfiguration}
+	\caption{Class diagram for configuration code.}
+	\centering
+		\includegraphics{cd_config.1}
+\end{figure}
+
+Class diagram on figure \ref{cdconfiguration} shows hierarchy and thus scope of uniqueness for configuration elements. Class \code{config\_map} uses Meyers\footnote{Drawbacks of Meyers approach for singleton are not present.} singleton \emph{anti}-pattern for access to its instance. It is used as gateway to all configuration groups and variables.
+
+Format of configuration file was designed so it is possible to parse it simply using C++11 regular expressions. There are four types of line that could appear in the file:
+
+\begin{enumerate}
+\item{Line representing configuration group.\\ \verb$\[[a-zA-Z0-9_ ]+\]$ e.g. \verb$[group name]$}  
+\item{Line representing configuration variable. \\ \verb$[a-zA-Z0-9_]+\s*:\s*.*$ e.g. \verb$variable: value$}
+\item{Empty line or line that consists from whitespace characters only. \\ \verb$\s*$}
+\item{Comment where the first non whitespace character is \code{\#}. \\ \verb$\s*#.*$}
+\end{enumerate}
+
+Every configuration variable has to be defined with default value and tool is able to generate configuration file with default values.

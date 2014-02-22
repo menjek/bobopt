@@ -1,20 +1,403 @@
 \chapter{Yield complex method}
-Purpose of this method.
+\label{yield-intro}
+The Bobox scheduler is cooperative scheduler and inherits its drawbacks. Efficiency of programs running in parallel environment with cooperative scheduling tightly depends on user code. Task must finish or give up its execution in order to execute different task on the same CPU. To take advantage of parallel environment, there is of course necessity for multiple tasks, but creation of tasks doesn't make the job done. If tasks depend on each other in some way, they should keep balanced execution time as much as possible. Furthermore, too little execution times can cause that scheduling will exceed \textit{real} execution, big execution times can starve dependent tasks and inhibit parallelism. Big execution times of tasks producing data can also congest framework internal structures.
 
-\section{Preconditions}
-When optimization is discarded and rationale.
+Too little execution time is hard to resolve. Prefetch optimization method (\ref{prefetch}) handles specific cases when task is executed without necessary input data, effectively doing nothing. Another possible, currently unimplemented, approach is to \textit{schedule} task immediately after its execution finished, it hasn't run long enough and it still has work to do. Because implementation would bypass framework scheduler and call user code directly in order to prolong execution, \textit{schedule} word usage is imprecise.
 
-\section{Complexity tree}
-What it is.
+This optimization method aims to resolve big execution times in general. Its main goal is to detect complex tasks and inject calls to appropriate places in code to yield execution, specifically calls to box member function.
 
-\subsection{Building complexity tree}
-Code responsible for building complexity tree. Immutable.
+\begin{lstlisting}
+void yield();
+\end{lstlisting}
 
-\subsection{Heuristic}
-Description of heuristic used to calculate node complexity (e.g. CPU branch prediction like heuristic and assuming common coding standards alias llvm rule "prefer early exists").
+Different systems can have different thresholds for task complexity. Analysis algorithm is configurable (\ref{opt-configuration}) so optimizer can be tuned up for every system. What properties of algorithm can be changed is described later in this chapter after reader will be more familiar with how algorithm works.
 
-\section{Analysis of complexity tree}
-Searching for places where yield should be put. Still WIP, more subsections will be coming.
+\section{Complexity}
+\label{yield-complexity}
+So how do we measure complexity of code? Ideally, if we know input data, we run program with this data and measure. This process is called \emph{profiling}. Quality of optimizations based on profiling is very high, but it requires human resources to analyse data and update code\footnote{The most popular compilers provide feature for optimizations based on profiling data, \emph{profile guided optimizations (PGO)}, but this approach can't replace higher level look on algorithms used in application provided by programmer. Microsoft Visual Studio calls this feature \emph{Profile counts}.}. There are various techniques used for measurements such as statistical sampling with hardware support which is very fast or instrumentation which is more intrusive thus affecting application performance, but it gives more precise information. Instrumentation is useful for applications with repetitive step, which has limit for the minimum execution time or its time should be as stable as possible. It helps to find cause of spikes. Such applications are computer games, many sorts of simulations or GUI applications.
+
+Another approach for measuring complexity is to compile code and consider number of generated instructions as a magnitude of complexity. Execution of instructions is the process that consumes CPU time in the end. This assumption is naive and imprecise. The main source of complexity in the most applications comes from loops, repeatedly executed code paths and this information is not present in such metric. For snippets of code without loop, this method is precise enough even if there are branches and not all of them can be executed in single execution. With bigger samples of code from average application, there's probability of bigger amount of loops and thus code is more complex, but number of instructions reflects it less and less precise.
+
+Company programming rules often contains one related to concept called \emph{cyclomatic complexity}. It measures logical complexity, a number of linearly independent paths through code, which is different from what optimization aims to reduce. More code branches decreases readability for human, but it has almost no effect on runtime. There are coding rules such as \emph{use early exits} [LLVM coding standards] to increase code readability with high cyclomatic complexity.
+
+\section{Control flow graph}
+Construction of CFG from AST in Clang tools is for free from implementation point of view. Clang static analyzer provides structure and interface to build it. Looking on the source code through CFG in combination with information from previous section (\ref{yield-complexity}) will reveal step by step how optimization algorithm works.
+
+CFG represents all possible execution paths through source code and our goal is to \textit{cut} long paths exceeding some predefined threshold. For simplification, algorithm assumes that all paths have the same probability. Since multiple execution paths often pass through specific code block represented by graph node, inserting yield call into this code block cuts all paths passing through this block. In other words, in order to reduce execution time of single code path, we can cause too little execution times for many other paths, and benefit is lower than cost. 
+
+\begin{figure}[h!]
+\caption{Example of wrong yield placement into block shared by multiple short paths and single long path.}
+\label{yield-wrong1}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=2.5cm]
+	% Styles
+	\tikzstyle{cut} = [circle, minimum width=5pt, fill, inner sep=0pt]
+
+	% Code blocks
+	\node(entry){Entry};
+	\node[cut, below of= entry](cut){};
+	\node[below of= cut](exit){Exit};
+	
+	\path[pil] (entry) 	edge[left] node {short} (cut)
+	           (cut) 	edge[right] node {short} (exit);
+	           
+	\path[->]  (entry) 	edge[bend left=70, right] node {long} (cut)
+	           (cut) 	edge[bend right=70, left] node {long} (exit);
+\end{tikzpicture}
+\end{figure}
+
+Now imagine code with the only long code path exceeding threshold multiple times. Ideally, path would be cut as many times as it exceeds threshold in the way newly created paths have approximately the same complexity. Unfortunately, algorithm works iterative way and cuts the path in the middle in the first iteration step as shown on figure \ref{yield-wrong2}.
+
+\begin{figure}[h!]
+\caption{Example of how algorithm cuts in the first step the path 3 times exceeding threshold and ideal scenario.}
+\label{yield-wrong2}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=2.5cm]
+	% styles
+	\tikzstyle{cut} = [circle, minimum width=4pt, fill, inner sep=0pt]
+
+	% left path
+	\node[title](left-name){\emph{Source CFG}};
+	
+	\node[below of= left-name, yshift=1.5cm](left-entry){Entry};
+	\node[below of= left-entry](left-center){};
+	\node[below of= left-center](left-exit){Exit};
+	
+	\path[pil] (left-entry) edge[left] node {3} (left-exit);
+	
+	% alg path
+	\node[title, right of= left-name, xshift=1.5cm](alg-name){\emph{1. step of algorithm}};
+	
+	\node[below of= alg-name, yshift=1.5cm](alg-entry){Entry};
+	\node[cut, below of= alg-entry](alg-center){};
+	\node[below of= alg-center](alg-exit){Exit};
+	
+	\path[pil] (alg-entry) edge[left] node {1.5} (alg-center)
+	           (alg-center) edge[left] node {1.5} (alg-exit);
+	           
+	% ideal path
+	\node[title, right of= alg-name, xshift=1.5cm](ideal-name){\emph{Ideal}};
+	
+	\node[below of= ideal-name, yshift=1.5cm](ideal-entry){Entry};
+	\node[below of= ideal-entry](ideal-center){};
+	\node[below of= ideal-center](ideal-exit){Exit};
+	
+	\node[cut] (ideal-a) at ($(ideal-entry)!0.33!(ideal-exit)$){};
+	\node[cut] (ideal-b) at ($(ideal-entry)!0.66!(ideal-exit)$){};
+	
+	\path[pil] (ideal-entry) edge[left] node {1} (ideal-a)
+			   (ideal-a) edge[left] node {1} (ideal-b)
+			   (ideal-b) edge[left] node {1} (ideal-exit);
+	
+\end{tikzpicture}
+\end{figure}
+
+Reader still isn't familiar with how algorithm works, but I consider it useful mentioning such drawback this soon when problem is introduced. Figure \ref{yield-wrong2} will be referenced later in the text as well.
+
+\subsection{Block complexity}
+Wording such as \emph{path complexity} is often used in the previous text. In order to clarify this notion, we need to define \emph{block complexity} firstly.
+
+Code block in CFG doesn't contain any jump. It means approach similar to the second mentioned in (\ref{yield-complexity}) can be used to calculate its complexity. The necessary adjustment is to replace unit in form of instruction for something corresponding in source code. Code blocks in C++ consist of statements which can be very complex in general. Statement causing  jump is called \emph{terminator} and is excluded from block statements. Entry and exit blocks are empty. The most of the statements generate zero or more instructions with constant execution time. Problematic statements are call expressions\footnote{In C++ standard, expressions and statements have each own section, but Clang implements expression class hierarchy as sub-hierarchy of statement class hierarchy.}, they effectively transfer execution out of CFG and therefore they can be any complex. Solution is to estimate their complexity. Block complexity is then sum of complexities of all statements in this block using values from \ref{yield-block}. Value is searched from top to bottom of the table for the first matching row. Values in table are default values, they can be changed using configuration file.
+
+\begin{figure}[h!]
+\caption{Complexities of statements in block.}
+\label{yield-block}
+\vspace{0.5cm}
+\renewcommand{\arraystretch}{1.1}
+\centering
+\begin{tabular}{ l | r }
+  \cellcolor[gray]{0.9}Statement & \cellcolor[gray]{0.9} \\
+  \textbf{Trivial call expression}\\Function body doesn't generate any instruction, body is empty. & 1 \\
+  \textbf{Constant call expression}\\Function defined as constant expression. & 1 \\
+  \textbf{Inlined call expression}\\Function is decided to be inlined by compiler. & 5 \\
+  \cellcolor[gray]{0.9}\textbf{Call expression} & \cellcolor[gray]{0.9}25 \\
+  \cellcolor[gray]{0.9}\textbf{Statement} & \cellcolor[gray]{0.9}1 \\
+\end{tabular}
+\end{figure}
+
+\subsection{Path complexity}
+With block complexity defined, it is finally possible to define path complexity. The first attempt that could come in mind is just to sum complexities of all blocks on the path. Loops are problem and yet unclear definition of path in CFG.
+
+Loop bodies are evaluated as independent CFG making the source CFG acyclic. When path enters node with loop statement as terminator, the same path skips loop body with addition of block complexity and creates new path for every path in loop body. New paths behave as they skip loop body, but their complexity is sum of source path complexity, block complexity and body path complexity multiplied by predefined constant. Figure \ref{yield-loop} shows described situation.
+
+\begin{figure}[h!]
+\caption{Path passing through node with \code{for} loop statement terminator and selection statement in the body.}
+\label{yield-loop}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=3.0cm]
+	\tikzstyle{node} = [circle, minimum width=5pt, fill, inner sep=0pt]
+
+	% Loop node
+	\node[node](loop){};
+	\node[node, above right of=loop](entry){};
+	\node[node, below right of=loop](exit){};
+	
+	\path[pil] (entry) edge[right] node {5} (loop)
+	           (loop) edge[right] node {6,46,66} (exit);
+	
+	\node[left of=loop, xshift=1.0cm](body){};
+	\node[node, below of=body, yshift=2.0cm](b-entry){};
+	\node[node, above of=body, yshift=-2.0cm](b-exit){};
+	\node[node, left of=body, xshift=2.25cm](b1){};
+	\node[node, right of=body, xshift=-2.25cm](b2){};
+	
+	\path[pil] (loop) edge[bend left=50, below] node {0} (b-entry)
+	           (b-exit) edge[bend left=50, above] node {2,3} (loop);
+	           
+	\path[pil] (b-entry) edge[bend left=20, left] node {0} (b1)
+	           (b-entry) edge[bend right=20, right] node {0} (b2);
+	           
+	\path[pil] (b1) edge[bend left=20, left] node {1} (b-exit)
+	           (b2) edge[bend right=20, right] node {2} (b-exit);
+	
+\end{tikzpicture}
+\end{figure}
+
+\begin{figure}[h!]
+\caption{Multipliers of loop body complexities.}
+\label{yield-loop-const}
+\vspace{0.5cm}
+\renewcommand{\arraystretch}{1.1}
+\centering
+\begin{tabular}{ m{5cm} | r }
+  \cellcolor[gray]{0.9}Statement & \cellcolor[gray]{0.9} \\
+  \code{for} statement & 20 \\
+  \code{while} statement & 25 \\
+  \code{do} statement & 25 \\
+\end{tabular}
+\end{figure}
+
+\subsection{Additional block data}
+Defined notions are sufficient to describe what additional data is necessary for algorithm to work. Additional data in the meaning of structure built parallel, but tightly dependent on CFG gathered from static analyzer. Fortunately, each block in CFG has assigned unique identifier with unsigned integral type. Graph structure information can be reused from CFG and additional data are stored in map with block identifier as key for easy lookup.
+
+It is necessary to store data about every path and its complexity in every block it passes. Every path has assigned own unique identifier. Because a lot of paths share their beginnings, information about paths are sort of \emph{compressed} in structure with:
+\begin{itemize}
+\item{Set of path identifiers.}
+\item{Complexity.}
+\end{itemize}
+Block data then consists of:
+\begin{itemize}
+\item{Set of path information.}
+\item{Yield state of block.}
+	\begin{description}
+	\item[No]{There's no yield call expression in block.}
+	\item[Planned]{Algorithm plans to put yield into block.}
+	\item[Present]{Source code already includes yield call expression.}
+	\end{description}
+	\emph{Note}: Distinguish between present and planned states is to ease final code transformation. In the end, boolean has the same memory demands as implemented three states.
+\item{Map of path identifier as key and complexity as value for blocks with loop statement terminator. Map represents complexities for loop body paths.}
+\end{itemize}
+
+\subsection{Construction}
+CFG is analysed using depth-first search algorithm with function call recursion. The only unclear implementation details are how analysis works with yield states of blocks and how it builds data for the first time.
+
+Inputs of the building algorithm are CFG and set of information about yield states for blocks represented as a pair of block identifier and yield state. This set must contain information only for blocks with \emph{Planned} or \emph{Present} yield states. When data are built the first time, set with information about yield states is empty.
+
+When algorithm finds yield call expression in block statements, it ends current path, stores its data in block and creates new path starting in the block with zero complexity. The same happens when there's information about yield state in input data. Block statements then aren't processed at all and yield information is copied from the input.
+
+\subsection{Goodness}
+Another step in introduction to algorithm is to define \emph{goodness} of CFG, value to quantify CFG quality. Such variable can be used for various purposes in iterative algorithms. In this one, it is used for checking whether injecting yield really improves source CFG.
+
+First idea to quantify quality was based on simple principle that it should be preferred to have less paths, because of injecting yield increases their number, and more complex paths, to avoid too little execution times, but with sort of \emph{penalty} for paths exceeding threshold. The  \emph{penalty} part of the equation appeared to be problematic. What does it mean that there is a task running for a long time in parallel environment? In the worst case, it inhibits execution of all other tasks. In environment with possibility to run 8 different tasks in parallel, it inhibits execution of 7 instructions for each of its executed instruction. The first obvious drawback is that it isn't scalable unless configurable, but it still isn't crucial obstacle even though it's not user-friendly. The second is that constant is for the worst case scenario, which is very rare, but then you can take for example half of the constant. And the last I could think of is that subtraction of penalty can cause goodness value to be negative, but it is no problem because it is still possible to compare two graphs. The reason why I discarded this method is because there are scenarios I wanted optimization method to solve, but no value as penalty multiplier could solve all of them. For some scenarios it was too big value, for other scenarios too little. So I started to think about different method.
+
+\begin{figure}[h!]
+\caption{Showing \emph{penalty} method to evaluate goodness.}
+\label{yield-penalty}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=2.0cm]
+	
+	\node(paths) at (0,0.5) {Paths};
+	
+	% Base
+	\node(entry) at (-5.75,0) {Entry};
+	\draw[line width=3pt] (-5,0) -- (5,0);
+	
+	% Threshold
+	\node[below=of entry.east, anchor=east] (threshold) {Threshold};
+	\draw[line width=1pt] (-5,-2) -- (5,-2);
+
+	% Penalty	
+	\node[below=of threshold.east, anchor=east, yshift=0.75cm] (penalty) {Penalty};
+
+	% Tasks
+	\draw[thick] (-4,0) -- (-4,-1.6);
+	\draw[thick] (-3,0) -- (-3,-2.75);
+	\draw[pattern=north west lines, pattern color=gray] (-3.1,-2.0) rectangle (-2.9,-2.75);
+	\draw[thick] (-2,0) -- (-2,-2.23);
+	\draw[pattern=north west lines, pattern color=gray] (-2.1,-2.0) rectangle (-1.9,-2.23);
+	\draw[thick] (-1,0) -- (-1,-0.3);
+	\draw[thick] ( 0,0) -- ( 0,-4.0);
+	\draw[pattern=north west lines, pattern color=gray] (-0.1,-2.0) rectangle ( 0.1,-4.0);
+	\draw[thick] ( 1,0) -- ( 1,-5.0);
+	\draw[pattern=north west lines, pattern color=gray] ( 0.9,-2.0) rectangle ( 1.1,-5.0);
+	\draw[thick] ( 2,0) -- ( 2,-1.75);
+	\draw[thick] ( 3,0) -- ( 3,-1.1);
+	\draw[thick] ( 4,0) -- ( 4,-4.2);
+	\draw[pattern=north west lines, pattern color=gray] ( 3.9,-2.0) rectangle ( 4.1,-4.2);
+\end{tikzpicture}
+\end{figure}
+
+Thinking back, the goal of method was already described (\ref{yield-intro}) and there is no problem to apply it for evaluation of CFG. Tasks execution times should be as balanced as possible, they should not be too low or too high. Now it is enough to replace concept of execution paths for concept of tasks and threshold for ideal execution time. Then goodness is average distance from threshold representing ideal execution time. With this method, it is one less constant to handle and algorithm works well for tested scenarios. A bit confusing so worth mentioning is ordering, CFG with \emph{lower goodness is better than the one with higher}.
+
+\begin{figure}[t!]
+\caption{Showing \emph{distance from threshold} method to evaluate goodness.}
+\label{yield-penalty}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=2.0cm]
+	
+	\node(paths) at (0,0.5) {Paths};
+	
+	% Base
+	\node(entry) at (-5.75,0) {Entry};
+	\draw[line width=3pt] (-5,0) -- (5,0);
+	
+	% Threshold
+	\node[below=of entry.east, anchor=east] (threshold) {Threshold};
+	\draw[line width=1pt] (-5,-2) -- (5,-2);
+
+	% Tasks
+	\draw[thick] (-4,0) -- (-4,-1.6);
+	\draw[pattern=north west lines, pattern color=gray] (-4.1,-1.6) rectangle (-3.9,-2.0);
+	\draw[thick] (-3,0) -- (-3,-2.75);
+	\draw[pattern=north west lines, pattern color=gray] (-3.1,-2.0) rectangle (-2.9,-2.75);
+	\draw[thick] (-2,0) -- (-2,-2.23);
+	\draw[pattern=north west lines, pattern color=gray] (-2.1,-2.0) rectangle (-1.9,-2.23);
+	\draw[thick] (-1,0) -- (-1,-0.3);
+	\draw[pattern=north west lines, pattern color=gray] (-1.1,-0.3) rectangle (-0.9,-2.0);
+	\draw[thick] ( 0,0) -- ( 0,-4.0);
+	\draw[pattern=north west lines, pattern color=gray] (-0.1,-2.0) rectangle ( 0.1,-4.0);
+	\draw[thick] ( 1,0) -- ( 1,-5.0);
+	\draw[pattern=north west lines, pattern color=gray] ( 0.9,-2.0) rectangle ( 1.1,-5.0);
+	\draw[thick] ( 2,0) -- ( 2,-1.75);
+	\draw[pattern=north west lines, pattern color=gray] ( 1.9,-1.75) rectangle ( 2.1,-2.0);
+	\draw[thick] ( 3,0) -- ( 3,-1.1);
+	\draw[pattern=north west lines, pattern color=gray] ( 2.9,-1.1) rectangle ( 3.1,-2.0);
+	\draw[thick] ( 4,0) -- ( 4,-4.2);
+	\draw[pattern=north west lines, pattern color=gray] ( 3.9,-2.0) rectangle ( 4.1,-4.2);
+\end{tikzpicture}
+\end{figure}
+
+\subsection{Algorithm}
+With metric for quality of CFG, there's no missing information to describe iterative algorithm.
+
+\begin{figure}[h!]
+\caption{Algorithm for yield complex optimization method.}
+\begin{enumerate}
+\item{\emph{cfg} = Build CFG data.}
+\item{\emph{goodness} = Calculate goodness of \emph{cfg}.}
+\item{\emph{temp\_cfg} = Run optimization step on \emph{cfg}.}
+\item{\emph{temp\_goodness} = Calculate goodness of \emph{temp\_cfg}.}
+\item{If \emph{temp\_goodness} < \emph{goodness} then}
+	\begin{enumerate}[label=5.\arabic*.]
+	\item{\emph{goodness} = \emph{temp\_goodness}.}
+	\item{Swap \emph{cfg} with \emph{temp\_cfg}.}
+	\item{Continue in step 3.}
+	\end{enumerate}
+\item{Else finish, \emph{cfg} is optimized.}
+\end{enumerate}
+\end{figure}
+
+On the first look, algorithm is very defensive. It does optimization step, then it checks whether it is really better CFG. And there's still a lot of work hidden in \emph{optimization step} command.
+
+\subsubsection{Optimization step}
+However complicated work could reader imagine in single step, it is straightforward and simple. The only goal of step is to decrease goodness of CFG and to achieve that, it uses brute force. Firstly, it collects all blocks which are ends for at least one path, i.e., exit block and blocks with \emph{Planned} or \emph{Present} yield state. Then it processes every block and calculates what happens if yield call is placed to that block. The yield call is then placed to the block with the best outcome.
+
+\subsection{Default threshold}
+Quadratic complexity is widely considered to be threshold for being complex and performance demanding. With usage of values from tables (\ref{yield-block}) and (\ref{yield-loop-const}), default value for threshold is calculated as execution of two inner \code{for} loops with two calls to not inlined, non trivial, non constant call expression.
+
+\begin{center}
+\emph{20 * 20 * 2 * 25 = 20000}
+\end{center}
+
+\subsection{Code injection}
+Even after everything is done and CFG is optimized, there's still code injection to do. Block selected for code injection can be empty, it can be single statement in condition expression of selection statement, the right-hand side expression in binary expression or the else branch in conditional expression, etc. Injection of member function expression to such location can be impossible or using ugly tricks with comma operator.
+
+The easy solution is to find compound statement that is as good candidate for injection as selected block. Injection of member call expression into compound statement is then easy and safe, in the end, prefetch optimization method already does the same.
+
+Firstly, method collects all compound statements in function body compound statement (included), scope of CFG. Then it collects all blocks with \emph{Planned} yield state. For every block, it checks all compound statements whether it can insert yield call related to the block. For example, if it encounters \code{for} statement and block is equivalent to incremental expression, yield call is inserted into body compound statement. If block is equivalent to initialization expression, yield call is inserted right before \code{for} statement\footnote{Statement is already in compound statement and insertion is safe.}. For expressions, i.e., logical expressions and conditional expression, yield is inserted right before the expression.
+
+\begin{figure}[h!]
+\caption{Insertion of yield for some special cases of statements.}
+\label{yield-insertion}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=0.0cm]
+	\tikzstyle{empty} = [rectangle, draw, thin, minimum width=2.0cm, minimum height=13pt, inner sep=0pt, rounded corners=3pt]
+	
+	\tikzstyle{yield} = [rectangle, draw, thin, minimum width=0.5cm, minimum height=13pt, inner sep=0pt, rounded corners=3pt]
+
+	% If statement
+	\node[yield](ifyield){};
+	\node[below=15pt of ifyield.west, anchor=west](ifstmt){if/switch/while (};
+	\node[empty, right=of ifstmt.east, anchor=west](ifcond){ cond };
+	\node[right=of ifcond.east, anchor=west](ifstmtthen){) \{\}};
+	
+	\path[pil] (ifcond.north) edge[bend right=5] node {} (ifyield);
+	
+	% for statement
+	\node[yield, below=1.5cm of ifstmt.west, anchor=west](foryield){};
+	\node[below=15pt of foryield.west, anchor=west](forstmt){for (};
+	
+	\node[empty, right=of forstmt.east, anchor=west](forinit){ init };
+	\node[right=of forinit.east, anchor=west](forinitsemi){; };
+	
+	\node[empty, right=of forinitsemi.east, anchor=west](forcond){ cond };
+	\node[right=of forcond.east, anchor=west](forcondsemi){; };
+	
+	\node[empty, right=of forcondsemi.east, anchor=west](forinc){ inc };
+	\node[right=of forinc.east, anchor=west](forincend){)};
+	
+	\node[below=15pt of forstmt.west, anchor=west](forlbracket){\{};
+	\node[below=15pt of forlbracket.west, anchor=west, xshift=1cm](fordots){...};
+	\node[yield, below=15pt of fordots.west, anchor=west](forbodyyield){};
+	\node[below=15pt of forbodyyield.west, anchor=west, xshift=-1cm](forrbracket){\}};
+	
+	\path[pil] (forinit.north) edge[bend right=15] node {} (foryield)
+	           (forcond.north) edge[bend right=10] node {} (foryield)
+	           (forcond.south) edge node {} (forbodyyield)
+	           (forinc.south) edge[bend left=20] node {} (forbodyyield);
+
+\end{tikzpicture}
+\end{figure}
 
 \section{Behaviour in different modes}
-Description of method working in different modes (diagnostic, interactive, build). I guess they are too little for subsections.
+Diagnostic and interactive mode are verbose modes with equivalent diagnostic output. The problematic part is diagnostic output itself. Unfortunately, I couldn't figure out how to display optimizer reasoning behind suggestions. The result is that diagnostic shows only suggestions with information where to put yield member call expression.
+
+\begin{verbatim}
+[yield complex] optimization of box merge_box
+
+boxes.hpp:70:18: info: method takes too long time on some paths:
+virtual void sync_mach_etwas() BOBOX_OVERRIDE
+             ^~~~~~~~~~~~~~~
+boxes.hpp:87:9: suggestion: placing yield() call just before
+statement:
+for (int l = 0; l < 100; ++l)
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\end{verbatim}
+
+It's up to programmer to lookup place in code and investigate why previous code is complex and  why it is worth to yield execution. In interactive mode, there's yes/no type of question whether user wants to let optimizer update code immediately. Chosen answer obviously doesn't affect next algorithm work since it only allows user to select suggestions from already pre-calculated result, algorithm already finished its work.
+
+\section{Further improvements}
+Current state of method can be still improved by a lot. Some indications about further improvements are already mentioned in the previous text. The goal was to stabilize current implementation and postpone major code updates.
+
+\subsection{Runtime checks}
+Taking auto-vectorization back-end optimizers as an example. If they can't prove that operations in loop body don't overlap in compilation, they generate runtime checks and both versions of loop, original and vectorized. Although there's nothing to \emph{prove} mentioned in method description, there's a lot of \emph{guessing}. With using runtime checks, it would be possible to handle suspicious cases which are not handled with current algorithm. For example single loop with complex body, but below threshold or any repetition of case shown on figure (\ref{yield-wrong1}).
+
+\subsection{Probabilities}
+Optimization method assumes that all paths in CFG have the same probability, but it's just simplification. For example, functions have often multiple checks of their arguments on the beginning of body, but we can assume that these branches won't be taken in majority of function calls because inputs are expected to be correct. Another example is branching on loop statements which is already described in prefetch optimization method (\ref{prefetch-for}). What probabilities should be assigned to paths is very complex task with size greatly exceeding size of single thesis. Developers of branch predictors on modern processors confront similar task. Some of their ideas could be reused for static analysis, but the most of mechanisms used for prediction are based on runtime information.
+
+With probabilities assigned to paths, calculation of goodness value must be changed and optimization step as well.
+
+\subsection{Identify producers}
+In introduction to optimization method (\ref{yield-intro}), there are multiple mentioned reasons why we try to get rid off long execution tasks and one of them is possible congestion of framework internal structures. If we can identify parts of paths producing data for other tasks, we can assign more \textit{weight} to them in order to ease yield of such execution paths. Loops producing data deserves more recognition that loops performing calculations.
+
+\subsection{Deep analysis}
+Probably the simplest case of improvement for optimizer is deeper analysis of statements in CFG blocks. Complexities of statements are guessed, but some of them can be calculated more precise. All categories of call expressions can be analysed deeper if analysis has access to body of a callee. It would be unbearable to count in even its CFG, but heuristic based on callee definition can be helpful. Possible result of such heuristic can be in form of the biggest number of inner loops. Decision to make is how deep should analysis go and problem to solve is function recursion.
+
+\section{Scenarios}
+sfasf

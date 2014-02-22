@@ -47,6 +47,31 @@ The biggest disadvantage of Elsa is that its development stopped long time ago i
 \section{VivaCore/OpenC++}
 Library was created as basis for \emph{PVS-Studio} static code analyser for C/C++ code. VivaCore is derived from older \emph{OpenC++ (OpenCxx)} library. The idea of using OpenC++ appeared when team was implementing \emph{Viva64} library. They've made a lot of changes to OpenC++ and because lack of resources they didn't continue to improve it\footnote{Many changes didn't fit into OpenC++ ideology so they would need to adapt and allocate new resources for such process.}, but rather developed their own library. Library became popular and is used as basis by other very popular tools such as  \emph{VisualAssist} by \emph{Whole Tomato Software}, \emph{Doxygen}, \emph{Gimpel Software PC-Lint}, \emph{Parasoft C++test} and more.
 
+\begin{figure}[h!]
+\label{vivacore}
+\caption{Data flow graph in VivaCore library.}
+\centering
+\begin{tikzpicture}[node distance=.5cm]
+% \node[punkt](preprocessor) {External preprocessor};
+% \node[punkt, below=of preprocessor](internal) {Preprocessor subsystem};
+% \node[punkt, below=of internal](lexer) {Lexer};
+% \node[punkt, below=of lexer](parser) {Parser};
+% \node[punkt, below=of parser](walker) {PT Walker};
+% \node[punkt, below=of walker](metaprogram) {Metaprogram subsystem};
+
+	\node[matrix] (A) {
+        \draw (0,0) rectangle (1,1); 
+        \node at (0.5,0.5) {A}; \\
+    };
+    \node[matrix,left of=A] (B) 
+    {
+        \draw (0.5,0.5) circle (0.5);
+        \fill (0.5,0.5) circle (0.1); \\
+    }; 
+ 
+\end{tikzpicture}
+\end{figure}
+
 The first step of code analysis is to use preprocessor. Library uses external preprocessor what becomes its biggest disadvantage in source-to-source transformation process. Without integrated preprocessor it's next to impossible to track macro expansion and actual location of symbols in source code. Doxygen users should now understand why there's special \code{\textbackslash{def}} command to define macro documentation since it doesn't see macro definition and usage because of using external preprocessor and seeing only preprocessed code.
 
 Preprocessed input is then passed to library. There are two library subsystems that process code before it gets to lexical analysis. The first is input subsystem which has responsibility for putting preprocessed code into internal data structures. The second step is internally called \emph{Preprocessor}, but it doesn't preprocess input in the meaning of C++ preprocessor. It has mainly responsibility for two operations:
@@ -80,6 +105,7 @@ It is possible to traverse PT multiple times so user can traverse code for measu
 Code quality in a huge projects is hard to maintain using code review since there's a lot of code related commits every day (e.g. Crysis 2 multiplayer had $\sim$100-150 code related commits every day collecting 103 different developers in its lifetime) and providing people resources for code review would be inefficient. Instead of that, companies use tools for static code analysis and diagnostic is further reviewed. Though not many companies trust tools in the way they let them do source-to-source transformations apart from formatting or simple refactoring.
 
 \subsection{Clang Static Analyzer (\emph{clang-analyzer})}
+\label{clanganalyzer}
 Static analyser is part of the Clang project implemented on top of Clang tooling API. Analyser is quite easily expandable by implementing \emph{checkers}, even though their interface may not be intuitive. Authors created presentation where they try to explain \emph{"How To Write a Checker in 24 Hours"}[link]. They demonstrate how to write simple checker for  Unix stream API. When writing checker, developer needs to understand how analyzer works under the hood.
 
 Core of the analyser does symbolic execution of code, exploring every possible path, tracking all variables and constructing \emph{Control Flow Graph (CFG)}. Checkers participate in CFG construction. Essentially, checkers are visitors that react on specific set of events while traversing AST (e.g. \code{checkPreStmt}, \code{checkPostCall} functions) and eventually creating new CFG nodes. When they want to finish CFG exploration, they create \emph{sink} node. Checkers are stateless (i.e. visitor related member functions are defined as \code{const}) keeping their "state" data in \code{ProgramState} and its \emph{Generic Data Map (GDM)}.
