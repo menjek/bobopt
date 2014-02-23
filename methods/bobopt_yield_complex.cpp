@@ -58,7 +58,7 @@ namespace bobopt
         static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 25u);
 
         /// \brief Optimal complexity for box execution.
-        /// It is equivalent of 2 inner for loops with 5 calls to not inlined non trivial function (20*20*5*25 = 50000).
+        /// It is equivalent of 2 inner for loops with 2 calls to not inlined non trivial function (20*20*2*25 = 50000).
         static config_variable<unsigned> config_threshold(config, "threshold", 20000u);
 
         // TU helpers.
@@ -488,6 +488,8 @@ namespace bobopt
 
                     // Process body with new path using zero complexity.
                     // Complexity value will be multiplied further in evaluation.
+                    auto& block_data = data_[block.getBlockID()];
+                    if (block_data.loops.empty())
                     {
                         stack_guard_type<unsigned> guard(loop_stack_, block.getBlockID());
                         BOBOPT_UNUSED_EXPRESSION(guard);
@@ -497,7 +499,6 @@ namespace bobopt
 
                     std::vector<unsigned> return_paths;
 
-                    auto& block_data = data_[block.getBlockID()];
                     for (auto body_path : block_data.loops)
                     {
                         body_path.second *= multiplier;

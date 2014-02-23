@@ -792,12 +792,6 @@ namespace bobopt
             const std::string body_indent = decl_indent_ + line_indent_;
             std::string implementation = box_indent_ + "protected:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
 
-            BOBOPT_ASSERT(base_init_ != nullptr);
-            if (base_init_->getParent() != get_optimizer().get_bobox_box())
-            {
-                implementation += body_indent + base_init_->getParent()->getQualifiedNameAsString() + "::init_impl();" + endl_;
-            }
-
             bool update_source = false;
 
             const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
@@ -820,6 +814,7 @@ namespace bobopt
                         diag.emit(diag.get_message_stmt(diagnostic_message::info, call_expr, "used here:"));
                     }
                     llvm::outs() << endl_;
+                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, box_, "override init_impl() in box with prefetch call(s):"));
 
                     if (get_optimizer().get_mode() == MODE_INTERACTIVE)
                     {
@@ -838,6 +833,12 @@ namespace bobopt
 
             if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
             {
+                BOBOPT_ASSERT(base_init_ != nullptr);
+                if (base_init_->getParent() != get_optimizer().get_bobox_box())
+                {
+                    implementation += body_indent + base_init_->getParent()->getQualifiedNameAsString() + "::init_impl();" + endl_;
+                }
+
                 implementation += decl_indent_ + "}" + endl_;
 
                 SourceLocation location = box_->getRBraceLoc();
