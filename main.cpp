@@ -116,8 +116,6 @@ namespace bobopt
 
 } // namespace
 
-/// \brief Help from command line.
-static llvm::cl::opt<bool> opt_help("h", llvm::cl::desc("Help"));
 /// \brief Setting up configuration file from command line.
 static llvm::cl::opt<std::string> opt_config_file("c", llvm::cl::desc("Specify config filename."), llvm::cl::value_desc("config file"));
 /// \brief Generation of default configuration file.

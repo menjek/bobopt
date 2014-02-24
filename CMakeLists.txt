@@ -5,6 +5,7 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 
 if (MSVC)
   add_definitions(/W4)
+  add_definitions(/wd4068)
 endif ()
 
 if (UNIX)
@@ -59,16 +60,16 @@ macro(find_libraries_impl libs)
     set(prefix "")
     set(extension ".lib")
 
-    set(debug_DIRS "lib/debug")
-    set(release_DIRS "lib/release")
+    set(debug_DIRS "Debug/lib")
+    set(release_DIRS "Release/lib")
   endif ()
 
   if (UNIX)
     set(prefix "lib")
     set(extension ".a")
 
-    set(debug_DIRS "Debug+Asserts/lib" "Debug/lib")
-    set(release_DIRS "Release+Asserts/lib" "Release/lib")
+    set(debug_DIRS "Debug+Asserts/lib")
+    set(release_DIRS "Release+Asserts/lib")
   endif ()
 
   foreach (lib ${ARGN})
