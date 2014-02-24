@@ -6,6 +6,7 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 if (MSVC)
   add_definitions(/W4)
   add_definitions(/wd4068)
+  add_definitions(/D "_SCL_SECURE_NO_WARNINGS")
 endif ()
 
 if (UNIX)
@@ -75,25 +76,22 @@ macro(find_libraries_impl libs)
   foreach (lib ${ARGN})
     set(fullname ${prefix}${lib}${extension})
 
-    find_file(clangllvm_${lib}_DEBUG_DIR ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
-    find_file(clangllvm_${lib}_RELEASE_DIR ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    find_library(clangllvm_${lib}_DEBUG_LIBRARY ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    find_library(clangllvm_${lib}_RELEASE_LIBRARY ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
    
-    if ((NOT clangllvm_${lib}_DEBUG_DIR) AND (NOT clangllvm_${lib}_RELEASE_DIR))
+    if ((NOT clangllvm_${lib}_DEBUG_LIBRARY) AND (NOT clangllvm_${lib}_RELEASE_LIBRARY))
       message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
     endif ()
    
     # If there's no debug library, set debug library to release
-    if (NOT clangllvm_${lib}_DEBUG_DIR)
-      set(clangllvm_${lib}_DEBUG_DIR ${clangllvm_${lib}_RELEASE_DIR})
+    if (NOT clangllvm_${lib}_DEBUG_LIBRARY)
+      set(clangllvm_${lib}_DEBUG_LIBRARY ${clangllvm_${lib}_RELEASE_LIBRARY})
     endif ()
     
     # If there's no release library, set release library to debug
-    if (NOT clangllvm_${lib}_RELEASE_DIR)
-      set(clangllvm_${lib}_RELEASE_DIR ${clangllvm_${lib}_DEBUG_DIR})
+    if (NOT clangllvm_${lib}_RELEASE_LIBRARY)
+      set(clangllvm_${lib}_RELEASE_LIBRARY ${clangllvm_${lib}_DEBUG_LIBRARY})
     endif ()
-    
-    set(clangllvm_${lib}_DEBUG_LIBRARY ${clangllvm_${lib}_DEBUG_DIR}/${fullname})
-    set(clangllvm_${lib}_RELEASE_LIBRARY ${clangllvm_${lib}_RELEASE_DIR}/${fullname})
 
     set(clangllvm_${lib}_LIBRARY optimized ${clangllvm_${lib}_RELEASE_LIBRARY} debug ${clangllvm_${lib}_DEBUG_LIBRARY})
     list(APPEND ${libs} ${clangllvm_${lib}_LIBRARY})
