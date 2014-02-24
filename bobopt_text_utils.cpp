@@ -16,7 +16,7 @@
 #include <map>
 #include <string>
 
-#include BOBOPT_INLINE_IN_SOURCE(bobopt_text_utils)
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_text_utils.inl)
 
 using namespace clang;
 

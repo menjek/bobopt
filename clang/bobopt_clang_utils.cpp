@@ -11,7 +11,7 @@
 using namespace clang;
 using namespace clang::ast_matchers;
 
-#include BOBOPT_INLINE_IN_SOURCE(bobopt_clang_utils)
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_clang_utils.inl)
 
 namespace bobopt
 {

@@ -7,6 +7,12 @@ if (MSVC)
   add_definitions(/W4)
 endif ()
 
+if (UNIX)
+  add_definitions(-Wall -Wextra -Wno-unknown-pragmas)
+  add_definitions(-std=c++0x -fno-rtti)
+  add_definitions(-D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS)
+endif ()
+
 # Find Clang/LLVM headers + libraries.
 # It's up to CMake user to setup basic path to project (e.g using CMAKE_PREFIX_PATH)
 
@@ -36,7 +42,7 @@ if (NOT clang_INCLUDE_DIRS)
 endif ()
 set(clang_INCLUDE_DIRS ${clang_INCLUDE_DIRS}/${clang_SUFFIX_PATH})
 
-set(clang_BUILD_HEADER ${clang_SUFFIX_PATH}//clang/Config/config.h)
+set(clang_BUILD_HEADER ${clang_SUFFIX_PATH}/clang/Config/config.h)
 find_path(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_HEADER})
 if (NOT clang_BUILD_INCLUDE_DIRS)
   message(FATAL_ERROR "Failed to find ${clang_BUILD_HEADER}. Add path to CMAKE_PREFIX_PATH.")
@@ -48,160 +54,82 @@ set(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_INCLUDE_DIRS}/${clang_SUFFIX_PATH})
 #
 
 # Helpers
-macro(find_libraries_impl path libs)
+macro(find_libraries_impl libs)
   if (MSVC)
+    set(prefix "")
     set(extension ".lib")
+
+    set(debug_DIRS "lib/debug")
+    set(release_DIRS "lib/release")
+  endif ()
+
+  if (UNIX)
+    set(prefix "lib")
+    set(extension ".a")
+
+    set(debug_DIRS "Debug+Asserts/lib" "Debug/lib")
+    set(release_DIRS "Release+Asserts/lib" "Release/lib")
   endif ()
 
   foreach (lib ${ARGN})
-    find_library(clangllvm_${lib}_DEBUG_LIBRARY ${path}/debug/${lib}${extension})
-    find_library(clangllvm_${lib}_RELEASE_LIBRARY ${path}/release/${lib}${extension})
+    set(fullname ${prefix}${lib}${extension})
+
+    find_file(clangllvm_${lib}_DEBUG_DIR ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    find_file(clangllvm_${lib}_RELEASE_DIR ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
    
-    if ((NOT clangllvm_${lib}_DEBUG_LIBRARY) AND (NOT clangllvm_${lib}_RELEASE_LIBRARY))
-      message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build/lib dir to CMAKE_PREFIX_PATH.")
+    if ((NOT clangllvm_${lib}_DEBUG_DIR) AND (NOT clangllvm_${lib}_RELEASE_DIR))
+      message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
     endif ()
    
     # If there's no debug library, set debug library to release
-    if (NOT clangllvm_${lib}_DEBUG_LIBRARY)
-      set(clangllvm_${lib}_DEBUG_LIBRARY ${clangllvm_${lib}_RELEASE_LIBRARY})
+    if (NOT clangllvm_${lib}_DEBUG_DIR)
+      set(clangllvm_${lib}_DEBUG_DIR ${clangllvm_${lib}_RELEASE_DIR})
     endif ()
     
     # If there's no release library, set release library to debug
-    if (NOT clangllvm_${lib}_RELEASE_LIBRARY)
-      set(clangllvm_${lib}_RELEASE_LIBRARY ${clangllvm_${lib}_DEBUG_LIBRARY})
+    if (NOT clangllvm_${lib}_RELEASE_DIR)
+      set(clangllvm_${lib}_RELEASE_DIR ${clangllvm_${lib}_DEBUG_DIR})
     endif ()
     
+    set(clangllvm_${lib}_DEBUG_LIBRARY ${clangllvm_${lib}_DEBUG_DIR}/${fullname})
+    set(clangllvm_${lib}_RELEASE_LIBRARY ${clangllvm_${lib}_RELEASE_DIR}/${fullname})
+
     set(clangllvm_${lib}_LIBRARY optimized ${clangllvm_${lib}_RELEASE_LIBRARY} debug ${clangllvm_${lib}_DEBUG_LIBRARY})
     list(APPEND ${libs} ${clangllvm_${lib}_LIBRARY})
   endforeach ()
 endmacro(find_libraries_impl)
 
 macro(find_libraries libs)
-  find_libraries_impl("lib" ${libs} ${ARGN})
+  find_libraries_impl(${libs} ${ARGN})
 endmacro(find_libraries)
 
 # Clang/LLVM
 find_libraries(clangllvm_LIBRARIES
+  clangTooling
+  clangFrontendTool
+  clangFrontend
+  clangDriver
+  clangSerialization
+  clangParse
+  clangSema
+  clangStaticAnalyzerFrontend
+  clangStaticAnalyzerCore
+  clangRewriteFrontend
+  clangRewriteCore
   clangAnalysis
-  clangARCMigrate
+  clangEdit
   clangAST
   clangASTMatchers
-  clangBasic
-  clangCodeGen
-  clangDriver
-  clangDynamicASTMatchers
-  clangEdit
-  clangFormat
-  clangFrontend
-  clangFrontendTool
   clangLex
-  clangParse
-  clangRewriteCore
-  clangRewriteFrontend
-  clangSema
-  clangSerialization
-  clangStaticAnalyzerCore
-  clangStaticAnalyzerFrontend
-  clangStaticAnalyzerCheckers
-  clangTooling
-  libclang
-  llvm_headers_do_not_build
-  LLVMAArch64AsmParser
-  LLVMAArch64AsmPrinter
-  LLVMAArch64CodeGen
-  LLVMAArch64Desc
-  LLVMAArch64Disassembler
-  LLVMAArch64Info
-  LLVMAArch64Utils
-  LLVMAnalysis
-  LLVMARMAsmParser
-  LLVMARMAsmPrinter
-  LLVMARMCodeGen
-  LLVMARMDesc
-  LLVMARMDisassembler
-  LLVMARMInfo
-  LLVMAsmParser
-  LLVMAsmPrinter
-  LLVMBitReader
+  clangBasic
   LLVMBitWriter
-  LLVMCodeGen
-  LLVMCore
-  LLVMCppBackendCodeGen
-  LLVMCppBackendInfo
-  LLVMDebugInfo
-  LLVMExecutionEngine
-  LLVMHexagonAsmPrinter
-  LLVMHexagonCodeGen
-  LLVMHexagonDesc
-  LLVMHexagonInfo
-  LLVMInstCombine
-  LLVMInstrumentation
-  LLVMInterpreter
-  LLVMipa
-  LLVMipo
-  LLVMIRReader
-  LLVMJIT
-  LLVMLinker
-  LLVMMC
-  LLVMMCDisassembler
-  LLVMMCJIT
-  LLVMMCParser
-  LLVMMipsAsmParser
-  LLVMMipsAsmPrinter
-  LLVMMipsCodeGen
-  LLVMMipsDesc
-  LLVMMipsDisassembler
-  LLVMMipsInfo
-  LLVMMSP430AsmPrinter
-  LLVMMSP430CodeGen
-  LLVMMSP430Desc
-  LLVMMSP430Info
-  LLVMNVPTXAsmPrinter
-  LLVMNVPTXCodeGen
-  LLVMNVPTXDesc
-  LLVMNVPTXInfo
-  LLVMObjCARCOpts
-  LLVMObject
   LLVMOption
-  LLVMPowerPCAsmParser
-  LLVMPowerPCAsmPrinter
-  LLVMPowerPCCodeGen
-  LLVMPowerPCDesc
-  LLVMPowerPCInfo
-  LLVMR600AsmPrinter
-  LLVMR600CodeGen
-  LLVMR600Desc
-  LLVMR600Info
-  LLVMRuntimeDyld
-  LLVMScalarOpts
-  LLVMSelectionDAG
-  LLVMSparcCodeGen
-  LLVMSparcDesc
-  LLVMSparcInfo
-  LLVMSupport
-  LLVMSystemZAsmParser
-  LLVMSystemZAsmPrinter
-  LLVMSystemZCodeGen
-  LLVMSystemZDesc
-  LLVMSystemZDisassembler
-  LLVMSystemZInfo
-  LLVMTableGen
-  LLVMTarget
+  LLVMMCParser
   LLVMTransformUtils
-  LLVMVectorize
-  LLVMX86AsmParser
-  LLVMX86AsmPrinter
-  LLVMX86CodeGen
-  LLVMX86Desc
-  LLVMX86Disassembler
-  LLVMX86Info
-  LLVMX86Utils
-  LLVMXCoreAsmPrinter
-  LLVMXCoreCodeGen
-  LLVMXCoreDesc
-  LLVMXCoreDisassembler
-  LLVMXCoreInfo
-  profile_rt
+  LLVMBitReader
+  LLVMMC
+  LLVMCore
+  LLVMSupport
   )
 
 # Setup sources.
@@ -246,4 +174,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${llvm_INCLUDE_DIRS} ${llvm_BUILD_INCLUDE_DIRS})
 include_directories(${clang_INCLUDE_DIRS} ${clang_BUILD_INCLUDE_DIRS})
 add_executable(bobopt ${bobopt_SOURCES})
-target_link_libraries(bobopt ${clangllvm_LIBRARIES})
+
+if (UNIX)
+  set(clangllvm_CUSTOM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
+endif ()
+
+target_link_libraries(bobopt ${clangllvm_CUSTOM_LIBRARIES} ${clangllvm_LIBRARIES})

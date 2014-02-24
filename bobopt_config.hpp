@@ -112,7 +112,7 @@ namespace bobopt
         /// \brief Add configuration variable to the group.
         BOBOPT_INLINE  bool add(basic_config_variable* variable)
         {
-            return variables_.emplace(variable->get_name(), variable).second;
+            return variables_.insert(std::make_pair(variable->get_name(), variable)).second;
         }
 
         // iterators:

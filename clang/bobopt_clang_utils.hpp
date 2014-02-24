@@ -241,7 +241,7 @@ namespace bobopt
 
         bool VisitType(clang::Type* type)
         {
-            NodeT* node = llvm::dyn_cast<NodeT>(stmt);
+            NodeT* node = llvm::dyn_cast<NodeT>(type);
             if (node != nullptr)
             {
                 this->nodes_.push_back(node);
@@ -266,6 +266,6 @@ namespace bobopt
 
 } // namespace
 
-#include BOBOPT_INLINE_IN_HEADER(bobopt_clang_utils)
+#include BOBOPT_INLINE_IN_HEADER(bobopt_clang_utils.inl)
 
 #endif // guard

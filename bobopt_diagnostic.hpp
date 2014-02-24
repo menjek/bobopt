@@ -106,6 +106,6 @@ namespace bobopt
 
 } // namespace
 
-#include BOBOPT_INLINE_IN_HEADER(bobopt_diagnostic)
+#include BOBOPT_INLINE_IN_HEADER(bobopt_diagnostic.inl)
 
 #endif // guard

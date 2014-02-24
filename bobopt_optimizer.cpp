@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <string>
 
-#include BOBOPT_INLINE_IN_SOURCE(bobopt_optimizer)
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_optimizer.inl)
 
 using namespace clang;
 using namespace clang::ast_matchers;

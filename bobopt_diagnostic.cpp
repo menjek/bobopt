@@ -18,7 +18,7 @@
 
 using namespace clang;
 
-#include BOBOPT_INLINE_IN_SOURCE(bobopt_diagnostic)
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_diagnostic.inl)
 
 namespace bobopt
 {
@@ -169,7 +169,7 @@ namespace bobopt
         const char* range_begin = sm.getCharacterData(range.getBegin());
         const char* range_end = sm.getCharacterData(range.getEnd());
 
-        if ((range_end - range_begin) < MIN_DESIRED_MESSAGE_SIZE)
+        if ((range_end - range_begin) < static_cast<ptrdiff_t>(MIN_DESIRED_MESSAGE_SIZE))
         {
             auto* buffer = sm.getBuffer(sm.getFileID(range.getEnd()));
             auto line_end = std::find(range_end, buffer->getBufferEnd(), '\n');

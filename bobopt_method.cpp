@@ -2,7 +2,7 @@
 
 #include <bobopt_inline.hpp>
 
-#include BOBOPT_INLINE_IN_SOURCE(bobopt_method)
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_method.inl)
 
 namespace bobopt
 {

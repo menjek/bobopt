@@ -40,6 +40,6 @@ namespace bobopt
 
 } // namespace
 
-#include BOBOPT_INLINE_IN_HEADER(bobopt_method)
+#include BOBOPT_INLINE_IN_HEADER(bobopt_method.inl)
 
 #endif // guard

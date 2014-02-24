@@ -134,7 +134,8 @@ opt_mode(llvm::cl::desc("Optimizer mode:"),
 
 int main(int argc, const char* argv[])
 {
-    CommonOptionsParser options(argc, argv);
+    llvm::cl::OptionCategory category("Tooling options");
+    CommonOptionsParser options(argc, argv, category);
 
     if (opt_gen_config_file.getNumOccurrences() > 0)
     {

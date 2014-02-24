@@ -56,6 +56,6 @@ namespace bobopt
 
 } // namespace
 
-#include BOBOPT_INLINE_IN_HEADER(bobopt_text_utils)
+#include BOBOPT_INLINE_IN_HEADER(bobopt_text_utils.inl)
 
 #endif // guard

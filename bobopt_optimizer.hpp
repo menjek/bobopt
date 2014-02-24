@@ -109,6 +109,6 @@ namespace bobopt
 
 } // namespace
 
-#include BOBOPT_INLINE_IN_HEADER(bobopt_optimizer)
+#include BOBOPT_INLINE_IN_HEADER(bobopt_optimizer.inl)
 
 #endif // guard

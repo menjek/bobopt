@@ -26,7 +26,7 @@ namespace bobopt
 
     bool config_map::add(config_group* group)
     {
-        return groups_.emplace(group->get_name(), group).second;
+        return groups_.insert(std::make_pair(group->get_name(), group)).second;
     }
 
     bool config_parser::load(const std::string& file_name)

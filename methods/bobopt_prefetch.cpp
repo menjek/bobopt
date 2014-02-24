@@ -78,7 +78,7 @@ namespace bobopt
                 /// \brief Visit member function and store pointer to this declaration if it's not getter for input by name.
                 bool VisitCXXMethodDecl(CXXMethodDecl* decl)
                 {
-                    if (decl->getResultType().getAsString() == INPUTS_RETURN_TYPE_NAME)
+                    if (decl->getReturnType().getAsString() == INPUTS_RETURN_TYPE_NAME)
                     {
                         if (decl->getNameAsString() == INPUTS_GETTER_NAME)
                         {
