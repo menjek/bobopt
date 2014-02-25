@@ -76,25 +76,25 @@ macro(find_libraries_impl libs)
   foreach (lib ${ARGN})
     set(fullname ${prefix}${lib}${extension})
 
-    find_library(clangllvm_${lib}_DEBUG_LIBRARY ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
-    find_library(clangllvm_${lib}_RELEASE_LIBRARY ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    find_library(clang_${lib}_DEBUG_LIBRARY ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    find_library(clang_${lib}_RELEASE_LIBRARY ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
    
-    if ((NOT clangllvm_${lib}_DEBUG_LIBRARY) AND (NOT clangllvm_${lib}_RELEASE_LIBRARY))
+    if ((NOT clang_${lib}_DEBUG_LIBRARY) AND (NOT clang_${lib}_RELEASE_LIBRARY))
       message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
     endif ()
    
     # If there's no debug library, set debug library to release
-    if (NOT clangllvm_${lib}_DEBUG_LIBRARY)
-      set(clangllvm_${lib}_DEBUG_LIBRARY ${clangllvm_${lib}_RELEASE_LIBRARY})
+    if (NOT clang_${lib}_DEBUG_LIBRARY)
+      set(clang_${lib}_DEBUG_LIBRARY ${clang_${lib}_RELEASE_LIBRARY})
     endif ()
     
     # If there's no release library, set release library to debug
-    if (NOT clangllvm_${lib}_RELEASE_LIBRARY)
-      set(clangllvm_${lib}_RELEASE_LIBRARY ${clangllvm_${lib}_DEBUG_LIBRARY})
+    if (NOT clang_${lib}_RELEASE_LIBRARY)
+      set(clang_${lib}_RELEASE_LIBRARY ${clang_${lib}_DEBUG_LIBRARY})
     endif ()
 
-    set(clangllvm_${lib}_LIBRARY optimized ${clangllvm_${lib}_RELEASE_LIBRARY} debug ${clangllvm_${lib}_DEBUG_LIBRARY})
-    list(APPEND ${libs} ${clangllvm_${lib}_LIBRARY})
+    set(clang_${lib}_LIBRARY optimized ${clang_${lib}_RELEASE_LIBRARY} debug ${clang_${lib}_DEBUG_LIBRARY})
+    list(APPEND ${libs} ${clang_${lib}_LIBRARY})
   endforeach ()
 endmacro(find_libraries_impl)
 
@@ -103,7 +103,7 @@ macro(find_libraries libs)
 endmacro(find_libraries)
 
 # Clang/LLVM
-find_libraries(clangllvm_LIBRARIES
+find_libraries(clang_LIBRARIES
   clangTooling
   clangFrontendTool
   clangFrontend
@@ -132,17 +132,23 @@ find_libraries(clangllvm_LIBRARIES
   )
 
 # Setup sources.
-set(bobopt_SOURCES
+set(bobopt_clang_SOURCES
   clang/bobopt_clang_utils.cpp
   clang/bobopt_clang_epilog.hpp
   clang/bobopt_clang_prolog.hpp
   clang/bobopt_clang_utils.hpp
   clang/bobopt_control_flow_search.hpp
   clang/bobopt_clang_utils.inl
+  )
+  
+set(bobopt_methods_SOURCES
   methods/bobopt_prefetch.cpp
   methods/bobopt_yield_complex.cpp
   methods/bobopt_prefetch.hpp
   methods/bobopt_yield_complex.hpp
+  )
+  
+set(bobopt_root_SOURCES
   bobopt_config.cpp
   bobopt_diagnostic.cpp
   bobopt_method.cpp
@@ -168,14 +174,26 @@ set(bobopt_SOURCES
   bobopt_optimizer.inl
   bobopt_text_utils.inl
   )
- 
+  
+set(bobopt_SOURCES
+  ${bobopt_clang_SOURCES}
+  ${bobopt_methods_SOURCES}
+  ${bobopt_root_SOURCES}
+  )
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${llvm_INCLUDE_DIRS} ${llvm_BUILD_INCLUDE_DIRS})
 include_directories(${clang_INCLUDE_DIRS} ${clang_BUILD_INCLUDE_DIRS})
 add_executable(bobopt ${bobopt_SOURCES})
 
-if (UNIX)
-  set(clangllvm_CUSTOM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
+if (BOBOPT_FOLDERS)
+  source_group("clang" FILES ${bobopt_clang_SOURCES})
+  source_group("methods" FILES ${bobopt_methods_SOURCES})
+  source_group("" FILES ${bobopt_root_SOURCES})
 endif ()
 
-target_link_libraries(bobopt ${clangllvm_CUSTOM_LIBRARIES} ${clangllvm_LIBRARIES})
+if (UNIX)
+  set(clang_CUSTOM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
+endif ()
+
+target_link_libraries(bobopt ${clang_CUSTOM_LIBRARIES} ${clang_LIBRARIES})

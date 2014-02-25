@@ -34,7 +34,7 @@ if %GENERATOR% == "Visual Studio 11 Win64" (
 
 @rem DIRECTORIES
 set SOURCES_DIR=%ROOT_DIR%
-set BUILD_DIR=%ROOT_DIR%\..\builds\%BUILD_TRIPLET_TEMPLATE%
+set BUILD_DIR=%ROOT_DIR%\..\build\%BUILD_TRIPLET_TEMPLATE%
 
 @rem EXECUTION
 mkdir %BUILD_DIR% 2> nul

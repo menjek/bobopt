@@ -1,0 +1,1 @@
+set(BOBOPT_FOLDERS true CACHE BOOL "" FORCE)
