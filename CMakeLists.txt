@@ -56,54 +56,58 @@ set(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_INCLUDE_DIRS}/${clang_SUFFIX_PATH})
 #
 
 # Helpers
-macro(find_libraries_impl libs)
+macro(find_libraries libs target)
   if (MSVC)
     set(prefix "")
     set(extension ".lib")
-
-    set(debug_DIRS "Debug/lib")
-    set(release_DIRS "Release/lib")
   endif ()
 
   if (UNIX)
     set(prefix "lib")
-    set(extension ".a")
-
-    set(debug_DIRS "Debug+Asserts/lib")
-    set(release_DIRS "Release+Asserts/lib")
+    set(extension ".a")    
   endif ()
+  
+  set(debug_DIRS "Debug+Asserts/lib" "Debug/lib")
+  set(release_DIRS "Release+Asserts/lib" "Release/lib")
 
   foreach (lib ${ARGN})
     set(fullname ${prefix}${lib}${extension})
 
-    find_library(clang_${lib}_DEBUG_LIBRARY ${debug_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
-    find_library(clang_${lib}_RELEASE_LIBRARY ${release_DIRS}/${fullname} NO_CMAKE_SYSTEM_PATH)
+    foreach (dir ${debug_DIRS})
+      find_library(${target}_${lib}_DEBUG_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
+      if (${target}_${lib}_DEBUG_LIBRARY)
+        break()
+      endif ()
+    endforeach ()
+    
+    foreach (dir ${release_DIRS})
+      find_library(${target}_${lib}_RELEASE_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
+      if (${target}_${lib}_RELEASE_LIBRARY)
+        break()
+      endif ()
+    endforeach ()
    
-    if ((NOT clang_${lib}_DEBUG_LIBRARY) AND (NOT clang_${lib}_RELEASE_LIBRARY))
+    if ((NOT ${target}_${lib}_DEBUG_LIBRARY) AND (NOT ${target}_${lib}_RELEASE_LIBRARY))
       message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
     endif ()
    
     # If there's no debug library, set debug library to release
-    if (NOT clang_${lib}_DEBUG_LIBRARY)
-      set(clang_${lib}_DEBUG_LIBRARY ${clang_${lib}_RELEASE_LIBRARY})
+    if (NOT ${target}_${lib}_DEBUG_LIBRARY)
+      set(${target}_${lib}_DEBUG_LIBRARY ${${target}_${lib}_RELEASE_LIBRARY})
     endif ()
     
     # If there's no release library, set release library to debug
-    if (NOT clang_${lib}_RELEASE_LIBRARY)
-      set(clang_${lib}_RELEASE_LIBRARY ${clang_${lib}_DEBUG_LIBRARY})
+    if (NOT ${target}_${lib}_RELEASE_LIBRARY)
+      set(${target}_${lib}_RELEASE_LIBRARY ${${target}_${lib}_DEBUG_LIBRARY})
     endif ()
 
-    set(clang_${lib}_LIBRARY optimized ${clang_${lib}_RELEASE_LIBRARY} debug ${clang_${lib}_DEBUG_LIBRARY})
-    list(APPEND ${libs} ${clang_${lib}_LIBRARY})
+    set(${target}_${lib}_LIBRARY optimized ${${target}_${lib}_RELEASE_LIBRARY} debug ${${target}_${lib}_DEBUG_LIBRARY})
+    list(APPEND ${libs} ${${target}_${lib}_LIBRARY})
   endforeach ()
-endmacro(find_libraries_impl)
-
-macro(find_libraries libs)
-  find_libraries_impl(${libs} ${ARGN})
 endmacro(find_libraries)
 
 # Clang/LLVM
-find_libraries(clang_LIBRARIES
+find_libraries(clang_LIBRARIES clang
   clangTooling
   clangFrontendTool
   clangFrontend
@@ -121,6 +125,9 @@ find_libraries(clang_LIBRARIES
   clangASTMatchers
   clangLex
   clangBasic
+  )
+  
+find_libraries(llvm_LIBRARIES llvm
   LLVMBitWriter
   LLVMOption
   LLVMMCParser
@@ -193,7 +200,7 @@ if (BOBOPT_FOLDERS)
 endif ()
 
 if (UNIX)
-  set(clang_CUSTOM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
+  set(llvm_SYSTEM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
 endif ()
 
-target_link_libraries(bobopt ${clang_CUSTOM_LIBRARIES} ${clang_LIBRARIES})
+target_link_libraries(bobopt ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
