@@ -73,6 +73,11 @@ macro(find_libraries libs target)
   foreach (lib ${ARGN})
     set(fullname ${prefix}${lib}${extension})
 
+    #
+    # Debug
+    #
+    
+    # CMAKE_PREFIX_PATH based
     foreach (dir ${debug_DIRS})
       find_library(${target}_${lib}_DEBUG_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
       if (${target}_${lib}_DEBUG_LIBRARY)
@@ -80,12 +85,31 @@ macro(find_libraries libs target)
       endif ()
     endforeach ()
     
+    # System based
+    if (NOT ${target}_${lib}_DEBUG_LIBRARY)
+      find_library(${target}_${lib}_DEBUG_LIBRARY ${fullname})
+    endif ()
+    
+    #
+    # Release
+    #
+    
+    # CMAKE_PREFIX_PATH based
     foreach (dir ${release_DIRS})
       find_library(${target}_${lib}_RELEASE_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
       if (${target}_${lib}_RELEASE_LIBRARY)
         break()
       endif ()
     endforeach ()
+   
+    # System based
+    if (NOT ${target}_${lib}_RELEASE_LIBRARY)
+      find_library(${target}_${lib}_RELEASE_LIBRARY ${fullname})
+    endif ()
+   
+    #
+    # Finish
+    #
    
     if ((NOT ${target}_${lib}_DEBUG_LIBRARY) AND (NOT ${target}_${lib}_RELEASE_LIBRARY))
       message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
