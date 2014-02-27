@@ -29,6 +29,7 @@
 \usepackage[utf8]{inputenc}
 
 %% Ostatní balíčky
+\usepackage{paralist}
 \usepackage{array}
 \usepackage[shellescape]{gmp}
 \usepackage{graphicx}
@@ -72,7 +73,7 @@
 
 \usepackage{epstopdf}
 
-\usetikzlibrary{arrows,fit,positioning,calc,patterns} 
+\usetikzlibrary{arrows,fit,positioning,calc,patterns,shapes.multipart,backgrounds} 
 \tikzset{
     %Define standard arrow tip
     >=stealth',
@@ -301,19 +302,111 @@ bobox, static code analysis, optimization, code complexity, clang
 \include{epilog}
 
 %%% Seznam použité literatury
-%\include{bibliography}
-\bibliography{bibsource}
+\include{bibliography}
 
-%%% Tabulky v diplomové práci, existují-li.
-\chapwithtoc{List of Tables}
+%%% Obrázky
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
 
-%%% Použité zkratky v diplomové práci, existují-li, včetně jejich vysvětlení.
+%%% Kód
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Listings}
+\lstlistoflistings
+
+%%% Skratky
 \chapwithtoc{List of Abbreviations}
+\begin{tabular}{m{1.5cm} l}
+\textbf{API} & application programming interface \\
+\textbf{AST} & abstract syntax tree \\
+\textbf{CFG} & control flow graph \\
+\textbf{CR} & carriage return \\
+\textbf{CRTP} & curiously recurring template pattern \\
+\textbf{DT} & derivation tree \\
+\textbf{GCC} & GNU compiler collection \\
+\textbf{JSON} & JavaScript object nation\\
+\textbf{LF} & line feed \\
+\textbf{PT} & parse tree \\
+\textbf{PGO} & profile guided optimization \\
+\textbf{RAII} & resource acquisition is initialization \\
+\textbf{SIMD} & singe instruction, multiple data \\
+\end{tabular}
 
 %%% Přílohy k diplomové práci, existují-li (různé dodatky jako výpisy programů,
 %%% diagramy apod.). Každá příloha musí být alespoň jednou odkazována z vlastního
 %%% textu práce. Přílohy se číslují.
 \chapwithtoc{Attachments}
+\section{Output of prefetch method}
+Diagnostic of prefetch method outputs information only if there is anything to optimize and optimizer is not in \emph{build} mode. Firstly, method introduce itself and points out to box definition in source code.
+
+{\footnotesize
+\begin{verbatim}
+[prefetch] optimization of box merge_box
+boxes.hpp:55:7: info: declared here:
+class merge_box : public bobox::basic_box {
+      ^~~~~~~~~
+\end{verbatim}
+}
+
+Then, for every input that can be optimized by prefetch call, there is message pointing to helper macro, name of the input, and list of likely to be used locations in source code in form of member function calls on variable.
+
+{\footnotesize
+\begin{verbatim}
+boxes.hpp:60:24: info: missing prefetch for input declared here:
+BOBOX_BOX_INPUTS_LIST(left,0, right,1);
+                      ^~~~
+boxes.hpp:99:11: info: used here:
+left.eof() && !right.eof()) {
+^~~~~~~~~
+boxes.hpp:112:11: info: used here:
+left.eof()) {
+^~~~~~~~~
+\end{verbatim}
+}
+
+Message with optimization suggestion looks different for case when there is \code{init\_impl} overridden in optimized box or case when it is not. If there is overridden initialization function, it points to its location and suggests adding prefetch call.
+
+{\footnotesize
+\begin{verbatim}
+boxes.hpp:68:18: suggestion: prefetch input in init:
+virtual void init_impl();
+             ^~~~~~~~~
+\end{verbatim}
+}
+
+If there is no initialization function, optimizer suggests to override it together with prefetch calls.
+
+{\footnotesize
+\begin{verbatim}
+boxes.hpp:55:7: suggestion: override init_impl() in box with
+prefetch call(s):
+class merge_box : public bobox::basic_box {
+      ^~~~~~~~~
+\end{verbatim}
+}
+
+Output described above is common for \emph{diagnostic} and \emph{interactive} modes. Interactive mode additionally asks user with yes/no type question whether he wants optimizer to execute suggestion and transform code. If there is at least one positive answer, transformation is applied. In \emph{build} mode there are no questions and transformation is always applied.
+
+\section{Output of yield complex method}
+Diagnostic and interactive mode are verbose modes with equivalent diagnostic output. The problematic part is diagnostic output itself. Unfortunately, I could not figure out how to display optimizer reasoning behind suggestions. The result is that diagnostic shows only suggestions with information where to put yield member call expression.
+
+{\footnotesize
+\begin{verbatim}
+[yield complex] optimization of box merge_box
+
+boxes.hpp:70:18: info: method takes too long time on some paths:
+virtual void sync_mach_etwas() BOBOX_OVERRIDE
+             ^~~~~~~~~~~~~~~
+boxes.hpp:87:9: suggestion: placing yield() call just before
+statement:
+for (int l = 0; l < 100; ++l)
+^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\end{verbatim}
+}
+
+It is up to programmer to lookup place in code and investigate why previous code is complex and why it is worth to yield execution. In interactive mode, there is yes/no type of question whether user wants to let optimizer update code immediately. Chosen answer obviously does not affect next algorithm work since it only allows user to select suggestions from already pre-calculated result. Algorithm already finished its work.
 
 \openright
 \end{document}
