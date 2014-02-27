@@ -1,10 +1,11 @@
-/// \file bobopt_control_flow_search.hpp File contains definition of class responsible
-/// for search and collecting values in particular part of code on "must visit" paths
-/// and base policies definitions.
+/// \file bobopt_control_flow_search.hpp File contains definition of class
+/// responsible for search and collecting values in particular part of code on
+/// "must visit" paths and base policies definitions.
 
 #ifndef BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
 #define BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
 
+#include <bobopt_config.hpp>
 #include <bobopt_debug.hpp>
 #include <bobopt_inline.hpp>
 #include <bobopt_language.hpp>
@@ -27,8 +28,21 @@
 namespace bobopt
 {
 
+    // Configuration.
+    //==========================================================================
+
+    namespace detail
+    {
+
+        /// \brief Configuration group for control flow search algorithm.
+        static config_group config("control_flow_search");
+        /// \brief Configuration variable for loop body traversal.
+        static config_variable<bool> config_loop_body(config, "loop_body", true);
+
+    } // detail
+
     // heap_policy definition.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Policy that creates Derived class instance from prototype
     /// using prototype design pattern.
@@ -78,7 +92,7 @@ namespace bobopt
     };
 
     // heap_policy implementation.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Creates invalid object.
     template <typename Derived>
@@ -135,7 +149,7 @@ namespace bobopt
     }
 
     // value_policy definition.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Class that creates instance of Derived class using CRTP
     /// pattern.
@@ -192,7 +206,7 @@ namespace bobopt
     };
 
     // value_policy implementation.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Creates invalid object.
     template <typename Derived>
@@ -263,7 +277,7 @@ namespace bobopt
     }
 
     // scoped_prototype definition.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Programmer/exception protection for prototype instances using policies.
     ///
@@ -325,7 +339,7 @@ namespace bobopt
     };
 
     // scoped_prototype implementation.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Can be constructed only on valid \c Derived object.
     ///
@@ -396,7 +410,7 @@ namespace bobopt
     }
 
     // control_flow_search.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Class used to search values in code.
     ///
@@ -505,7 +519,7 @@ namespace bobopt
     };
 
     // control_flow_search implementation.
-    //==============================================================================
+    //==========================================================================
 
     /// \brief Access object as non-const reference to Derived.
     template <typename Derived,
@@ -1007,7 +1021,7 @@ namespace bobopt
 
         const bool is_constexpr = var_decl->isConstexpr();
         var_decl->setConstexpr(true);
-        bool eval = false;
+        bool eval = detail::config_loop_body.get();
         BOBOPT_ASSERT(context_ != nullptr);
         if (!cond_expr->EvaluateAsBooleanCondition(eval, *context_))
         {
@@ -1028,7 +1042,7 @@ namespace bobopt
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::traverse_while_body(clang::WhileStmt* while_stmt) const
     {
         BOBOPT_UNUSED_EXPRESSION(while_stmt);
-        return false;
+        return detail::config_loop_body.get();
     }
 
     /// \brief Function indicates whether traversal should continue based on flags.

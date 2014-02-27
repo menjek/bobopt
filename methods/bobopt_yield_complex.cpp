@@ -934,6 +934,15 @@ namespace bobopt
                     return true;
                 }
 
+                recursive_stmt_find_helper helper2(src_stmt);
+                if (!helper1.TraverseStmt(for_stmt->getCond()))
+                {
+                    const CompoundStmt* body = llvm::dyn_cast_or_null<const CompoundStmt>(for_stmt->getBody());
+                    inserter_invoke(for_stmt->getCond(), for_stmt->getLocStart());
+                    inserter_invoke(for_stmt->getCond(), body->getRBracLoc());
+                    return true;
+                }
+
                 return false;
             }
 
