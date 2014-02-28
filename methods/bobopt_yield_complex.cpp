@@ -200,7 +200,7 @@ namespace bobopt
 
             bool optimize()
             {
-                float goodness = get_goodness(data_);
+                unsigned goodness = get_goodness(data_);
                 bool optimized = false;
 
                 for (;;)
@@ -211,7 +211,7 @@ namespace bobopt
                         break;
                     }
 
-                    float temp_goodness = get_goodness(result.first);
+                    unsigned temp_goodness = get_goodness(result.first);
                     if (temp_goodness < goodness)
                     {
                         optimized = true;
@@ -494,7 +494,7 @@ namespace bobopt
                         stack_guard_type<unsigned> guard(loop_stack_, block.getBlockID());
                         BOBOPT_UNUSED_EXPRESSION(guard);
 
-                        process(body, next_id(), 0u);
+                        process(body, path, 0u);
                     }
 
                     std::vector<unsigned> return_paths;
@@ -504,13 +504,15 @@ namespace bobopt
                         body_path.second *= multiplier;
                         body_path.second += complexity;
 
-                        return_paths.push_back(body_path.first);
+                        if (body_path.first != path)
+                        {
+                            return_paths.push_back(body_path.first);
+                        }
                         append(return_paths, process(skip, body_path.first, body_path.second));
                     }
 
                     // Process input path as the one that skipped loop body.
                     block_data.loops.clear();
-                    append(return_paths, process(skip, path, complexity));
                     return return_paths;
                 }
 
@@ -544,7 +546,7 @@ namespace bobopt
 
                 // Iterate through all blocks and calculate what we can achieve
                 // by placing yield inside block.
-                float goodness = std::numeric_limits<float>::max();
+                unsigned goodness = std::numeric_limits<unsigned>::max();
                 unsigned block_id = 0u;
                 bool optimized = false;
                 for (const auto& block : src_data)
@@ -588,7 +590,7 @@ namespace bobopt
                 });
             }
 
-            std::pair<float, bool> optimize_block(const block_data_type& block, const std::vector<const block_data_type*>& end_blocks)
+            std::pair<unsigned, bool> optimize_block(const block_data_type& block, const std::vector<const block_data_type*>& end_blocks)
             {
                 unsigned distance = 0u;
                 unsigned count = 0u;
@@ -610,7 +612,7 @@ namespace bobopt
 
                 if (!over_threshold)
                 {
-                    return std::make_pair(0.0f, false);
+                    return std::make_pair(0u, false);
                 }
 
                 // Evaluate blocks at the end of paths.
@@ -636,10 +638,10 @@ namespace bobopt
                     }
                 }
 
-                return std::make_pair(distance / static_cast<float>(count), true);
+                return std::make_pair(distance, true);
             }
 
-            float get_goodness(const data_type& data) const
+            unsigned get_goodness(const data_type& data) const
             {
                 auto exit_it = data.find(cfg_.getExit().getBlockID());
                 BOBOPT_ASSERT(exit_it != std::end(data));
@@ -648,7 +650,7 @@ namespace bobopt
                 unsigned distance = 0u;
                 unsigned count = 0u;
 
-                // Paths ending in EXIT block.
+                // Paths ending in Exit block.
                 for (const auto& path : exit_it->second.paths)
                 {
                     const auto ids_count = static_cast<unsigned>(path.ids.size());
@@ -670,7 +672,7 @@ namespace bobopt
                     }
                 }
 
-                return distance / static_cast<float>(count);
+                return distance;
             }
 
             const CFG& cfg_;
@@ -937,9 +939,7 @@ namespace bobopt
                 recursive_stmt_find_helper helper2(src_stmt);
                 if (!helper1.TraverseStmt(for_stmt->getCond()))
                 {
-                    const CompoundStmt* body = llvm::dyn_cast_or_null<const CompoundStmt>(for_stmt->getBody());
                     inserter_invoke(for_stmt->getCond(), for_stmt->getLocStart());
-                    inserter_invoke(for_stmt->getCond(), body->getRBracLoc());
                     return true;
                 }
 
