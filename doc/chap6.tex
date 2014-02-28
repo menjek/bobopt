@@ -18,7 +18,7 @@ So how do we measure complexity of code? Ideally, if we know input data, we run 
 
 Another approach for measuring complexity is to compile code and consider number of generated instructions as a magnitude of complexity. Execution of instructions is the process that consumes CPU time in the end. This assumption is naive and imprecise. The main source of complexity in the most applications comes from loops, repeatedly executed code paths, and this information is not present in such metric. For snippets of code without loop, this method is precise enough, even if there are branches and not all of them can be executed in single execution. With bigger samples of code from average application, there is probability of bigger amount of loops and thus code is more complex, but number of instructions reflects it less and less precise.
 
-Company programming rules often contains one related to concept called \emph{cyclomatic complexity}. It measures logical complexity, a number of linearly independent paths through code, which is different from what optimization aims to reduce. More code branches decreases readability for human, but it has almost no effect on runtime. There are coding rules such as \emph{Use Early Exits and} \code{continue} \emph{to Simplify Code} \cite{llvm-coding-standards} to increase code readability with high cyclomatic complexity.
+Company programming rules often contains one related to concept called \emph{cyclomatic complexity}. It measures logical complexity, a number of linearly independent paths through code, which is different from what optimization aims to reduce. More code branches decreases readability for human, but it has almost no effect on runtime. There are coding rules such as \emph{Use Early Exits and} \code{continue} \emph{to Simplify Code} \cite{llvm-coding-standards} to increase readability of code with high cyclomatic complexity.
 
 \section{Control flow graph}
 Construction of CFG from AST in Clang tools is for free from implementation point of view. Clang static analyzer (\ref{clang-analyzer}) provides structure and interface to build it. Looking on the source code through CFG in combination with information from previous section (\ref{yield-complexity}) reveals step by step how optimization algorithm works.
@@ -120,7 +120,7 @@ Code block in CFG does not contain any jump. It means approach similar to the se
 \subsection{Path complexity}
 With block complexity defined, it is finally possible to define path complexity. The first attempt that could come in mind is just to sum complexities of all blocks on the path. Loops are problem and yet unclear definition of path in CFG.
 
-Loop bodies are evaluated as independent CFG making the source CFG acyclic. When path enters node with loop statement as terminator, the same path skips loop body with addition of block complexity, and creates new path for every path in loop body. New paths behave as they skip loop body, but their complexity is sum of source path complexity, block complexity and body path complexity multiplied by predefined constant. Figure \ref{yield-loop} shows described situation.
+Loop bodies are evaluated as independent CFG making the source CFG acyclic. When path enters node with loop statement as terminator, it processes body of the loop and creates new path for every path that is created in loop body. New paths behave as they skip loop body, but their complexity is sum of source path complexity, block complexity and body path complexity multiplied by predefined constant. Figure \ref{yield-loop} shows described situation. There is one path through CFG omitted. Path that enters node with loop statement as terminator can skip loop body. This path has very low probability of being taken. It was significantly affecting result so I decided to disregard it.
 
 \begin{figure}[h!]
 \caption{Path passing through node with \code{for} loop statement terminator and selection statement in the body.}
@@ -136,7 +136,7 @@ Loop bodies are evaluated as independent CFG making the source CFG acyclic. When
 	\node[node, below right of=loop](exit){};
 	
 	\path[pil] (entry) edge[right] node {5} (loop)
-	           (loop) edge[right] node {6,46,66} (exit);
+	           (loop) edge[right] node {46,66} (exit);
 	
 	\node[left of=loop, xshift=1.0cm](body){};
 	\node[node, below of=body, yshift=2.0cm](b-entry){0};
@@ -241,7 +241,7 @@ First idea to quantify quality was based on simple principle that it should be p
 \end{tikzpicture}
 \end{figure}
 
-Thinking back, the goal of method was already described (\ref{yield-intro}) and there is no problem to apply it for evaluation of CFG. Tasks execution times should be as balanced as possible. They should not be too low or too high. Now, it is enough to replace concept of execution paths for concept of tasks and threshold for ideal execution time. Then, goodness is average distance from threshold representing ideal execution time. With this method, it is one less constant to handle and algorithm works well for tested scenarios. A bit confusing is naming and ordering. CFG with \emph{lower goodness is better than the one with higher}.
+Thinking back, the goal of method was already described (\ref{yield-intro}) and there is no problem to apply it for evaluation of CFG. Tasks execution times should be as balanced as possible. They should not be too low or too high. Now, it is enough to replace concept of execution paths for concept of tasks and threshold for ideal execution time. Then, goodness is sum of distances from threshold that represents ideal execution time. With this method, it is one less constant to handle and algorithm works well for tested scenarios. A bit confusing is naming and ordering. CFG with \emph{lower goodness is better than the one with higher}.
 
 \begin{figure}[t!]
 \caption{Showing \emph{distance from threshold} method to evaluate goodness.}
@@ -308,6 +308,7 @@ On the first look, algorithm is very defensive. It does optimization step, then 
 However complicated work could reader imagine in single step, it is straightforward and simple. The only goal of step is to decrease goodness of CFG and to achieve that, it uses brute force. Firstly, it collects all blocks which are ends for at least one path, i.e., exit block and blocks with \emph{Planned} or \emph{Present} yield state. Then it processes every block and calculates what happens if yield call is placed to that block. The yield call is then placed to a block with the best outcome.
 
 \subsection{Default threshold}
+\label{yield-default}
 Quadratic complexity is widely considered to be threshold for being complex and performance demanding. With usage of values from tables \ref{yield-block} and \ref{yield-loop-const}, default value for threshold is calculated as execution of two inner \code{for} loops with two calls to not inlined, non-trivial, non-constant call expression.
 
 \begin{center}
@@ -359,7 +360,6 @@ Firstly, method collects all compound statements in function body compound state
 	
 	\path[pil] (forinit.north) edge[bend right=15] node {} (foryield)
 	           (forcond.north) edge[bend right=10] node {} (foryield)
-	           (forcond.south) edge node {} (forbodyyield)
 	           (forinc.south) edge[bend left=20] node {} (forbodyyield);
 
 \end{tikzpicture}
@@ -383,4 +383,109 @@ In introduction to optimization method (\ref{yield-intro}), there are multiple m
 Probably the simplest case of improvement for optimizer is deeper analysis of statements in CFG blocks. Complexities of call expression are guessed, but some of them can be calculated more precise. All categories of call expressions can be analysed deeper if analysis has access to body of a callee. It would be unbearable to count in function CFG, but heuristic based on callee definition can be helpful. Possible result of such heuristic can be in form of the deep of the most nested loop. Decision to make is how deep should analysis go and problem to solve is function recursion.
 
 \section{Scenarios}
-sfasf
+Section contains tested scenarios for algorithm with algorithm results.
+
+\subsection{Two sequential tasks}
+The first scenario to test is the simplest one testing two sequential tasks in function body. Code snippet with complexity of default threshold (\ref{yield-default}) is considered to be a task. The expected outcome is yield between these two tasks.
+
+\begin{lstlisting}[caption={The first scenario with two sequential \textit{tasks}.}]
+for (int i = 0; i < 10; ++i) {
+    for (int j = 0; j < 10; ++j) {
+        complex_function();
+        complex_function();
+    }
+}
+yield(); // injected by algorithm.
+for (int k = 0; k < 10; ++k) {
+    for (int l = 0; l < 10; ++l) {
+        complex_function();
+        complex_function();
+    }
+}
+\end{lstlisting}
+
+\begin{figure}[h!]
+\caption{CFG of the first scenario with block chosen to yield by algorithm.}
+\label{yield-insertion}
+\centering
+\vspace{0.5cm}
+\begin{tikzpicture}[node distance=0.30cm]
+	\tikzstyle{node} = [circle, draw, minimum width=20pt, inner sep=0pt]
+
+	\node[node](15){15};
+	\node[node, below =of 15](14){14};
+	\node[node, below =of 14](13){13};
+	\node[node, below left =of 13, xshift=-3cm](12){12};
+	\node[node, below right =of 13, xshift=3cm, fill=gray!40](7){7};
+	
+	\node[node, below =of 12](11){11};
+	\node[node, below left =of 11](10){10};
+	\node[node, below right =of 11](8){8};
+	\node[node, below =of 10](9){9};
+	
+	\node[node, below =of 7](6){6};
+	\node[node, below left =of 6](5){5};
+	\node[node, below right =of 6](0){0};
+	
+	\node[node, below =of 5](4){4};
+	\node[node, below left =of 4](3){3};
+	\node[node, below right =of 4](1){1};
+	\node[node, below =of 3](2){2};
+	
+	\path[->] (15) edge node {} (14)
+		(14) edge node {} (13)
+		(13) edge node {} (12)
+		(13) edge node {} (7)
+		(12) edge node {} (11)
+		(11) edge node {} (10)
+		(11) edge node {} (8)
+		(10) edge node {} (9)
+		(9) edge node {} (11)
+		(8) edge node {} (13)
+		(7) edge node {} (6)
+		(6) edge node {} (5)
+		(6) edge node {} (0)
+		(5) edge node {} (4)
+		(4) edge node {} (3)
+		(4) edge node {} (1)
+		(3) edge node {} (2)
+		(2) edge node {} (4)
+		(1) edge node {} (6);
+\end{tikzpicture}
+\end{figure}
+
+\subsection{Complex branch}
+The first task from the first scenario is moved to branch followed by block with function call. Expected yield is found by algorithm.
+
+\begin{lstlisting}[caption={The second scenario with complex branch.}]
+static bool cond = true;
+if (cond) {
+    for (int i = 0; i < 10; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            complex_function();
+            complex_function();
+        }
+    }
+    yield(); // injected by algorithm.
+    complex_function();
+}
+// the second task.
+\end{lstlisting}
+
+\subsection{Complex loop body}
+Task is moved to loop body. Algorithm yields every body iteration.
+
+\begin{lstlisting}[caption={The third scenario with complex loop body.}]
+for (int i = 0; i < 10; ++i)
+{
+    for (int j = 0; j < 10; ++j)
+    {
+        for (int k = 0; k < 10; ++k)
+        {
+            complex_function();
+            complex_function();
+        }
+    }
+    yield(); // injected by algorithm.
+}
+\end{lstlisting}
