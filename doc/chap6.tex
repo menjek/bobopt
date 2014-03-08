@@ -383,7 +383,7 @@ In introduction to optimization method (\ref{yield-intro}), there are multiple m
 Probably the simplest case of improvement for optimizer is deeper analysis of statements in CFG blocks. Complexities of call expression are guessed, but some of them can be calculated more precise. All categories of call expressions can be analysed deeper if analysis has access to body of a callee. It would be unbearable to count in function CFG, but heuristic based on callee definition can be helpful. Possible result of such heuristic can be in form of the deep of the most nested loop. Decision to make is how deep should analysis go and problem to solve is function recursion.
 
 \section{Scenarios}
-Section contains tested scenarios for algorithm with algorithm results.
+
 
 \subsection{Two sequential tasks}
 The first scenario to test is the simplest one testing two sequential tasks in function body. Code snippet with complexity of default threshold (\ref{yield-default}) is considered to be a task. The expected outcome is yield between these two tasks.

@@ -8,30 +8,30 @@ The Bobox project provides C++ library as an interface to its runtime environmen
 \section{Design and Terminology}
 Runtime environment handles implementation details of task-based environment such as scheduling and parallel execution of tasks, data transport and control flow. Programmer uses declarative way to provide environment a \emph{model} that defines the way individual tasks are interconnected. Model is used to create \emph{model instance} that is base for creation of \emph{user request}. User request contains only a very little additional information to model instance.
 
-After programmer provides user request to the environment, he has no longer control over its execution. The only possible query is whether runtime environment finished execution of the request. Provided user request is divided into individual tasks. When task is ready to be executed, in the meaning it has unprocessed input, it is added to the task pool. Worker thread then retrieves task from task pool and invokes it.
+After programmer provides user request to the environment, he has no longer control over its execution. The only possible query is whether runtime environment finished execution of the request. Provided user request is divided into individual tasks. When task is ready to be executed, in the meaning it has unprocessed input, it is added to task pool. Worker thread then retrieves task from task pool and invokes it.
 
-The basic element of model instance is element representing task called \emph{box}.  As already mentioned, every box has zero or more inputs and zero or more outputs. In every model instance, there's special box called \emph{initialization box}. This box is responsible for creation of initialization input data of other boxes in the model. It is executed at the beginning of request evaluation and its only goal is to send data to its only output.
+The basic element of model instance is element representing task called \emph{box}.  As already mentioned, every box has zero or more inputs and zero or more outputs. In every model instance, there is a special box called \emph{initialization box}. This box is responsible for creation of initialization input data of other boxes in the model. It is executed at the beginning of request evaluation and its only goal is to send data to its only output.
 
-A link connecting boxes is called \emph{via}. It represents one way connection between single output and one or more inputs. When box sends data to its input, it actually sends data to via. Via then creates copies of data for every input. Data is sent through via using \emph{envelope}, column-based data structure. Empty envelope is special type of envelope called \emph{poisoned pill}. When box receives poisoned pill on its input, it means there will be no more data send to this input. All paths of model instances are required to end in another special type of box called \emph{termination box}. When this box receives poisoned pill, execution is finished and pipeline is deallocated.
+A link connecting boxes is called \emph{via}. It represents one way connection between single output and one or more inputs. When box sends data to its input, it actually sends data to via. Via then creates copies of data for every input. Data is sent through via using \emph{envelope}, column-based data structure. Empty envelope is special type of envelope called \emph{poisoned pill}. When box receives poisoned pill on its input, it means there will be no more data sent to this input. All paths of model instances are required to end in another special type of box called \emph{termination box}. When this box receives poisoned pill, execution is finished and pipeline is deallocated.
 
 \section{Boxes}
-Boxes as representation of Bobox environment tasks are executed in three steps.
+Boxes, as a representation of Bobox environment tasks, are executed in three steps.
 
 \begin{enumerate}
-\item The first step is \emph{prologue} when box creates a snapshot of its inputs and stores it in member variable so user code can access it. Prologue communicates with runtime environment and synchronization is necessary.
+\item The first step is \emph{prologue} when box creates a snapshot of its inputs and stores it in member variables so user code can access it. Prologue communicates with runtime environment and synchronization is necessary.
 \item The second step, called \emph{action}, is the main place for user code execution. User code can communicate with runtime environment using only specific member functions, e.g., it can send envelope to its output. This creates transparent parallel environment to programmer relieving him from issues related to parallel execution.
 \item The last step is \emph{epilogue}. It handles scheduling of next task based on two criteria. The task is scheduled again,
 
 \begin{enumerate}
-\item if it has unprocessed input and it processed some input in the action step.
+\item if it has got unprocessed input and it has processed some input in the action step.
 \item if it requested to be scheduled again, in the meaning user code set specific flag on the box object using its member function.
 \end{enumerate}
 
-The reason why box is not scheduled again if it has unprocessed input and it has not processed any in the action step is that it very probably waits for another input, e.g., join operation in database when task will not execute until it has data on both inputs. Possibility to explicitly request another scheduling is there for cases when single box creates large output. It is not desired to let task running for a long time creating large output thus congest internal buffers used for communication. Task running for a long time on single worker thread can also create bottleneck for parallel execution when many other tasks wait for input from this task.
+The reason why box is not scheduled again if it has got unprocessed input and it has not processed any in the action step is that it very probably waits for another input, e.g., join operation in database when task does not execute until it has data on both inputs. Possibility to explicitly request another scheduling is there for cases when single box creates large output. It is not desired to let task running for a long time creating large output thus congest internal buffers used for communication. Task running for a long time on single worker thread can also create bottleneck for parallel execution when many other tasks wait for input from this task.
 
 \end{enumerate}
 
-Boxes are the main object of interest for optimizations as they are the place for user code. Based on static analysis of the action step, additional code can be injected to hint Bobox internal facilities with information.
+Boxes are the main object of interest for optimizations because they are the place for user code. Based on static analysis of the action step, additional code can be injected to hint Bobox internal facilities with information.
 
 \section{Usage}
 To implement Bobox task, programmer has to inherit from \code{bobox::basic\_box} base class. The action step is represented by one of the virtual member functions.
@@ -41,14 +41,14 @@ virtual void sync_body();
 virtual bool async_body(inarc_index_type inarc);
 \end{lstlisting}
 
-Programmer is expected to override one of them. Inputs and outputs of box are defined in definition of Bobox model, described later. However, programmer can associate names to particular inputs and outputs using helper macros from Bobox library. It makes work with box data interface easier and it is necessary for one implemented optimization method to work.
+Programmer is expected to override one of them. Inputs and outputs of box are defined in definition of Bobox model, which is described later. However, programmer can associate names to particular inputs and outputs using helper macros from Bobox library. One of the implemented optimization methods identifies inputs by names. Using helper macro is necessary in order to optimization method to work.
 
-\begin{lstlisting}[caption={Mapping of box input and output to \textit{names}.}]
+\begin{lstlisting}[caption={Helper macros for mapping of names to inputs and outputs.}]
 #define BOBOX_BOX_INPUTS_LIST(...)
 #define BOBOX_BOX_OUTPUTS_LIST(...)
 \end{lstlisting}
 
-Implementing task for execution model is pretty straightforward for C++ programmer using only C++ core language features. Unfortunately, C++ syntax is not handy to express definition of whole execution model. It is definitely possible, but any approach using C++ syntax could be considered inferior to approach using different language and syntax in ease of definition and readability. Language developed to such purpose is called \emph{Bobolang}.
+Implementing task for execution model is straightforward for C++ programmer using only C++ core language features. Unfortunately, C++ syntax is not handy to express definition of whole execution model. It is definitely possible, but any approach using C++ syntax could be considered inferior to approach using different language and syntax in ease of definition and readability. Language developed to such purpose is called \emph{Bobolang}.
 
 \begin{lstlisting}[caption={Example of Bobolang usage from Bobox project.}]
 model main<()><()> {
