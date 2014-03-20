@@ -1,6 +1,7 @@
 ## Allows
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
 ## Breaks

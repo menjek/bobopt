@@ -23,6 +23,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <map>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -238,8 +239,7 @@ namespace bobopt
                 /// | `-MaterializeTemporaryExpr 0x4708240 <col:21, col:35> 'class bobox::generic_distinctizer<struct bobox::input_tag>' xvalue
                 /// |   `-CallExpr 0x4708160 <col:21, col:35> 'input_index_type':'class bobox::generic_distinctizer<struct bobox::input_tag>'
                 /// |     `-ImplicitCastExpr 0x4708148 <col:21, col:29> 'input_index_type (*)(void)' <FunctionToPointerDecay>
-                /// |       `-DeclRefExpr 0x4708110 <col:21, col:29> 'input_index_type (void)' lvalue CXXMethod 0x4703770 'right' 'input_index_type
-                /// (void)'
+                /// |       `-DeclRefExpr 0x4708110 <col:21, col:29> 'input_index_type (void)' lvalue CXXMethod 0x4703770 'right' 'input_index_type(void)'
                 /// \endverbatim
                 BOBOPT_INLINE static bool extract_type(Expr* arg, std::string& prefetched, CallExpr*& prefetched_expr)
                 {
@@ -306,7 +306,6 @@ namespace bobopt
             class body_collector : public control_flow_search<body_collector, std::string>
             {
             public:
-
                 /// \brief Type of class base.
                 typedef control_flow_search<body_collector, std::string> base_type;
 
@@ -347,6 +346,84 @@ namespace bobopt
                 /// \brief Looking up member calls of bobox::input_stream<> variables.
                 bool VisitCXXMemberCallExpr(CXXMemberCallExpr* member_call_expr)
                 {
+                    if (handle_pop_envelope(member_call_expr))
+                    {
+                        return true;
+                    }
+
+                    if (handle_input_stream(member_call_expr))
+                    {
+                        return true;
+                    }
+
+                    return true;
+                }
+
+                struct finder_callback : public MatchFinder::MatchCallback
+                {
+                    virtual void run(const MatchFinder::MatchResult& result) BOBOPT_OVERRIDE
+                    {
+                        CallExpr* call_expr = const_cast<CallExpr*>(result.Nodes.getNodeAs<CallExpr>("call_expr"));
+                        if (call_expr != nullptr)
+                        {
+                            inputs.push_back(call_expr);
+                        }
+                    }
+
+                    std::vector<CallExpr*> inputs;
+                };
+
+                /// \brief Handle pop_envelope member call expression.
+                bool handle_pop_envelope(CXXMemberCallExpr* member_call_expr)
+                {
+                    MemberExpr* callee_expr = llvm::dyn_cast_or_null<MemberExpr>(member_call_expr->getCallee());
+                    if (callee_expr == nullptr)
+                    {
+                        return true;
+                    }
+
+                    CXXMethodDecl* decl = llvm::dyn_cast_or_null<CXXMethodDecl>(callee_expr->getMemberDecl());
+                    if (decl == nullptr)
+                    {
+                        return false;
+                    }
+
+                    if (decl->getNameAsString() != "pop_envelope")
+                    {
+                        return false;
+                    }
+
+                    BOBOPT_ASSERT(decl->getParent() != nullptr);
+                    if (decl->getParent()->getQualifiedNameAsString() != "bobox::basic_box")
+                    {
+                        return false;
+                    }
+
+                    if (member_call_expr->getNumArgs() != 1)
+                    {
+                        return false;
+                    }
+
+                    MatchFinder finder;
+                    finder_callback callback;
+                    finder.addMatcher(INPUT_INDEX_TYPE_CALL_MATCHER, &callback);
+                    recursive_match_finder recursive_finder(&finder, base_type::context_);
+                    recursive_finder.TraverseStmt(member_call_expr->getArg(0));
+
+                    // Ignore either ambiguous or none.
+                    if (callback.inputs.size() == 1)
+                    {
+                        auto name = callback.inputs.front()->getDirectCallee()->getNameAsString();
+                        insert_value_location(name, DynTypedNode::create(*member_call_expr));
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                /// \brief Handle member call expression on input_stream<> variable.
+                bool handle_input_stream(CXXMemberCallExpr* member_call_expr)
+                {
                     MemberExpr* callee_expr = llvm::dyn_cast_or_null<MemberExpr>(member_call_expr->getCallee());
                     if (callee_expr == nullptr)
                     {
@@ -356,18 +433,18 @@ namespace bobopt
                     DeclRefExpr* base_expr = llvm::dyn_cast_or_null<DeclRefExpr>(callee_expr->getBase());
                     if (base_expr == nullptr)
                     {
-                        return true;
+                        return false;
                     }
 
                     VarDecl* var_decl = llvm::dyn_cast_or_null<VarDecl>(base_expr->getDecl());
                     if (var_decl == nullptr)
                     {
-                        return true;
+                        return false;
                     }
 
                     if (!var_decl->hasDefinition())
                     {
-                        return true;
+                        return false;
                     }
 
                     prefetch_input_stream(var_decl->getDefinition(), member_call_expr);
@@ -375,7 +452,6 @@ namespace bobopt
                 }
 
             private:
-
                 /// \brief Extract stream name from definition of bobox::input_stream<> variable.
                 void add_input_stream(VarDecl* var_decl)
                 {
@@ -387,27 +463,13 @@ namespace bobopt
                         return;
                     }
 
-                    struct finder_callback : public MatchFinder::MatchCallback
-                    {
-                        virtual void run(const MatchFinder::MatchResult& result) BOBOPT_OVERRIDE
-                        {
-                            CallExpr* call_expr = const_cast<CallExpr*>(result.Nodes.getNodeAs<CallExpr>("call_expr"));
-                            if (call_expr != nullptr)
-                            {
-                                inputs.push_back(call_expr);
-                            }
-                        }
-
-                        std::vector<CallExpr*> inputs;
-                    };
-
                     MatchFinder finder;
                     finder_callback callback;
                     finder.addMatcher(INPUT_INDEX_TYPE_CALL_MATCHER, &callback);
                     recursive_match_finder recursive_finder(&finder, base_type::context_);
                     recursive_finder.TraverseStmt(init_expr);
 
-                    // Ignore either ambigous or none.
+                    // Ignore either ambiguous or none.
                     if (callback.inputs.size() == 1)
                     {
                         input_streams_.insert(std::make_pair(var_decl, callback.inputs.front()));
@@ -724,7 +786,12 @@ namespace bobopt
                 CXXMethodDecl* input_decl = get_input(named_input);
                 BOBOPT_ASSERT(input_decl != nullptr);
 
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
+                std::stringstream convertor;
+                convertor << used.get_min_max(named_input).first;
+                std::string arg2;
+                convertor >> arg2;
+
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "(), " + arg2  + ");";
                 if (verbose)
                 {
                     emit_input_declaration(input_decl);
@@ -800,7 +867,12 @@ namespace bobopt
                 CXXMethodDecl* input_decl = get_input(named_input);
                 BOBOPT_ASSERT(input_decl != nullptr);
 
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
+                std::stringstream convertor;
+                convertor << used.get_min_max(named_input).first;
+                std::string arg2;
+                convertor >> arg2;
+
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "(), " + arg2 + ");";
                 if (verbose)
                 {
                     emit_input_declaration(input_decl);

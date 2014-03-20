@@ -37,7 +37,7 @@ namespace bobopt
         /// \brief Configuration group for control flow search algorithm.
         static config_group config("control_flow_search");
         /// \brief Configuration variable for loop body traversal.
-        static config_variable<bool> config_loop_body(config, "loop_body", true);
+        static config_variable<bool> config_loop_body(config, "search_loop_body", true);
 
     } // detail
 
@@ -86,7 +86,6 @@ namespace bobopt
         void destroy_instance(instance_type& instance) const;
 
     protected:
-
         // protection:
         ~heap_policy();
     };
@@ -195,7 +194,6 @@ namespace bobopt
         void destroy_instance(instance_type& instance) const;
 
     protected:
-
         // protection:
         ~value_policy();
 
@@ -306,7 +304,6 @@ namespace bobopt
     class scoped_prototype
     {
     public:
-
         // typedefs:
         typedef Derived derived_type;
         typedef typename Derived::instance_type instance_type;
@@ -328,7 +325,6 @@ namespace bobopt
         const instance_type& raw() const;
 
     private:
-
         // protection:
         scoped_prototype();
         BOBOPT_NONCOPYMOVABLE(scoped_prototype);
@@ -424,14 +420,10 @@ namespace bobopt
     /// \tparam PrototypePolicy Tree traversal needs to create new objects
     ///         of derived class. Policy defines how are these new objects
     ///         created. Default they're created and passed by value.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy = value_policy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy = value_policy>
     class control_flow_search : public clang::RecursiveASTVisitor<Derived>, public PrototypePolicy<Derived>
     {
     public:
-
         // typedefs:
         typedef control_flow_search<Derived, Value, PrototypePolicy> base_type;
         typedef Derived derived_type;
@@ -449,6 +441,7 @@ namespace bobopt
         values_type get_values() const;
         bool has_value(const value_type& val) const;
         locations_type get_locations(const value_type& val) const;
+        std::pair<unsigned, unsigned> get_min_max(const value_type& val) const;
 
         // traversal:
         bool TraverseIfStmt(clang::IfStmt* if_stmt);
@@ -474,7 +467,6 @@ namespace bobopt
         bool VisitReturnStmt(clang::ReturnStmt* return_stmt);
 
     protected:
-
         // create/destroy:
         explicit control_flow_search(clang::ASTContext* context = nullptr);
         ~control_flow_search();
@@ -498,7 +490,14 @@ namespace bobopt
         };
 
         // typedefs:
-        typedef std::map<Value, locations_type> container_type;
+        struct value_info
+        {
+            locations_type locations;
+            unsigned min;
+            unsigned max;
+        };
+
+        typedef std::map<Value, value_info> container_type;
 
         // traversal helpers:
         bool traverse_for_body(clang::ForStmt* for_stmt) const;
@@ -506,13 +505,11 @@ namespace bobopt
         bool should_continue() const;
 
         // value helpers:
-        void append_values(const instance_type& visitor);
-        void append_values(const values_type& values);
-        void append_values_locations(const values_type& values, const instance_type& visitor);
+        const container_type& get_container() const;
+        void append_visitor(const container_type& values);
 
-        static void make_unique(values_type& values);
-        static values_type make_intersection(values_type lhs, values_type rhs);
-        static values_type make_union(values_type lhs, const values_type& rhs);
+        static container_type make_intersection(const container_type& lhs, const container_type& rhs);
+        static container_type make_union(const container_type& lhs, const container_type& rhs);
 
         container_type values_map_;
         int flags_;
@@ -522,30 +519,21 @@ namespace bobopt
     //==========================================================================
 
     /// \brief Access object as non-const reference to Derived.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE Derived& control_flow_search<Derived, Value, PrototypePolicy>::get_derived()
     {
         return *static_cast<Derived*>(this);
     }
 
     /// \brief Access object as const reference to Derived.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE const Derived& control_flow_search<Derived, Value, PrototypePolicy>::get_derived() const
     {
         return *static_cast<const Derived*>(this);
     }
 
     /// \brief Access values collected by search.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
     control_flow_search<Derived, Value, PrototypePolicy>::get_values() const
     {
@@ -561,33 +549,33 @@ namespace bobopt
     }
 
     /// \brief Ask whether value was found in search.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::has_value(const value_type& val) const
     {
         return (values_map_.find(val) != std::end(values_map_));
     }
 
     /// \brief Access locations for chosen value.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::locations_type
     control_flow_search<Derived, Value, PrototypePolicy>::get_locations(const value_type& val) const
     {
         auto found = values_map_.find(val);
         BOBOPT_ASSERT(found != std::end(values_map_));
-        return found->second;
+        return found->second.locations;
+    }
+
+    /// \brief Get minimum and maximum of value occurances on paths.
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
+    BOBOPT_INLINE std::pair<unsigned, unsigned> control_flow_search<Derived, Value, PrototypePolicy>::get_min_max(const value_type& val) const
+    {
+        auto found = values_map_.find(val);
+        BOBOPT_ASSERT(found != std::end(values_map_));
+        return std::make_pair(found->second.min, found->second.max);
     }
 
     /// \brief Recursive traversal of if statement will be handled by VisitIfStmt member function.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseIfStmt(clang::IfStmt* if_stmt)
     {
         return this->WalkUpFromIfStmt(if_stmt) && should_continue();
@@ -599,10 +587,7 @@ namespace bobopt
     /// One new prototype is created for then branch, one for else branch. They're both
     /// run on related parts of AST. In the final, function will create instersection
     /// of found values.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitIfStmt(clang::IfStmt* if_stmt)
     {
         // Condition is always in control flow path.
@@ -636,43 +621,36 @@ namespace bobopt
         }
 
         // Store results of recursive traversal.
-        values_type values = cond_visitor.get().get_values();
-
+        container_type values = cond_visitor.get().get_container();
         if (then_visitor.valid())
         {
-            values_type then_values = then_visitor.get().get_values();
+            container_type then_values = then_visitor.get().get_container();
             if (else_visitor.valid())
             {
-                values_type else_values = else_visitor.get().get_values();
-                values_type both_values = make_intersection(then_values, else_values);
-                std::copy(std::begin(both_values), std::end(both_values), std::back_inserter(values));
+                container_type else_values = else_visitor.get().get_container();
+                container_type both_values = make_intersection(then_values, else_values);
+                values = make_union(values, both_values);
             }
             else
             {
-                std::copy(std::begin(then_values), std::end(then_values), std::back_inserter(values));
+                values = make_union(values, then_values);
             }
         }
         else
         {
             if (else_visitor.valid())
             {
-                values_type else_values = else_visitor.get().get_values();
-                std::copy(std::begin(else_values), std::end(else_values), std::back_inserter(values));
+                container_type else_values = else_visitor.get().get_container();
+                values = make_union(values, else_values);
             }
         }
 
-        append_values_locations(values, cond_visitor.raw());
-        append_values_locations(values, then_visitor.raw());
-        append_values_locations(values, else_visitor.raw());
-
+        append_visitor(values);
         return true;
     }
 
     /// \brief Recursive traversal of for statement will be handled by VisitForStmt member function.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseForStmt(clang::ForStmt* for_stmt)
     {
         bool result = this->WalkUpFromForStmt(for_stmt);
@@ -685,10 +663,7 @@ namespace bobopt
     /// There are only two parts of for statement that will always be evaluated at least
     /// once. It's initial statement and condition expression. Values found in both parts
     /// are added to set of values found.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitForStmt(clang::ForStmt* for_stmt)
     {
         // Init statement.
@@ -738,19 +713,31 @@ namespace bobopt
         }
 
         // Collect values.
-        append_values(init_visitor.raw());
-        append_values(cond_visitor.raw());
-        append_values(incr_visitor.raw());
-        append_values(body_visitor.raw());
+        if (init_visitor.valid())
+        {
+            append_visitor(init_visitor.get().get_container());
+        }
+
+        if (cond_visitor.valid())
+        {
+            append_visitor(cond_visitor.get().get_container());
+        }
+
+        if (incr_visitor.valid())
+        {
+            append_visitor(incr_visitor.get().get_container());
+        }
+
+        if (body_visitor.valid())
+        {
+            append_visitor(body_visitor.get().get_container());
+        }
 
         return true;
     }
 
     /// \brief Recursive traversal of while statement will be handled by VisitWhileStmt member function.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseWhileStmt(clang::WhileStmt* while_stmt)
     {
         bool result = this->WalkUpFromWhileStmt(while_stmt);
@@ -761,10 +748,7 @@ namespace bobopt
     /// \brief Function will handle recursive traversal and value evaluation of while statement.
     ///
     /// Only condition is always evaluated. Its values are added to result set of values.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitWhileStmt(clang::WhileStmt* while_stmt)
     {
         // Condition expression.
@@ -793,17 +777,21 @@ namespace bobopt
         }
 
         // Collect values.
-        append_values(cond_visitor.raw());
-        append_values(body_visitor.raw());
+        if (cond_visitor.valid())
+        {
+            append_visitor(cond_visitor.get().get_container());
+        }
+
+        if (body_visitor.valid())
+        {
+            append_visitor(body_visitor.get().get_container());
+        }
 
         return true;
     }
 
     /// \brief Recursive traversal of switch statement will be handled by VisitSwitchStmt member function.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseSwitchStmt(clang::SwitchStmt* switch_stmt)
     {
         bool result = this->WalkUpFromSwitchStmt(switch_stmt);
@@ -816,10 +804,7 @@ namespace bobopt
     /// Only condition is always evaluated. Its values are added to result set of values.
     /// Case statements are way more complex to handle, but basic principle is the same
     /// as for if statement.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitSwitchStmt(clang::SwitchStmt* switch_stmt)
     {
         clang::Expr* cond_expr = switch_stmt->getCond();
@@ -830,16 +815,16 @@ namespace bobopt
         cond_visitor.get().TraverseStmt(cond_expr);
         flags_ |= cond_visitor.get().flags_;
 
-        append_values(cond_visitor.raw());
+        if (cond_visitor.valid())
+        {
+            append_visitor(cond_visitor.get().get_container());
+        }
 
         return true;
     }
 
     /// \brief Recursive traversal of try statement will be handled by VisitCXXTryStmt member function.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseCXXTryStmt(clang::CXXTryStmt* try_stmt)
     {
         bool result = this->WalkUpFromCXXTryStmt(try_stmt);
@@ -851,10 +836,7 @@ namespace bobopt
     ///
     /// Try block is the only evaluated. Catch statements should not contain any values
     /// client is looking for.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitCXXTryStmt(clang::CXXTryStmt* try_stmt)
     {
         clang::Stmt* try_block = try_stmt->getTryBlock();
@@ -865,17 +847,17 @@ namespace bobopt
             block_visitor.get().TraverseStmt(try_block);
             flags_ |= block_visitor.get().flags_;
 
-            append_values(block_visitor.raw());
+            if (block_visitor.valid())
+            {
+                append_visitor(block_visitor.get().get_container());
+            }
         }
 
         return true;
     }
 
     /// \brief Recursive traversal of logical AND will forward job only to LHS.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseBinLAnd(clang::BinaryOperator* binary_operator)
     {
         bool result = this->WalkUpFromBinaryOperator(binary_operator);
@@ -885,10 +867,7 @@ namespace bobopt
     }
 
     /// \brief Recursive traversal of logical OR will forward job only to LHS.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::TraverseBinLOr(clang::BinaryOperator* binary_operator)
     {
         bool result = this->WalkUpFromBinaryOperator(binary_operator);
@@ -898,10 +877,7 @@ namespace bobopt
     }
 
     /// \brief Handles \c break; statement by finishing traversal and setting flag.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitBreakStmt(clang::BreakStmt*)
     {
         flags_ |= cff_break;
@@ -909,10 +885,7 @@ namespace bobopt
     }
 
     /// \brief Handles \c continue; statement by finishing traversal and setting flag.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitContinueStmt(clang::ContinueStmt*)
     {
         flags_ |= cff_continue;
@@ -920,10 +893,7 @@ namespace bobopt
     }
 
     /// \brief Handles \c return; statement by finishing traversal and setting flag.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     bool control_flow_search<Derived, Value, PrototypePolicy>::VisitReturnStmt(clang::ReturnStmt*)
     {
         flags_ |= cff_return;
@@ -931,74 +901,64 @@ namespace bobopt
     }
 
     /// \brief Don't create instances of base.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE control_flow_search<Derived, Value, PrototypePolicy>::control_flow_search(clang::ASTContext* context)
-        : context_(context) 
+        : context_(context)
         , values_map_()
         , flags_(0)
     {
     }
 
     /// \brief Don't delete through pointer to base.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE control_flow_search<Derived, Value, PrototypePolicy>::~control_flow_search()
     {
     }
 
     /// \brief Way for derived class to insert value into container.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::insert_value(const value_type& val)
     {
         if (values_map_.find(val) == std::end(values_map_))
         {
-            values_map_.insert(std::make_pair(val, locations_type()));
+            value_info info;
+            info.min = 1;
+            info.max = 1;
+            values_map_.insert(std::make_pair(val, std::move(info)));
         }
     }
 
     /// \brief Way for derived class to insert value together with location where it was found into container.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::insert_value_location(const value_type& val,
                                                                                                    clang::ast_type_traits::DynTypedNode location)
     {
         auto found = values_map_.find(val);
         if (found == std::end(values_map_))
         {
-            locations_type locations(1, location);
-            values_map_.insert(std::make_pair(val, std::move(locations)));
+            value_info info;
+            info.locations.emplace_back(std::move(location));
+            info.min = 1;
+            info.max = 1;
+            values_map_.insert(std::make_pair(val, std::move(info)));
         }
         else
         {
-            found->second.push_back(location);
+            found->second.locations.push_back(location);
+            ++found->second.min;
+            ++found->second.max;
         }
     }
 
     /// \brief Way for derived class to remove value from container.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::remove_value(const value_type& val)
     {
         values_map_.erase(val);
     }
 
     /// \brief Function that evaluates whether for statement body will be executed at least once.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::traverse_for_body(clang::ForStmt* for_stmt) const
     {
         clang::DeclStmt* decl_stmt = llvm::dyn_cast_or_null<clang::DeclStmt>(for_stmt->getInit());
@@ -1035,10 +995,7 @@ namespace bobopt
 
     /// \brief Function used for deeper static analysis. It tries to evaluates if expression
     /// will be at least once true and body will be executed.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::traverse_while_body(clang::WhileStmt* while_stmt) const
     {
         BOBOPT_UNUSED_EXPRESSION(while_stmt);
@@ -1046,10 +1003,7 @@ namespace bobopt
     }
 
     /// \brief Function indicates whether traversal should continue based on flags.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
     BOBOPT_INLINE bool control_flow_search<Derived, Value, PrototypePolicy>::should_continue() const
     {
         bool result = true;
@@ -1059,105 +1013,117 @@ namespace bobopt
         return result;
     }
 
-    /// \brief Apppend values from instance to this visitor instance.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::append_values(const instance_type& visitor)
+    /// \brief Get access to visitor storage.
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
+    BOBOPT_INLINE const typename control_flow_search<Derived, Value, PrototypePolicy>::container_type&
+    control_flow_search<Derived, Value, PrototypePolicy>::get_container() const
     {
-        if (visitor.valid())
-        {
-            const container_type& visitor_map = static_cast<const base_type&>(visitor.get()).values_map_;
-            for (const auto& it : visitor_map)
-            {
-                append(values_map_[it.first], it.second);
-            }
-        }
-    }
-
-    /// \brief Append values from container
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::append_values(const values_type& values)
-    {
-        for (const auto& val : values)
-        {
-            values_map_.insert(std::make_pair(val, locations_type()));
-        }
+        return values_map_;
     }
 
     /// \brief Append values from container to this visitor instance and copy their locations from visitor instance.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::append_values_locations(const values_type& values,
-                                                                                                     const instance_type& visitor)
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
+    BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::append_visitor(const container_type& values)
     {
-        if (visitor.valid())
+        for (const auto& val : values)
         {
-            const container_type& visitor_map = static_cast<const base_type&>(visitor.get()).values_map_;
-
-            for (const auto& val : values)
+            auto result = values_map_.insert(std::make_pair(val.first, value_info()));
+            if (result.second)
             {
-                locations_type& locations = values_map_[val];
-
-                auto found = visitor_map.find(val);
-                if (found != std::end(visitor_map))
-                {
-                    append(locations, found->second);
-                }
+                result.first->second.locations = val.second.locations;
+                result.first->second.min = val.second.min;
+                result.first->second.max = val.second.max;
+            }
+            else
+            {
+                append(result.first->second.locations, val.second.locations);
+                result.first->second.min += val.second.min;
+                result.first->second.max += val.second.max;
             }
         }
     }
 
-    /// \brief Make values in container unique.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE void control_flow_search<Derived, Value, PrototypePolicy>::make_unique(values_type& values)
+    /// \brief Create container with intersection of values from two containers.
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
+    BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::container_type
+    control_flow_search<Derived, Value, PrototypePolicy>::make_intersection(const container_type& lhs, const container_type& rhs)
     {
-        std::sort(std::begin(values), std::end(values));
+        container_type result;
 
-        auto unique_end = std::unique(std::begin(values), std::end(values));
-        values.erase(unique_end, std::end(values));
-    }
+        auto lhs_it = lhs.begin();
+        auto rhs_it = rhs.begin();
 
-    /// \brief Create container with intersection of values from other containers.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
-    control_flow_search<Derived, Value, PrototypePolicy>::make_intersection(values_type lhs, values_type rhs)
-    {
-        make_unique(lhs);
-        make_unique(rhs);
+        while ((lhs_it != std::end(lhs)) && (rhs_it != std::end(rhs)))
+        {
+            if (lhs_it->first < rhs_it->first)
+            {
+                ++lhs_it;
+                continue;
+            }
 
-        values_type result;
-        result.reserve(lhs.size() + rhs.size());
+            if (rhs_it->first < lhs_it->first)
+            {
+                ++rhs_it;
+                continue;
+            }
 
-        std::set_intersection(std::begin(lhs), std::end(lhs), std::begin(rhs), std::end(rhs), std::back_inserter(result));
+            value_info info;
+            append(info.locations, lhs_it->second.locations);
+            append(info.locations, rhs_it->second.locations);
+            info.min = std::min(lhs_it->second.min, rhs_it->second.min);
+            info.max = std::max(lhs_it->second.max, rhs_it->second.max);
+            result.insert(std::make_pair(lhs_it->first, std::move(info)));
+
+            ++lhs_it;
+            ++rhs_it;
+        }
 
         return result;
     }
 
-    /// \brief Create container with union of values from other containers.
-    template <typename Derived,
-              typename Value,
-              template <typename>
-              class PrototypePolicy>
-    BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::values_type
-    control_flow_search<Derived, Value, PrototypePolicy>::make_union(values_type lhs, const values_type& rhs)
+    /// \brief Create container as union of values from two containers.
+    template <typename Derived, typename Value, template <typename> class PrototypePolicy>
+    BOBOPT_INLINE typename control_flow_search<Derived, Value, PrototypePolicy>::container_type
+    control_flow_search<Derived, Value, PrototypePolicy>::make_union(const container_type& lhs, const container_type& rhs)
     {
-        append(lhs, rhs);
-        make_unique(lhs);
+        container_type result;
 
-        return lhs;
+        auto lhs_it = lhs.begin();
+        auto rhs_it = rhs.begin();
+
+        for (; (lhs_it != std::end(lhs)) && (rhs_it != std::end(rhs)); ++lhs_it, ++rhs_it)
+        {
+            if (lhs_it->first < rhs_it->first)
+            {
+                result.insert(std::make_pair(lhs_it->first, lhs_it->second));
+                continue;
+            }
+
+            if (rhs_it->first < lhs_it->first)
+            {
+                result.insert(std::make_pair(rhs_it->first, rhs_it->second));
+                continue;
+            }
+
+            value_info info;
+            append(info.locations, lhs_it->second.locations);
+            append(info.locations, rhs_it->second.locations);
+            info.min = lhs_it->second.min + rhs_it->second.min;
+            info.max = lhs_it->second.max + rhs_it->second.max;
+            result.insert(std::make_pair(lhs_it->first, std::move(info)));
+        }
+
+        for (; lhs_it != std::end(lhs); ++lhs_it)
+        {
+            result.insert(std::make_pair(lhs_it->first, lhs_it->second));
+        }
+
+        for (; rhs_it != std::end(rhs); ++rhs_it)
+        {
+            result.insert(std::make_pair(rhs_it->first, rhs_it->second));
+        }
+
+        return result;
     }
 
 } // namespace

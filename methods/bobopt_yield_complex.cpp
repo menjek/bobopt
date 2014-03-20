@@ -456,13 +456,18 @@ namespace bobopt
                     // The first branch is deep branch where current path continues.
                     // For all other branches, there's new path created.
                     auto block_it = block.succ_begin();
-                    if (block_it != block.succ_end())
+                    if ((block_it != block.succ_end()) && (*block_it != nullptr))
                     {
                         append(return_paths, process(**block_it, path, complexity));
 
                         ++block_it;
                         for (auto end = block.succ_end(); block_it != end; ++block_it)
                         {
+                            if (*block_it == nullptr)
+                            {
+                                continue;
+                            }
+
                             auto id = next_id();
                             return_paths.push_back(id);
                             append(return_paths, process(**block_it, id, complexity));
@@ -476,11 +481,13 @@ namespace bobopt
                 {
                     auto it = block.succ_begin();
                     BOBOPT_ASSERT(it != block.succ_end());
+                    BOBOPT_ASSERT(*it != nullptr);
 
                     const CFGBlock& body = **it;
 
                     ++it;
                     BOBOPT_ASSERT(it != block.succ_end());
+                    BOBOPT_ASSERT(*it != nullptr);
                     const CFGBlock& skip = **it;
 
                     ++it;
@@ -784,7 +791,7 @@ namespace bobopt
                 for (auto it = block->succ_begin(), end = block->succ_end(); it != end; ++it)
                 {
                     const CFGBlock* succ = *it;
-                    if (result.count(succ->getBlockID()) == 0)
+                    if ((succ != nullptr) && (result.count(succ->getBlockID()) == 0))
                     {
                         proceed.push_back(succ);
                     }
