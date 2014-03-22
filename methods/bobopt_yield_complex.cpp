@@ -63,7 +63,7 @@ namespace bobopt
         static config_variable<unsigned> config_threshold(config, "threshold", 20000u);
 
         /// \brief Enable insertion of yield before all function calls from predefined set of functions.
-        static config_variable<bool> config_yield_predefined(config, "yield_predefined", true);
+        static config_variable<bool> config_yield_predefined(config, "yield_predefined", false);
 
         // TU helpers.
         //======================================================================
