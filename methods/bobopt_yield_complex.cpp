@@ -30,6 +30,7 @@
 
 using namespace clang;
 using namespace clang::tooling;
+using namespace clang::ast_matchers;
 using namespace clang::ast_type_traits;
 
 namespace bobopt
@@ -60,6 +61,9 @@ namespace bobopt
         /// \brief Optimal complexity for box execution.
         /// It is equivalent of 2 inner for loops with 2 calls to not inlined non trivial function (20*20*2*25 = 50000).
         static config_variable<unsigned> config_threshold(config, "threshold", 20000u);
+
+        /// \brief Enable insertion of yield before all function calls from predefined set of functions.
+        static config_variable<bool> config_yield_predefined(config, "yield_predefined", true);
 
         // TU helpers.
         //======================================================================
@@ -189,7 +193,6 @@ namespace bobopt
             }
 
         public:
-
             explicit cfg_data(const CFG& cfg)
                 : cfg_(cfg)
                 , data_()
@@ -592,9 +595,10 @@ namespace bobopt
 
             static std::vector<block_data_type::path_data_type>::const_iterator find_path(unsigned id, const block_data_type& block)
             {
-                return std::find_if(std::begin(block.paths), std::end(block.paths), [id](const block_data_type::path_data_type & path) {
-                    return std::find(std::begin(path.ids), std::end(path.ids), id) != std::end(path.ids);
-                });
+                return std::find_if(std::begin(block.paths),
+                                    std::end(block.paths),
+                                    [id](const block_data_type::path_data_type& path)
+                                    { return std::find(std::begin(path.ids), std::end(path.ids), id) != std::end(path.ids); });
             }
 
             std::pair<unsigned, bool> optimize_block(const block_data_type& block, const std::vector<const block_data_type*>& end_blocks)
@@ -819,6 +823,11 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(CXXMethodDecl* method, CompoundStmt* body, const CFG& cfg)
         {
+            if (config_yield_predefined.get() && yield_predefined(body))
+            {
+                return;
+            }
+
             cfg_data data(cfg);
             if (!data.optimize())
             {
@@ -860,6 +869,103 @@ namespace bobopt
             }
         }
 
+        bool yield_complex::yield_predefined(CompoundStmt* body)
+        {
+            struct predefined_callback : public MatchFinder::MatchCallback
+            {
+                virtual void run(const MatchFinder::MatchResult& result)
+                {
+                    statements.push_back(result.Nodes.getNodeAs<Stmt>("predefined"));
+                }
+
+                std::vector<const Stmt*> statements;
+            };
+            
+            // member call expr on envelope
+            static const auto on_envelope = anyOf(
+                on(hasType(recordDecl(hasName("envelope")))),
+                on(hasType(pointsTo(recordDecl(hasName("envelope")))))
+            );
+
+            // const column &envelope::get_column(column_index_type idx) const;
+            static const auto envelope_get_column = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_column"))),
+                argumentCountIs(1)
+            ).bind("predefined");
+
+            // const columns_type &envelope::get_columns() const;
+            static const auto envelope_get_columns = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_columns"))),
+                argumentCountIs(0)
+            ).bind("predefined");
+
+            // void **envelope::get_columns_raw_data() const
+            static const auto envelope_get_columns_raw_data = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_columns_raw_data"))),
+                argumentCountIs(0)
+            ).bind("predefined");
+
+            // template <typename T> T **envelope::get_columns_data() const
+            static const auto envelope_get_columns_data = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_columns_data"))),
+                argumentCountIs(0)
+            ).bind("predefined");
+
+            //void *envelope::get_raw_data(column_index_type index) const
+            static const auto envelope_get_raw_data = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_raw_data"))),
+                argumentCountIs(1)
+            ).bind("predefined");
+
+            // template <typename T> T *envelope::get_data(column_index_type index) const
+            static const auto envelope_get_data = memberCallExpr(
+                on_envelope,
+                callee(functionDecl(hasName("get_data"))),
+                argumentCountIs(1)
+            ).bind("predefined");
+
+            MatchFinder finder;
+            predefined_callback callback;
+            finder.addMatcher(envelope_get_column, &callback);
+            finder.addMatcher(envelope_get_columns, &callback);
+            finder.addMatcher(envelope_get_columns_raw_data, &callback);
+            finder.addMatcher(envelope_get_columns_data, &callback);
+            finder.addMatcher(envelope_get_raw_data, &callback);
+            finder.addMatcher(envelope_get_data, &callback);
+            recursive_match_finder recursive_finder(&finder, &get_optimizer().get_compiler().getASTContext());
+            recursive_finder.TraverseStmt(body);
+            
+            if (callback.statements.empty())
+            {
+                return false;
+            }
+
+            endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
+
+            nodes_collector<CompoundStmt> collector;
+            collector.TraverseStmt(body);
+
+            bool inserted = false;
+            for (auto* stmt : callback.statements)
+            {
+                for (auto it = collector.nodes_begin(), end = collector.nodes_end(); it != end; ++it)
+                {
+                    if (inserter(stmt, *it))
+                    {
+                        inserted = true;
+                        break;
+                    }
+                }
+            }
+
+            return inserted;
+        }
+
         namespace
         {
 
@@ -867,7 +973,8 @@ namespace bobopt
             class recursive_stmt_find_helper : public RecursiveASTVisitor<recursive_stmt_find_helper>
             {
             public:
-                recursive_stmt_find_helper(const Stmt* stmt) : stmt_(stmt)
+                recursive_stmt_find_helper(const Stmt* stmt)
+                    : stmt_(stmt)
                 {
                 }
 
@@ -991,14 +1098,27 @@ namespace bobopt
         }
 
         /// \brief Helper for insert yield for block into compound statement.
-        bool yield_complex::inserter(const CFGBlock& block, const CompoundStmt* stmt) const
+        bool yield_complex::inserter(const Stmt* stmt, const CompoundStmt* compound_stmt) const
+        {
+            for (auto it = compound_stmt->body_begin(), end = compound_stmt->body_end(); it != end; ++it)
+            {
+                if (inserter_helper(*it, stmt))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// \brief Helper for insert of block yield into single compound statement from set of compound statements.
+        bool yield_complex::inserter(const CFGBlock& block, const std::vector<const CompoundStmt*>& stmts) const
         {
             if (block.empty())
             {
                 return false;
             }
 
-            // Find first statement in block.
             const Stmt* block_stmt = nullptr;
             for (auto it = block.begin(), end = block.end(); it != end; ++it)
             {
@@ -1014,25 +1134,9 @@ namespace bobopt
                 return false;
             }
 
-            // Find whether this statement is in compound.
-            for (auto it = stmt->body_begin(), end = stmt->body_end(); it != end; ++it)
-            {
-                Stmt* local_stmt = *it;
-                if (inserter_helper(local_stmt, block_stmt))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// \brief Helper for insert of block yield into single compound statement from set of compound statements.
-        bool yield_complex::inserter(const CFGBlock& block, const std::vector<const CompoundStmt*>& stmts) const
-        {
             for (const auto* stmt : stmts)
             {
-                if (inserter(block, stmt))
+                if (inserter(block_stmt, stmt))
                 {
                     return true;
                 }
