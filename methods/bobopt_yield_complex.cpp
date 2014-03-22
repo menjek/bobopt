@@ -430,12 +430,28 @@ namespace bobopt
 
                 std::vector<unsigned> process_succ(const CFGBlock& block, unsigned path, unsigned complexity)
                 {
-                    // Branch for loops CFG branching.
+                    // Handle of branching traversal.
                     CFGTerminator terminator = block.getTerminator();
                     if (terminator)
                     {
                         const Stmt* stmt = terminator.getStmt();
                         BOBOPT_ASSERT(stmt != nullptr);
+
+                        if (llvm::dyn_cast<BinaryOperator>(stmt) != nullptr)
+                        {
+                            auto begin = block.succ_begin();
+                            auto end = block.succ_end();
+                            if (begin != end)
+                            {
+                                ++begin;
+                                if (begin != end)
+                                {
+                                    return process(**begin, path, complexity);
+                                }
+                            }
+
+                            return std::vector<unsigned>();
+                        }
 
                         if (llvm::dyn_cast<ForStmt>(stmt) != nullptr)
                         {
