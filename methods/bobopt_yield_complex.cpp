@@ -839,7 +839,7 @@ namespace bobopt
         /// \brief Optimize member function body represented by CFG.
         void yield_complex::optimize_body(CXXMethodDecl* method, CompoundStmt* body, const CFG& cfg)
         {
-            if (config_yield_predefined.get() && yield_predefined(body))
+            if (config_yield_predefined.get() && yield_predefined(cfg, body))
             {
                 return;
             }
@@ -885,18 +885,113 @@ namespace bobopt
             }
         }
 
-        bool yield_complex::yield_predefined(CompoundStmt* body)
+        namespace
         {
             struct predefined_callback : public MatchFinder::MatchCallback
             {
-                virtual void run(const MatchFinder::MatchResult& result)
+                predefined_callback()
+                    : yield(false)
+                    , statements()
                 {
-                    statements.push_back(result.Nodes.getNodeAs<Stmt>("predefined"));
                 }
 
+                virtual void run(const MatchFinder::MatchResult& result)
+                {
+                    if (result.Nodes.getNodeAs<Stmt>("yield") != nullptr)
+                    {
+                        yield = true;
+                        return;
+                    }
+
+                    const Stmt* predefined = result.Nodes.getNodeAs<Stmt>("predefined");
+                    if (predefined == nullptr)
+                    {
+                        return;
+                    }
+
+                    if (!yield)
+                    {
+                        statements.push_back(predefined);
+                    }
+                    yield = false;
+                }
+
+                bool yield;
                 std::vector<const Stmt*> statements;
             };
-            
+
+            class cfg_match_finder
+            {
+            public:
+                cfg_match_finder(MatchFinder& finder, predefined_callback& callback, ASTContext& context)
+                    : finder_(finder)
+                    , callback_(callback)
+                    , context_(context)
+                {
+                }
+
+                void process(const CFGBlock& block)
+                {
+                    stack_.push_back(block.getBlockID());
+
+                    for (auto it = block.begin(), end = block.end(); it != end; ++it)
+                    {
+                        const CFGElement& elem = *it;
+                        if (elem.getKind() != CFGElement::Statement)
+                        {
+                            continue;
+                        }
+
+                        const Stmt* stmt = elem.castAs<CFGStmt>().getStmt();
+                        if (stmt == nullptr)
+                        {
+                            continue;
+                        }
+
+                        finder_.match(*stmt, context_);
+                    }
+
+                    process_succ(block);
+                    stack_.pop_back();
+                }
+
+            private:
+                BOBOPT_NONCOPYMOVABLE(cfg_match_finder);
+
+                void process_succ(const CFGBlock& block)
+                {
+                    bool yield = callback_.yield;
+                    for (auto it = block.succ_begin(), end = block.succ_end(); it != end; ++it)
+                    {
+                        if (*it == nullptr)
+                        {
+                            continue;
+                        }
+
+                        const CFGBlock& block = **it;
+                        if (std::find(std::begin(stack_), std::end(stack_), block.getBlockID()) == std::end(stack_))
+                        {
+                            callback_.yield = yield;
+                            process(block);
+                        }
+                    }
+                }
+
+                MatchFinder& finder_;
+                predefined_callback& callback_;
+                ASTContext& context_;
+                std::vector<unsigned> stack_;
+            };
+        }
+
+        bool yield_complex::yield_predefined(const CFG& cfg, CompoundStmt* body)
+        {
+            // yield call expr
+            static const auto box_yield = memberCallExpr(
+                callee(functionDecl(hasName("yield"))),
+                argumentCountIs(0)
+            ).bind("yield");
+
             // member call expr on envelope
             static const auto on_envelope = anyOf(
                 on(hasType(recordDecl(hasName("envelope")))),
@@ -947,19 +1042,26 @@ namespace bobopt
 
             MatchFinder finder;
             predefined_callback callback;
+            finder.addMatcher(box_yield, &callback);
             finder.addMatcher(envelope_get_column, &callback);
             finder.addMatcher(envelope_get_columns, &callback);
             finder.addMatcher(envelope_get_columns_raw_data, &callback);
             finder.addMatcher(envelope_get_columns_data, &callback);
             finder.addMatcher(envelope_get_raw_data, &callback);
             finder.addMatcher(envelope_get_data, &callback);
-            recursive_match_finder recursive_finder(&finder, &get_optimizer().get_compiler().getASTContext());
-            recursive_finder.TraverseStmt(body);
-            
+
+            cfg_match_finder cfg_finder(finder, callback, get_optimizer().get_compiler().getASTContext());
+            cfg_finder.process(cfg.getEntry());
+
             if (callback.statements.empty())
             {
                 return false;
             }
+
+            // make_unique
+            std::sort(std::begin(callback.statements), std::end(callback.statements));
+            auto newEnd = std::unique(std::begin(callback.statements), std::end(callback.statements));
+            callback.statements.erase(newEnd, std::end(callback.statements));
 
             endl_ = detect_line_end(get_optimizer().get_compiler().getSourceManager(), box_);
 

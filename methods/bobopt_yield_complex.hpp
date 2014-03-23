@@ -77,7 +77,7 @@ namespace bobopt
             void optimize_method(clang::CXXMethodDecl* method);
             void optimize_body(clang::CXXMethodDecl* method, clang::CompoundStmt* body, const clang::CFG& cfg);
 
-            bool yield_predefined(clang::CompoundStmt* body);
+            bool yield_predefined(const clang::CFG& cfg, clang::CompoundStmt* body);
 
             void inserter_invoke(clang::Stmt* stmt, clang::SourceLocation location) const;
             bool inserter_helper(clang::Stmt* dst_stmt, const clang::Stmt* src_stmt) const;
