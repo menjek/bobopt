@@ -1111,6 +1111,7 @@ namespace bobopt
         void yield_complex::inserter_invoke(Stmt* stmt, SourceLocation location) const
         {
             auto& sm = get_optimizer().get_compiler().getSourceManager();
+            location = sm.getExpansionLoc(location);
 
             bool update_code = false;
             if (get_optimizer().verbose())

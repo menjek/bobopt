@@ -77,33 +77,32 @@ namespace bobopt
     /// \brief Create diagnostic message for desired declaration.
     diagnostic_message diagnostic::get_message_decl(diagnostic_message::types type, const clang::Decl* decl, const std::string& message) const
     {
-        SourceManager& source_manager = compiler_.getSourceManager();
-        ;
+        SourceManager& sm = compiler_.getSourceManager();
 
         SourceLocation location = decl->getLocation();
-        bool is_macro_expansion = source_manager.isMacroArgExpansion(location);
+        bool is_macro_expansion = sm.isMacroArgExpansion(location);
 
         SourceLocation last_expansion_location;
-        while (source_manager.isMacroArgExpansion(location))
+        while (sm.isMacroArgExpansion(location))
         {
             last_expansion_location = location;
-            location = source_manager.getFileLoc(location);
+            location = sm.getFileLoc(location);
         }
 
         SourceRange range = decl->getSourceRange();
         if (is_macro_expansion)
         {
-            std::pair<SourceLocation, SourceLocation> expansion_range = source_manager.getExpansionRange(last_expansion_location);
+            std::pair<SourceLocation, SourceLocation> expansion_range = sm.getExpansionRange(last_expansion_location);
             SourceLocation expansion_range_end = Lexer::getLocForEndOfToken(expansion_range.second,
                                                                             /* offset= */ 0,
-                                                                            source_manager,
+                                                                            sm,
                                                                             compiler_.getLangOpts());
             range = SourceRange(expansion_range.first, expansion_range_end);
         }
 
         SourceLocation location_end = Lexer::getLocForEndOfToken(location,
                                                                  /* offset= */ 0,
-                                                                 source_manager,
+                                                                 sm,
                                                                  compiler_.getLangOpts());
 
         return diagnostic_message(type, range, SourceRange(location, location_end), message);

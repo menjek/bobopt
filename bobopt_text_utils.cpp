@@ -60,6 +60,11 @@ namespace bobopt
             --lineStart;
         }
 
+        if (lineStart == locationStart)
+        {
+            return std::string();
+        }
+
         return std::string(lineStart + 1, locationStart);
     }
 
