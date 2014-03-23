@@ -26,11 +26,7 @@ namespace bobopt
     // Implementation.
     //==========================================================================
 
-    bool config_map::add(config_group* group)
-    {
-        return groups_.insert(std::make_pair(group->get_name(), group)).second;
-    }
-
+    /// \brief Load configuration from specific file.
     bool config_parser::load(const std::string& file_name)
     {
         std::ifstream file(file_name);
@@ -58,6 +54,7 @@ namespace bobopt
         return true;
     }
 
+    /// \brief Save configuration to specific file.
     bool config_parser::save(const std::string& file_name) const
     {
         std::ofstream file(file_name);
@@ -84,6 +81,7 @@ namespace bobopt
         return true;
     }
 
+    /// \brief Helper to parse single line of configuration file.
     bool config_parser::parse_line(const std::string& line)
     {
         // Variable line should be the most frequent.

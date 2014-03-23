@@ -43,7 +43,7 @@ namespace bobopt
     }
 
     /// \brief Build line of pointers for message.
-    static std::string build_pointers_line(size_t begin, size_t end)
+    static BOBOPT_INLINE std::string build_pointers_line(size_t begin, size_t end)
     {
         BOBOPT_ASSERT(begin < end);
 

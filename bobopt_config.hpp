@@ -18,30 +18,30 @@ namespace bobopt
 {
     class config_group;
 
+    // config_map:
+    //==========================================================================
+
     /// \brief Gateway singleton to all configurable groups and variables.
     class config_map
     {
         typedef std::map<std::string, config_group*> groups_type;
 
     public:
-        /// \brief Singleton access point.
         static config_map& instance();
 
-        /// \brief Group registration called from config_group constructor.
         bool add(config_group* group);
-        /// \brief Access to group information by name.
         config_group* get_group(const std::string& name) const;
 
-        /// \brief Iterator type to group map: pair<name, group>.
         typedef groups_type::const_iterator group_iterator;
-        /// \brief Begin iterator to group map.
         group_iterator groups_begin() const;
-        /// \brief End iterator to group map.
         group_iterator groups_end() const;
 
     private:
         groups_type groups_;
     };
+
+    // basic_config_variable:
+    //==========================================================================
 
     /// \brief Base class/interface for all configuration variables.
     class basic_config_variable
@@ -55,35 +55,32 @@ namespace bobopt
         virtual std::string default_value() const = 0;
     };
 
+    // config_group:
+    //==========================================================================
+
     /// \brief Configuration group for variables.
     class config_group
     {
         typedef std::map<std::string, basic_config_variable*> variables_type;
 
     public:
-        /// \brief Register in configuration map.
         explicit config_group(std::string name);
 
-        /// \brief Used for lookup in configuration map.
         std::string get_name() const;
-
-        /// \brief Access configuration variable.
         basic_config_variable& get_variable(const std::string& name);
-
-        /// \brief Add configuration variable to the group.
         bool add(basic_config_variable* variable);
 
-        /// \brief Iterator type for variables: pair<name, variable>.
         typedef variables_type::const_iterator variable_iterator;
-        /// \brief Begin iterator to variables.
         variable_iterator variables_begin() const;
-        /// \brief End iterator to variables.
         variable_iterator variables_end() const;
 
     private:
         std::string name_;
         variables_type variables_;
     };
+
+    // config_variable<>:
+    //==========================================================================
 
     /// \brief Configuration variable templated by type and parser.
     template <typename ValueT, typename ParserT = parser<ValueT> >
@@ -133,6 +130,9 @@ namespace bobopt
         ParserT parser_;
     };
 
+    // config_parser:
+    //==========================================================================
+
     /// \brief Helper for save/load of configuration file.
     class config_parser
     {
@@ -142,13 +142,10 @@ namespace bobopt
         {
         }
 
-        /// \brief Load configuration from specific file.
         bool load(const std::string& file_name);
-        /// \brief Save configuration to specific file.
         bool save(const std::string& file_name) const;
 
     private:
-        /// \brief Helper to parse single line of configuration file.
         bool parse_line(const std::string& line);
 
         config_group* group_;

@@ -1,4 +1,5 @@
-/// \file bobopt_diagnostic.hpp Definition of class handling diagnostic messages.
+/// \file bobopt_diagnostic.hpp Definition of class handling diagnostic
+/// messages.
 
 #ifndef BOBOPT_DIAGNOSTIC_HPP_GUARD_
 #define BOBOPT_DIAGNOSTIC_HPP_GUARD_
@@ -24,12 +25,11 @@ namespace clang
 namespace bobopt
 {
 
-    /// \brief Holder of all neccessary information to print (Clang-like) diagnostic
-    /// message with piece of source code.
+    /// \brief Holder of all neccessary information to print (Clang-like)
+    /// diagnostic message with piece of source code.
     class diagnostic_message
     {
     public:
-
         /// \brief Supported message types.
         enum types
         {
@@ -48,7 +48,6 @@ namespace bobopt
         std::string get_message() const;
 
     private:
-
         // data members:
         types type_;
         clang::SourceRange range_;
@@ -60,7 +59,6 @@ namespace bobopt
     class diagnostic
     {
     public:
-
         /// \brief Modes for printing source code.
         enum source_modes
         {
