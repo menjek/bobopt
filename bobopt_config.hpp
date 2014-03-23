@@ -1,4 +1,5 @@
-/// \file bobopt_config.hpp File contains definition of configuration facilities.
+/// \file bobopt_config.hpp File contains definition of tool configuration
+/// facilities.
 
 #ifndef BOBOPT_CONFIG_HPP_GUARD_
 #define BOBOPT_CONFIG_HPP_GUARD_
@@ -15,118 +16,69 @@
 
 namespace bobopt
 {
-    // forward declaration:
     class config_group;
 
-    /// \brief Gateway class to all configurable groups and variables.
-    ///
-    /// It uses Meyers singleton for access by groups for registration.
-    /// Drawbacks of singleton are not visible in optimizer initialization part
-    /// since its running in single-threaded environment. Later in runtime,
-    /// data structures are read-only.
+    /// \brief Gateway singleton to all configurable groups and variables.
     class config_map
     {
         typedef std::map<std::string, config_group*> groups_type;
 
     public:
-
         /// \brief Singleton access point.
-        static config_map& instance()
-        {
-            static config_map obj;
-            return obj;
-        }
+        static config_map& instance();
 
         /// \brief Group registration called from config_group constructor.
         bool add(config_group* group);
-
         /// \brief Access to group information by name.
-        BOBOPT_INLINE config_group* get_group(const std::string& name) const
-        {
-            auto found = groups_.find(name);
-            if (found == std::end(groups_))
-            {
-                return nullptr;
-            }
-            return found->second;
-        }
+        config_group* get_group(const std::string& name) const;
 
-        // iterators:
+        /// \brief Iterator type to group map: pair<name, group>.
         typedef groups_type::const_iterator group_iterator;
-
-        BOBOPT_INLINE group_iterator groups_begin() const
-        {
-            return std::begin(groups_);
-        }
-
-        BOBOPT_INLINE group_iterator groups_end() const
-        {
-            return std::end(groups_);
-        }
+        /// \brief Begin iterator to group map.
+        group_iterator groups_begin() const;
+        /// \brief End iterator to group map.
+        group_iterator groups_end() const;
 
     private:
         groups_type groups_;
     };
 
     /// \brief Base class/interface for all configuration variables.
-    ///
-    /// Those variables are templates so they need base for storage at least.
     class basic_config_variable
     {
     public:
-
         /// \brief Get name of the variable.
         virtual std::string get_name() const = 0;
         /// \brief Set variable value from text.
         virtual void set(const std::string& text) = 0;
-        /// \brief Return default variable value as text.
+        /// \brief Return default variable value as a text.
         virtual std::string default_value() const = 0;
     };
 
-    /// \brief Configuration group to keep variables.
+    /// \brief Configuration group for variables.
     class config_group
     {
         typedef std::map<std::string, basic_config_variable*> variables_type;
 
     public:
-
         /// \brief Register in configuration map.
-        config_group(std::string name) : name_(std::move(name))
-        {
-            BOBOPT_CHECK(config_map::instance().add(this));
-        }
+        explicit config_group(std::string name);
 
         /// \brief Used for lookup in configuration map.
-        BOBOPT_INLINE std::string get_name() const
-        {
-            return name_;
-        }
+        std::string get_name() const;
 
         /// \brief Access configuration variable.
-        BOBOPT_INLINE basic_config_variable& get_variable(const std::string& name)
-        {
-            BOBOPT_ASSERT(variables_.find(name) != std::end(variables_));
-            return *(variables_[name]);
-        }
+        basic_config_variable& get_variable(const std::string& name);
 
         /// \brief Add configuration variable to the group.
-        BOBOPT_INLINE  bool add(basic_config_variable* variable)
-        {
-            return variables_.insert(std::make_pair(variable->get_name(), variable)).second;
-        }
+        bool add(basic_config_variable* variable);
 
-        // iterators:
+        /// \brief Iterator type for variables: pair<name, variable>.
         typedef variables_type::const_iterator variable_iterator;
-
-        BOBOPT_INLINE  variable_iterator variables_begin() const
-        {
-            return std::begin(variables_);
-        }
-
-        BOBOPT_INLINE variable_iterator variables_end() const
-        {
-            return std::end(variables_);
-        }
+        /// \brief Begin iterator to variables.
+        variable_iterator variables_begin() const;
+        /// \brief End iterator to variables.
+        variable_iterator variables_end() const;
 
     private:
         std::string name_;
@@ -138,7 +90,6 @@ namespace bobopt
     class config_variable : public basic_config_variable
     {
     public:
-
         /// \brief Register variable in selected group.
         config_variable(config_group& group, std::string name, ValueT def_value)
             : name_(std::move(name))
@@ -186,7 +137,8 @@ namespace bobopt
     class config_parser
     {
     public:
-        config_parser() : group_(nullptr)
+        config_parser()
+            : group_(nullptr)
         {
         }
 
@@ -209,5 +161,7 @@ namespace bobopt
     };
 
 } // bobopt
+
+#include BOBOPT_INLINE_IN_HEADER(bobopt_config.inl)
 
 #endif // guard

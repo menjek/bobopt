@@ -6,6 +6,8 @@
 
 #include <fstream>
 
+#include BOBOPT_INLINE_IN_SOURCE(bobopt_config.inl)
+
 namespace bobopt
 {
 
