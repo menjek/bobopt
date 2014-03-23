@@ -199,6 +199,7 @@ set(bobopt_root_SOURCES
   bobopt_parser.hpp
   bobopt_text_utils.hpp
   bobopt_utils.hpp
+  bobopt_config.inl
   bobopt_diagnostic.inl
   bobopt_empty.inl
   bobopt_method.inl
