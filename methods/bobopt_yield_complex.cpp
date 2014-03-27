@@ -935,6 +935,7 @@ namespace bobopt
                 {
                     stack_.push_back(block.getBlockID());
 
+                    auto count = callback_.statements.size();
                     for (auto it = block.begin(), end = block.end(); it != end; ++it)
                     {
                         const CFGElement& elem = *it;
@@ -950,6 +951,11 @@ namespace bobopt
                         }
 
                         finder_.match(*stmt, context_);
+
+                        if (callback_.statements.size() == count + 1)
+                        {
+                            break;
+                        }
                     }
 
                     process_succ(block);
