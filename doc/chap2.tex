@@ -1,34 +1,34 @@
 \chapter{Static code analysis}
-Detection of errors in code early in development process is important for reducing development cost. The most commonly used process to detect errors as soon as possible is called \emph{code review}. Static code analysis can be considered to be automated code review.
+Detection of errors in code early in a development process is important for reducing a development cost. The most commonly used process to detect errors as soon as possible is called \emph{code review}. A static code analysis can be considered to be an automated code review.
 
-One of the biggest pitfalls of code review is high price if big portion of development budget consists of developer salaries. Two or more people read code looking for a way to improve it, finding and fixing errors or potential errors that can become real errors in future, or performance issues. Quality of code review decreases with time spent reading code. Developers need to rest to increase quality of their code review.
+One of the biggest pitfalls of a code review is its high price. Two or more people read code looking for a way to improve it, finding and fixing errors or potential errors that can become real errors in future, or performance issues. Quality of a code review decreases with time spent reading code. Developers need to rest to increase quality of their code review.
 
-Compiler warnings can be considered to be very basic static code analysis performed by compiler. It warns programmer about suspicious parts of code it detected in compilation process. It is good practice to turn on all compiler warnings and compile code without any detected. The most commonly used compilers provide switch to consider warnings as an errors. Software development companies often create rules to force programmers to produce warning-less code, or simply using mentioned compiler switch in development environment to implicitly remove compilation warnings.
+Compiler warnings can be considered to be very a basic static code analysis performed by a compiler. It warns a programmer about suspicious parts of code it detected in a compilation process. It is a good practice to turn on all compiler warnings and compile code without any detected. The most commonly used compilers provide a switch to consider warnings as an errors. Software development companies often create rules to force programmers to produce warning-less code, or using the mentioned compiler switch in their development environment to implicitly remove compilation warnings.
 
-There is not much compilers can do in diagnosing more complex errors. It is not their primary goal, which is code compilation, and more advanced diagnostic could increase compilation times. In context of this thesis, where C++  is the analysed language, compilation times do really matter. Furthermore, there is no need to produce any binary when analysing code. Developers of tool for static code analysis would like to step in right after semantic analysis finished when there is enough understanding of source code. It is up to programmer whether he reuses front-end of compiler or implements his own.
+A compiler cannot do much in diagnosing more complex errors. It is not their primary goal, which is code compilation, and more advanced diagnostic could increase compilation times. Furthermore, there is no need to produce any binary when analysing code. The most developers of a tool for static code analysis would like to access an output of semantic analysis. It is up to a programmer whether he reuses front-end of a compiler or implements his own.
 
 \section{Pitfalls}
-Due to complexity of C++ core language, there are only a very few fully C++ compliant, open-source and freeware\footnote{Proprietary compilers could do the job as well, but freeware compilers are preferred ones.} compilers. The two most known are \emph{GCC, the GNU Compiler Collection}, and \emph{Clang/LLVM}. Apart from standard syntax for procedural programming, C++ standard includes Turing-complete template metaprogramming language. Simplified, compiler needs to \textit{execute} code in order to generate code that is eventually compiled into native code. As an example of language complexity, implementation of \emph{export} feature, which allows programmers to define template code in one translation unit and use in different, was so huge task for compiler vendors\footnote{Only one compiler vendor was able to implement it, \emph{Comeau C/C++}.} that this feature was eventually removed from language\footnote{Keyword has remained in language for future purpose.}. Based on given facts, it would be extremely difficult and unwise to individually implement own C++ front-end.
+Due to complexity of C++ core language, there are only very few fully C++ compliant, open-source and freeware\footnote{Proprietary compilers could do the job as well, but freeware compilers are preferred ones.} compilers. The two most known are \emph{GCC, the GNU Compiler Collection} \cite{gcc}, and \emph{Clang/LLVM} \cite{clang}. Apart from the standard syntax for procedural programming, C++ standard includes a Turing-complete template metaprogramming language. A compiler needs to \textit{execute} code in order to generate code that is eventually compiled into native code. As an example of language complexity, implementation of \emph{export} feature, which allows programmers to define template code in one translation unit and use in different, was so huge task for compiler vendors\footnote{Only one compiler vendor was able to implement it, \emph{Comeau C/C++} \cite{comeau}.} that this feature was eventually removed from the language\footnote{The keyword has remained in the language for a future purpose.}. Based on given facts, it would be extremely difficult and unwise to individually implement own C++ front-end.
 
-This chapter will cover some of the possible approaches for creating static code analysis tool apart from using Clang, which is covered by the next chapter.
+This chapter covers some of possible approaches for creating static code analysis tools and describes implementation of some of popular analysis tools.
 
 \section{GCC - the GNU Compiler Collection}
-GCC is compiler with 26 years old great history and is well established in C++ software development world. Many helper tools for build environment support GCC in some way, and yet programmers were struggling with writing static code analysis tools for C++. Why was not GCC used? Cite from \emph{Sparse FAQ} \cite{sparse} partially covers the answer.\\
+GCC is a compiler with a 26 years old great history and is well established in the C++ software development world. Many helper tools for build environment support GCC in some way, and yet programmers were struggling with writing static code analysis tools for C++. There are multiple reasons why programmers have not started using GCC. As an example, cite from \emph{Sparse FAQ} \cite{sparse} covers their reasons for avoiding GCC: \\
 
 \textit{"Gcc is big, complex, and the gcc maintainers are not interested in other uses of the gcc front-end.  In fact, gcc has explicitly resisted splitting up the front and back ends and having some common intermediate language because of religious license issues - you can have multiple front ends and back ends, but they all have to be part of gcc and licensed under the GPL."}\\
 
-The first sentence, especially the first few words, is the main reason programmers have not started using GCC front-end to create tools for static code analysis.
+The first sentence, especially the first few words, is the main reason programmers have not started using GCC front-end to create tools for a static code analysis. Some of disadvantages in using GCC for tooling are:
 
 \begin{itemize}
 \item It is very hard to learn for beginners.
 
-\item Even though GCC consists of front-end, middle-end and back-end, it \textit{feels} monolithic by design. It is very difficult to decouple front and back ends.
+\item Even though GCC consists of a front-end, middle-end and back-end, it \textit{feels} monolithic by design. It is very difficult to decouple front and back ends.
 
-\item GENERIC and GIMPLE\footnote{Those are names for different representations of AST. GIMPLE is subset of GENERIC for code optimizations.} representations of code are not intuitive.
+\item GENERIC and GIMPLE\footnote{Those are names for different representations of AST. GIMPLE is the subset of GENERIC for code optimizations.} representations of code are not intuitive.
 
 \item GCC does not keep track of tokens locations in source code, e.g., it does not keep track of macro expansions. Therefore, it is very difficult to refactor code correctly.
 
-\item Code is optimized when it is parsed so AST does not correspond to source code, e.g., \code{x-x} is optimized to be \code{0}. It is extremely difficult to refactor code based on such optimized AST.
+\item Code is optimized when it is parsed so abstract syntax tree does not correspond to source code, e.g., \code{x-x} is optimized to be \code{0}. It is extremely difficult to refactor code based on such optimized abstract syntax tree.
 \end{itemize}
 
 One disadvantage that can be argued, but it is disadvantage for me personally.
@@ -38,16 +38,14 @@ One disadvantage that can be argued, but it is disadvantage for me personally.
 \end{itemize}
 
 \section{Elsa: The Elkhound-based C/C++ Parser}
-Even a smaller group of developers is able to create relatively nice C++ compiler front-end. Elsa is such an example. It provides programmer with user-friendly AST representation of code, which is designed in the way it is easily extensible without writing single line of C++ code. For AST traversal, front-end provides mechanism designed as \emph{Visitor pattern}. The other way is to traverse tree manually by following edges. Visitor pattern is useful for context insensitive traversal. Within chapter dedicated to Clang, reader will discover that both approaches are very similar to what Clang provides to developer.
+Even a smaller group of developers is able to create a relatively nice C++ compiler front-end. Elsa \cite{elsa} is such an example. It provides a programmer with a user-friendly AST representation of code, which is designed in the way it is easily extensible without writing a single line of C++ code. For AST traversal, front-end provides mechanism designed as \emph{visitor pattern}. The other way is to traverse a tree manually by following edges. Visitor pattern is useful for context insensitive traversal. Within the chapter \ref{clang}, a reader will discover that both approaches are very similar to what Clang provides to developers.
 
-The biggest disadvantage of Elsa is that its development stopped long time ago in 2005 when different project called \emph{Oink}, which uses Elsa front-end, started. Then Oink development stopped before year 2011 when C++ experienced its \textit{renaissance} with the latest approved standard which introduced big changes to core language and library. Therefore, there is almost no support for new C++11 language features. Oink as well as Elsa does not have integrated preprocessor so it is extremely difficult to map AST with locations in source code. Elsa also suffers from lower speed, but it can be negligible disadvantage for smaller projects.
+The biggest disadvantage of Elsa is that its development stopped long time ago in 2005 when different project called \emph{Oink} \cite{oink}, which uses Elsa front-end, started. Then, Oink development stopped before year 2011 when C++ experienced its \textit{renaissance} with the latest approved standard which introduced big changes to core language and library. Therefore, there is almost no support for new C++11 language features. Oink as well as Elsa does not have an integrated preprocessor so it is extremely difficult to map AST with locations in source code. Elsa also suffers from lower speed, but it can be negligible disadvantage for smaller projects.
 
 \section{VivaCore/OpenC++}
-Library was created as a basis for \emph{PVS-Studio} static code analyser for C/C++ code. VivaCore is derived from older \emph{OpenC++ (OpenCxx)} library. The idea of using OpenC++ appeared when team was implementing \emph{Viva64} library. They were making many changes to OpenC++ and because lack of resources they did not continue to improve it\footnote{Many changes did not fit into OpenC++ ideology so they would need to adapt and allocate new resources for such process.}, but rather developed their own library. Library has become popular and has been used as a basis by other very popular tools such as  \emph{VisualAssist} by \emph{Whole Tomato Software}, \emph{Doxygen}, \emph{Gimpel Software PC-Lint}, \emph{Parasoft C++test} and more.
+Developers of \emph{PVS-Studio} \cite{pvs-studio} static code analyser for C/C++ code created library, called \emph{VivaCore} \cite{vivacore}, as a basis for the tool. VivaCore is derived from older \emph{OpenC++ (OpenCxx)} \cite{opencxx} library. The idea of using OpenC++ appeared when team was implementing \emph{Viva64} \cite{vivacore} library. They were making many changes to OpenC++ and because lack of resources they did not continue to improve it\footnote{Many changes did not fit into OpenC++ ideology so they would need to adapt and allocate new resources for such process.}, but rather developed their own library. Library has become popular. It has been used as a basis by other popular tools such as  \emph{VisualAssist} by \emph{Whole Tomato Software}, \emph{Doxygen}, \emph{Gimpel Software PC-Lint}, \emph{Parasoft C++test} and more.
 
 \begin{figure}[t!]
-\label{vivacore}
-\caption{Design of VivaCore library.}
 \centering
 \vspace{0.5cm}
 \begin{tikzpicture}[node distance=1.25cm, every text node part/.style={align=center}]
@@ -82,28 +80,30 @@ Library was created as a basis for \emph{PVS-Studio} static code analyser for C/
  \end{pgfonlayer}
  
 \end{tikzpicture}
+\caption{A design of VivaCore library.}
+\label{vivacore}
 \end{figure}
 
-The first step of code analysis is to use preprocessor. Library uses external preprocessor what becomes its biggest disadvantage in source-to-source transformation process. Without integrated preprocessor, it is next to impossible to track macro expansion and actual location of symbols in source code.
+The first step of a code analysis is to use a preprocessor. The library uses an external preprocessor what becomes its biggest disadvantage in a source-to-source transformation process. Without an integrated preprocessor, it is next to impossible to track macro expansions and actual locations of symbols in source code.
 
-Preprocessed input is then passed to library. Two library subsystems process code before it gets to lexical analysis. Input subsystem responsible for putting preprocessed code into internal data structures is the first. The second step is internally called \emph{Preprocessor}, but it does not preprocess input in the meaning of C++ preprocessor. It is responsible for two operations:
+A preprocessed input is then passed to the library. Two library subsystems process code before it gets to a lexical analysis. The input subsystem responsible for putting preprocessed code into internal data structures is the first. The second step is internally called \emph{Preprocessor}, but it does not preprocess input in the meaning of C++ preprocessor. It is responsible for two operations:
 
 \begin{itemize}
-\item Splitting code into strings and dividing them into two logical groups. One is for system libraries and the second one is for user code. Library user can choose whether he wants to analyse system code or just user code.
-\item Removing C++ non-related strings specific for compiler, e.g., \code{SA\_Success} and \code{SA\_FormatString} can be found in Visual Studio headers.
+\item Splitting code into strings and dividing them into two logical groups. One group is for system libraries and the second group is for user code. A library user can choose whether he wants to analyse system code or just user code.
+\item Removing constructions not related to C/C++ languages, specific for a compiler, e.g., \code{SA\_Success} and \code{SA\_FormatString} are present in Visual Studio`s headers.
 \end{itemize}
 
-The next step is lexical analysis. Output of \emph{Lexer} can be used for basic metrics or syntax highlighting. VivaCore allows modifications to set of tokens for lexical analysis.
+The next step is the lexical analysis. An output of \emph{Lexer} can be used for basic metrics or a syntax highlighting. VivaCore allows modifications to a set of tokens for lexical analysis.
 
-VivaCore provides user with \emph{parse tree (PT)}, called also \emph{derivation tree (DT)}, as an output of syntactic analysis. Parse tree differs from abstract syntax tree in the way it contains nodes representing derivation rules used in syntactic analysis. The word \emph{abstract} comes from the reasoning that structure hides the way it was constructed. It is actually possible to traverse PT as if it was AST. VivaCore`s PT defines two basic sets of nodes with ancestors in \code{NonLeaf} and \code{Leaf} base classes which have \code{PTree}\footnote{\code{PTree} has \code{LightObject} as its base class used in GC.} class as their common ancestor declaring the only pure virtual member function:
+VivaCore provides an user with \emph{parse tree (PT)}, called also \emph{derivation tree (DT)}, as an output of a syntactic analysis. Parse tree differs from abstract syntax tree in the way it contains nodes representing derivation rules used in syntactic analysis. The word \emph{abstract} comes from the reasoning that structure hides rules used in its construction. It is actually possible to traverse PT as if it was AST. VivaCore`s PT defines two basic sets of nodes with ancestors in \code{NonLeaf} and \code{Leaf} base classes which have \code{PTree}\footnote{\code{PTree} has \code{LightObject} as its base class used in GC.} class as their common ancestor declaring the only pure virtual member function, see listings \ref{vivacore-node}.
 
-\begin{lstlisting}[caption={Pure virtual member function of base for VivaCore parse tree node.}]
+\begin{lstlisting}[caption={Pure virtual member function of base for VivaCore parse tree node.}, label={vivacore-node}]
 virtual bool IsLeaf() const = 0;
 \end{lstlisting}
 
 It is the only function necessary to be overridden in inherited classes letting their design to be more flexible.
 
-Probably the most interesting part of library interface is tree traversal. There are three different \emph{walker} classes implemented for this purpose.
+Probably the most interesting part of the library interface is a tree traversal. There are three different \emph{walker} classes implemented for this purpose.
 
 \begin{description}
 \item[Walker] is responsible for walking over basic C++ constructions.
@@ -113,25 +113,25 @@ Probably the most interesting part of library interface is tree traversal. There
 
 It is possible to traverse PT multiple times so user can traverse code for measurements at first and later, in further traversals, he may modify PT. If user modifies tree nodes, it may occur that tree is rebuilt.
 
-\section{Related work}
-Code quality in a huge projects is hard to maintain using code review only since there are many code related commits every day (e.g. Crysis 2 multiplayer had $\sim$100-150 code related commits every day collecting 130 different developers over the last year of development \cite{crysis}.) and providing people resources for code review would be inefficient. Instead of that, companies use tools for static code analysis and diagnostic is further reviewed. However, not many companies trust tools enough to let them do source-to-source transformations apart from formatting or simple refactoring.
+\section{Static code analysis tools}
+Code quality in a huge projects is hard to maintain using code review only, if there are many code related commits every day (e.g. \emph{Crysis 2} multiplayer had $\sim$100-150 code related commits every day collecting 130 different developers over the last year of development \cite{crysis}) and providing people resources for a code review would be inefficient. Instead of that, companies use tools for a static code analysis and diagnostic is further reviewed. However, not many companies trust tools enough to let them do source-to-source transformations, apart from formatting or simple refactoring.
 
-\subsection{Clang Static Analyzer (\emph{clang-analyzer})}
+\subsection{Clang Static Analyzer}
 \label{clang-analyzer}
-Static analyser is part of Clang project implemented on top of Clang tooling API. Analyser is quite easily extensible by implementing \emph{checkers}, even though their interface may not be intuitive. Authors created presentation where they try to explain \textit{"How To Write a Checker in 24 Hours"} \cite{clang-analyzer-presentation}. They demonstrate how to write simple checker for  Unix stream API. When writing checker, developer needs to understand how analyser works under the hood.
+Static analyser is part of Clang project implemented on top of Clang tooling API. Analyser is quite easily extensible by implementing \emph{checkers}, even though their interface may not be intuitive. In the presentation called \textit{"How To Write a Checker in 24 Hours"} \cite{clang-analyzer-presentation},  authors demonstrate how to write a simple checker for  Unix stream API. When writing a checker, a developer needs to understand how the analyser works under the hood.
 
-Core of the analyser does symbolic execution of code, exploring every possible path, tracking all variables and constructing \emph{Control Flow Graph (CFG)}. Checkers participate in CFG construction. Essentially, checkers are visitors that react on a specific set of events while traversing AST (e.g. \code{checkPreStmt}, \code{checkPostCall} functions) and eventually creating new CFG nodes. When they want to finish CFG exploration, they create \emph{sink} node. Checkers are stateless, i.e., visitor related member functions are defined as \code{const}, keeping their state data in \code{ProgramState} and its \emph{Generic Data Map (GDM)}.
+Core of the analyser does symbolic execution of code, exploring every possible path, tracking all variables and constructing \emph{Control Flow Graph (CFG)}. Checkers participate in a CFG construction. Essentially, checkers are visitors that react on a specific set of events while traversing AST (e.g. \code{checkPreStmt}, \code{checkPostCall} functions) and eventually creating new CFG nodes. When they want to finish a CFG exploration, they create \emph{sink} node. Checkers are stateless, i.e., visitor related member functions are defined as \code{const}, keeping their state data in \code{ProgramState} and its \emph{Generic Data Map (GDM)}.
 
-Previous paragraphs describe analyser and checkers very briefly. From given information and without an example, it is hard to understand how checkers are exactly supposed to be implemented. On the other hand, mentioning CFG should give reader basic idea of what code problems analyser aims to check. It is not hard task to check bad usage patterns in code using Clang tooling facilities such as AST visitor or AST matchers. The way harder problems are problems related to resource acquisition and release such as resource leaks or resource usage after release. The development manual page of analyser contains very good advice for implementation of checkers \cite{clang-analyzer-manual}:\\
+The analyser aims to solving of path-sensitive problems, e.g., problems related to resource acquisition and release such as resource leaks and resource usage after release. A construction of CFG is the core of such analysis. Actually, the development manual page of the analyser contains an important advice that discourages developers from implementing path-insensitive checkers \cite{clang-analyzer-manual}:\\
 
 \label{clang-analyzer-checkers}
 \emph{"Some checks might not require path-sensitivity to be effective. Simple AST walk might be sufficient. If that is the case, consider implementing a Clang compiler warning. On the other hand, a check might not be acceptable as a compiler warning; for example, because of a relatively high false positive rate."}
 
-\subsection{Clang Format (\emph{clang-format})}
+\subsection{Clang Format}
 \label{clang-format}
-Consistency in code formatting is very important in huge projects. It increases readability and code becomes better machine editable. Even though consistent code formatting is very important, there are not many tools that support automatic code formatting for C++, e.g., \emph{BCPP}, \emph{Artistic Style}, \emph{Uncrustify}, \emph{GreatCode}, \emph{Style Revisor}.
+A consistency in code formatting is very important in huge projects. It increases a readability and code becomes better machine editable. Even though consistent code formatting is very important, there are not many tools that support automatic code formatting for C++, e.g., \emph{BCPP}, \emph{Artistic Style}, \emph{Uncrustify}, \emph{GreatCode}, \emph{Style Revisor}.
 
-The reason why companies allow use of automatic formatting tools is that those tools guarantee they will not change code semantic, i.e., they edit only white space characters, literals and comments. Therefore, they will not break compilation. In this context, there was proposal to let clang-format reorder includes, but it was not approved because such change can break compilation. Main challenges for clang-format developers based on their design document \cite{clang-format-design}:
+The reason why companies allow use of automatic formatting tools is that those tools guarantee they will not change code semantic, i.e., they edit only white space characters, literals and comments. Therefore, they will not break compilation. There was a proposal to let clang-format file reorder includes. It was not approved because such change can break a compilation. Main challenges for clang-format developers based on their design document were \cite{clang-format-design}:
 
 \begin{itemize}
 \item A vast number of different coding styles has evolved over time.
@@ -139,12 +139,12 @@ The reason why companies allow use of automatic formatting tools is that those t
 \item It should be possible to format code that is not yet syntactically correct.
 \end{itemize}
 
-It was a hard decision for clang-format developers whether they use Lexer or Parser to implement such tool. Both have their advantages and disadvantages in terms of performance, macro management or type information. In the end, they have decided to retain with implementation based on Lexer, but there is still a discussion about adding AST information. However, this discussion is leaning towards creating separate tool using AST, which already has the name \emph{clang-tidy}.
+It was a hard decision for clang-format developers whether they use lexer or parser to implement such tool. Both have their advantages and disadvantages in terms of a performance, macro management or type information. In the end, they have decided to retain with implementation based on lexer, but there is still an ongoing discussion about adding AST information. However, this discussion is leaning towards creating a separate tool using AST, which already has the name \emph{clang-tidy} \cite{clang-tidy}.
 
 \subsection{OCLint}
-Another tool built on top of Clang LibTooling interface is \emph{OCLint}. Main parts of OCLint are \emph{Core}, \emph{Rules} and \emph{Reporter}.
+\emph{OCLint} \cite{oclint} is a tool implemented on top of the Clang tooling interface. It tries to create  a generic framework for a code diagnostic. Main parts of OCLint are \emph{Core}, \emph{Rules} and \emph{Reporter}.
 
-Core controls a flow of analysis, dispatches tasks to another modules and outputs results. It parses code, builds AST and provides modules with access to it. While parsing code, it creates various metrics such as:
+\emph{Core} controls a flow of analysis, dispatches tasks to another modules and outputs results. It parses code, it builds AST, and it provides modules with access to built AST. While parsing code, it creates various metrics such as:
 
 \begin{itemize}
 \item Cyclomatic complexity.
@@ -153,48 +153,54 @@ Core controls a flow of analysis, dispatches tasks to another modules and output
 \item Statement depth.
 \end{itemize}
 
-\emph{Rules} can provide \emph{RuleConfiguration} that defines limits for metrics. When limits are exceeded, \emph{Core} emits violation. There are two main approaches for modules to handle diagnostic:
+\emph{Rules} can provide \emph{RuleConfiguration} which defines limits for metrics. When limits are exceeded, \emph{Core} emits a violation. There are two main approaches for modules to handle diagnostic:
 
 \begin{description}
 \item[Line based] is when modules are provided with lines of code.
-\item[AST based] provides modules with access to AST using two approaches\footnote{Similar mechanisms will be mentioned in the following chapter dedicated to Clang.}:
+\item[AST based] provides modules with access to AST using two approaches:
 	\begin{itemize}
-	\item Using \emph{Visitor pattern} to explore AST.
-	\item Defining \emph{Matchers} for suspicious code patterns.
+	\item Using \emph{visitor design pattern} to explore AST.
+	\item Defining \emph{matchers} for suspicious code patterns.
 	\end{itemize}
 \end{description}
 
-Actually, OCLint tries to create generic framework for code diagnostic. Modules are separated from \emph{Core} code. They can be loaded in runtime. Basic diagnostic can be represented as a set of code bad usage patterns where AST matchers become very comfortable mechanism. Reporting found bad usage is the last task to be done.
+Modules are separated from \emph{Core} code, thus they can be loaded in runtime. A basic diagnostic can be represented as a set of code patterns, and Clang AST matchers fits this purpose the best. The last task to do is to report a found diagnostic using \emph{Reporter}.
 
-From the negative side, pattern matching is not strong enough mechanism to catch even a little more complex error such as resource leak. The other supported approaches than AST matchers do not really help more than just using Clang tooling API. It would be nice to remind advice from clang-analyzer developer manual (\ref{clang-analyzer-checkers}).
-
-\subsection{Scout}
-\label{scout}
-The first, unfortunately also the last, tool that does also source-to-source transformations what creates another dimension of problems regarding static code analysis. Scout is being developed in \emph{TU Dresden}, \emph{Center for Information Services and High Performance Computing}. It is supposed to do transformations for front-end SIMD optimizations, e.g., loop auto-vectorization, very similar task to what the most current compiler back-end optimizers do. It shall transform C code into optimized C code with compiler intrinsics. Naturally, auto-vectorization is done by compiler back-end optimizer, but there are limits to what compiler can do. It needs to use extensive dependency and alias analysis to reason correctness of vectorization and often rejects more complex loops. Some compilers allow programmers to annotate loops with \code{pragma} directives giving responsibility for keeping some loop invariants to programmers. Compiler can skip those checks before vectorization thus accepting more loops. Unfortunately, the measurement with specific Intel compiler using pragma directives gave insufficient results. For example, compiler rejected loop vectorization after loop variable type was changed from \code{unsigned int} to \code{signed int}. Actually, Scout provides semi-automatic vectorization, where programmers need to annotate loops using pragma directives to enable vectorization of given loop. 
-
-Tool provides command line interface as well as graphical user interface. It uses Clang to build AST from C code. AST is then transformed to different AST that represents optimized code and transformed back to C code. Scout is implemented in the way it can be used in a build process. Tool can be configured with set of intrinsics to be used, i.e., \emph{SSE2}, \emph{SSE4}, \emph{AVX}, \emph{AVX2} or \emph{ARM NEON}.
-
-\subsubsection{Source-to-source transformation}
-Possibilities of source-to-source transformations using Clang tooling API are described in more details in the following chapter dedicated to Clang. Scout authors chose to directly edit AST, approach that is not recommended by Clang developers. It is work in progress to use \code{TreeTransform} facility, probably the only correct approach, but with lower priority because \textit{it just works} with AST manipulation.
-
-The central class for AST editing is called \code{StmtEditor}. It is supposed to ease creation of new nodes and connecting them together. What Clang provides is actually much more than just AST so node creation and insertion are complex operations that are supposed to be covered by this class. Scout implements them in naive way with possible usages that create semantically invalid AST. As far as user knows how these member functions can be used, it should be fine to modify AST. Programmer is supposed to inherit from \code{StmtEditor} class and use its member functions to manipulate with AST. After AST transformations are done, it should be passed back for semantic analysis. Currently, it does not happen in Scout.
+From the negative side, pattern matching is not strong enough mechanism to catch even a little more complex error such as resource leak. The other supported approaches than AST matchers do not really help more than just using Clang tooling API directly.
 
 \subsection{Cppcheck}
-The first tool in the list that does not use any compiler front-end as a helper for parsing of C++ code. Cppcheck does code parsing and analysis on its own, but quality of understanding of source code is lower than in well-established compiler front-ends. Input for code checks is output of lexical analysis and it can be very difficult to implement more advanced checks. The fact that code analysis passes only lexical analysis phase does also mean that tool is not able to catch even syntactic errors. To ease programmer's life, Cppcheck implements classes such as \code{Scope} or \code{SymbolDatabase} with functionality the names indicate.
+An example of a tool that does not use any compiler front-end to process source code is Cppcheck \cite{cppcheck}. The tool does code parsing and analysis on its own, but quality of understanding of source code is lower than in well-established compiler front-ends. Input for code checks is output of a lexical analysis and it can be very difficult to implement more advanced checks. The fact that code analysis passes only lexical analysis phase does also mean that the tool is not able to catch even syntactic errors. To ease programmer's life, Cppcheck implements classes such as \code{Scope} or \code{SymbolDatabase} with functionality the names indicate.
 
-Simplified version of CppCheck execution from documentation for programmers \cite{cppcheck-doxygen}:
+Simplified version of a Cppcheck execution from the documentation for programmers can be written in 8 steps \cite{cppcheck-doxygen}:
 
 \begin{enumerate}
 \item Parse command line.
 \item \code{ThreadExecutor} creates needed \code{CppCheck} instances.
 \item \code{CppCheck::check} is called for every file.
-\item Preprocess file inside \code{check}.
+\item Preprocess file inside the \code{check} member function.
     \begin{itemize}
     \item Comments are removed.
     \item Macros are expanded.
     \end{itemize}
 \item Tokenize file using \code{Tokenizer}.
-\item Run all checks on tokenizer output called token list.
-\item Simplify token list.\footnote{There are various simplifications applied to token list. Every simplification passes the whole token list looking for patterns and potentially changes this list. For example the first applied simplification changes \code{"string"[0]} to \code{'s'}. Another example is removing \code{std::} tokens from specific set of function calls.}
-\item Run all checks on simplified token list.
+\item Run all checks on a tokenizer output called a token list.
+\item Simplify a token list.\footnote{There are various simplifications applied to a token list. Every simplification passes the whole token list looking for patterns and potentially changes this list. For example, the first applied simplification changes \code{"string"[0]} to \code{'s'}. Another example is a removing of \code{std::} tokens from specific a set of function calls.}
+\item Run all checks on a simplified token list.
 \end{enumerate}
+
+\section{Related work}
+There is not many tools for front-end optimizations. The first reason is that it has been a hard task to implement any front-end tool not even related to optimizations. Furthermore, the most optimizations are already implemented in compilers front-ends and back-ends. This thesis aims to optimize the specific framework. With easier implementation of front-end tools, it is possible that there are already some optimization tools for specific frameworks, but there is no reason in making them public. Front-end optimizers for general code makes sense if they are very performance demanding and a compiler cannot afford them.
+
+\subsection{Scout}
+\label{scout}
+The front-end optimizer tool, called Scout \cite{scout}, is being developed in \emph{TU Dresden}, \emph{Center for Information Services and High Performance Computing}. It is supposed to do transformations for front-end SIMD optimizations, e.g., loop auto-vectorization, very similar task to what the most current compiler back-end optimizers do. It shall transform C code into optimized C code with compiler intrinsics. Naturally, auto-vectorization is done by compiler back-end optimizer, but there are limits to what compiler can do. It needs to use extensive dependency and alias analysis to reason correctness of vectorization and often rejects more complex loops. Some compilers allow programmers to annotate loops with \code{pragma} directives giving responsibility for keeping some loop invariants to programmers. A compiler can skip those checks before vectorization thus accepting more loops. Unfortunately, the measurement with specific Intel compiler using pragma directives gave insufficient results. For example, compiler rejected loop vectorization after loop variable type was changed from \code{unsigned int} to \code{signed int}. Actually, Scout provides a semi-automatic vectorization, where programmers need to annotate loops using pragma directives to enable vectorization of a given loop. 
+
+The tool provides a command line interface as well as graphical user interface. It uses Clang to build AST from C code. AST is then transformed to different AST that represents optimized code and transformed back to C code. The tool can be configured with a set of used intrinsics, i.e., \emph{SSE2}, \emph{SSE4}, \emph{AVX}, \emph{AVX2} or \emph{ARM NEON}.
+
+\subsubsection{Source-to-source transformation}
+Possibilities of source-to-source transformations using Clang tooling API are described in more details in the following chapter dedicated to Clang. Scout authors have decided to directly edit AST, the approach that is not recommended by Clang developers. It is work in progress to use \code{TreeTransform} facility, probably the only correct approach, but with lower priority because manipulation with AST works for now.
+
+The central class for AST editing is called \code{StmtEditor}. It is supposed to ease creation of new nodes and connecting them together. What Clang provides is actually much more than just AST so node creation and insertion are complex operations that are supposed to be covered by this class. Scout implements them in naive way with possible usages that create semantically invalid AST. As far as user knows how these member functions can be used, it should be fine to modify AST. Programmer is supposed to inherit from \code{StmtEditor} class and use its member functions to manipulate with AST. After AST transformations are done, it should be passed back for semantic analysis. Currently, it does not happen in Scout.
+
+\section{Summary}
+The most mentioned tools for a static code analysis were implemented by a group of programmers. Without a good library for parsing C++ code, it is an extremely hard task to implement any tool for analysis of C++ code. The requirement for a code transformation makes a task even harder. The lack of the C++ tooling support has been generally mentioned as one of the biggest drawbacks of using C++ language. Situation has changed and it is possible to implement a relatively complex tool for front-end optimizations individually or in a small group of people. The Scout tool is such an example.
