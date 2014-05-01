@@ -8,7 +8,7 @@ Tasks in the Bobox framework are represented in form of boxes, which can have ze
 \item A task needs data from all inputs.
 \end{enumerate}
 
-An execution of a task from the second and third case without necessary input data adds a significant overhead to a model instance execution. A scheduling itself does not have negligible overhead. A synchronization is necessary before and after task execution. If a task is executed before it has all necessary input data, it finishes its execution in a little amount of time. In such case, a scheduling vastly surpasses a box execution in the CPU consumption.
+An execution of a task from the second and third case without necessary input data adds a significant overhead to a model instance execution. Scheduling itself does not have a negligible overhead. A synchronization is necessary before and after the task execution. If a task is executed before it has all necessary input data, it finishes its execution in a little amount of time. In such case, scheduling vastly surpasses a box execution in the CPU consumption.
 
 However, there is a way to inform the scheduler about the necessity of data from a specific input using the \code{basic\_box} base class member function. All overloads of this member function are listed in \ref{box-prefetch}.
 
@@ -22,17 +22,17 @@ bool prefetch_envelope(inarc_index_type inarc,
                        unsigned count = 1);
 \end{lstlisting}
 
-The function informs the scheduler about the number of envelopes on a specific input necessary for a meaningful box execution. Ideally, a programmer with a good knowledge of a box design adds function calls with correct values to code.
+The function informs the scheduler about the number of envelopes on a specific input necessary for a meaningful box execution. Ideally, a programmer with a good knowledge of the box design adds function calls with correct values to code.
 
-For the case where single envelope from all inputs is necessary, a good design solution is to use a class inheritance and implement a common base class that calls the prefetch member function for all its inputs. A programmer needs to remember that he implements this special case of a box and he should derive from this base class. An inheritance may not be as useful for the cases where only data from specific inputs is necessary. On the contrary, using an inheritance to achieve code reuse in these cases is the bad design.
+For the case where a single envelope from all inputs is necessary, the good design solution is to use the class inheritance and implement the common base class that calls the prefetch member function for all its inputs. A programmer needs to remember that he implements this special case of a box and he should derive from this base class. An inheritance may not be as useful for the cases where only data from specific inputs is necessary. On the contrary, using an inheritance to achieve code reuse in these cases is the bad design.
 
 The goal of the optimizer is to search for box inputs whose data are necessary for a meaningful box execution and inject calls to the prefetch member function accordingly.
 
 \section{Restrictions to the optimization}
 \label{prefetch-restrictions}
-An optimization can be applied on source code only when multiple conditions are satisfied. The algorithm for the prefetch optimization does not produce any runtime checks, but the static analysis checks various conditions whether it is safe to apply changes to source code. The analyser firstly tests a box class for various conditions whether it can be optimized as a whole, then it tests all box inputs, one by one, for another set of conditions. If a box and its input pass all their tests, the box input is prefetched. Therefore, some restrictions can completely inhibit a box optimization, some of them can inhibit an optimization of a single input.
+The optimization can be applied on source code only when multiple conditions are satisfied. The algorithm for the prefetch optimization does not produce any runtime checks, but the static analysis checks various conditions whether it is safe to apply changes to source code. The analyser firstly tests a box class for various conditions whether it can be optimized at all, then it tests all box inputs one by one for another set of conditions. If a box and its input pass all their tests, the box input is prefetched. Therefore, some restrictions can completely inhibit the box optimization, some of them can inhibit the optimization of a single input.
 
-The optimization of a box is discarded if some of these restriction applies:
+The optimization of a box is discarded if some of these restrictions apply:
 
 \begin{description}
 \item[(global.1)]{There are no functions with user code for the action step, i.e., a class does not override any of body execution functions listed in \ref{box-body}.\\
@@ -43,7 +43,7 @@ The optimization of a box is discarded if some of these restriction applies:
 \emph{Rationale}: Nothing to optimize. 
 }
 
-\item[(global.3)]{There is no mapping of names to inputs created using the Bobox helper macro from listings \ref{bobox-macros}.\\
+\item[(global.3)]{There is no mapping of names to inputs created using the Bobox helper macro, see listing \ref{bobox-macros}.\\
 \emph{Rationale}: Currently, the optimizer identifies inputs by names associated to them using the Bobox helper macro. If there is no such mapping, it appears to the optimizer like there are no inputs on a box.
 }
 
@@ -56,7 +56,7 @@ The optimization of a box is discarded if some of these restriction applies:
 }
 \end{description}
 
-A single input optimization restrictions:
+Single input optimization restrictions:
 
 \begin{description}
 \item[(single.1)]{There is already the prefetch call for an input.\\
@@ -75,7 +75,7 @@ virtual void sync_mach_etwas()
 \end{lstlisting}
 
 \subsection{Overriding the initialization step}
-Prefetch calls are placed in the box initialization step. If there is an accessible implementation of the initialization function in a box, prefetch calls are injected into this definition. If the initialization function is not overridden, the optimizer is able to inject the overridden implementation by itself. The problem with an injection of the completely new overridden initialization function is that a previous corresponding function can prefetch inputs itself. Fortunately, if the prefetch call on the same input is called multiple times, only the last call has an effect as it overrides the previous call. Therefore, an injected function implementation calls prefetch functions on the beginning of the definition with the call to the previous corresponding initialization function as the last statement, see listing \ref{prefetch-init}.
+Prefetch calls are placed in the box initialization step. If there is an accessible implementation of the initialization function in a box, prefetch calls are injected into this definition. If the initialization function is not overridden, the optimizer is able to inject the overridden implementation by itself. The problem with an injection of the completely new overridden initialization function is that a previous corresponding function can prefetch inputs itself. Fortunately, if the prefetch call on the same input is called multiple times, only the last call has an effect as it overrides the previous call. Therefore, the injected function implementation calls prefetch functions on the beginning of the definition with the call to the previous corresponding initialization function as the last statement, see listing \ref{prefetch-init}.
 
 \begin{lstlisting}[caption={The generated box initialization function definition.}, label={prefetch-init}]
 virtual void init_impl()
@@ -88,15 +88,27 @@ virtual void init_impl()
 Calling the previous corresponding \code{init\_impl} function as the last statement ensures that if there is a prefetch call, it is the one that counts.
 
 \section{Searching for values in code}
-To check the restriction (single.1), the analyser must search for prefetch calls on inputs in code likely to be executed in the box initialization step. Furthermore, the restriction (single.2) describes searching for an usage of a box input in the box action step. Basically, the analyser must search for values\footnote{A value is a too abstract notion. For example, such value can be name of a callee in a call expression represented by \code{CallExpr} AST node.} that are present on all paths or paths likely to be executed in \emph{Control Flow Graph (CFG)} of a specific function definition. Clang tooling libraries provide a developer with AST, but it is possible to construct CFG using Clang static analyzer code, see subsection \ref{clang-analyzer}, which is a part of the Clang code base.
+To check the restriction \emph{(single.1)}, the analyser must search for prefetch calls on inputs in code likely to be executed in the box initialization step. Furthermore, the restriction \emph{(single.2)} describes searching for a usage of a box input in the box action step. Basically, the analyser must search for values\footnote{A value is a too abstract notion. For example, such value can be the name of a callee in a call expression represented by the \code{CallExpr} AST node.} that are present on all paths or paths likely to be executed in \emph{Control Flow Graph (CFG)} of a specific function definition. Clang tooling libraries provide a developer with AST, but it is possible to construct CFG using Clang static analyzer code, see subsection \ref{clang-analyzer}, which is a part of the Clang code base.
 
-A construction of CFG from AST is the performance demanding task. Probably, it would not introduce performance problems into the optimizer, but if the same goal can be achieved using AST, a CFG construction would be an unnecessary overhead. Fortunately, it is not the problem to traverse AST as if it was CFG. The subsection \ref{clang-ast-traversal} related to the AST traversal mentions that a developer can manipulate with a traversal when using the visitor pattern approach. In more details, \code{RecursiveASTVisitor} template provides member functions with names starting with \code{Traverse*}\footnote{* represents a type of an AST node such as \code{TraverseStmt} for a statement or \code{TraverseCallExpr} for a call expression.} which are responsible for a traversal of an internal graph structure. Actually, these functions are responsible for traversing the structure kept internally in Clang as if it was AST. Those member functions can be \textit{overridden} using CRTP.
+The construction of CFG from AST is a performance demanding task. Probably, it would not introduce performance problems into the optimizer, but if the same goal can be achieved using AST, the CFG construction would be an unnecessary overhead. Fortunately, it is not the problem to traverse AST as if it was CFG. The subsection \ref{clang-ast-traversal} related to the AST traversal mentions that a developer can manipulate with a traversal when using the visitor pattern approach. In more details, the \code{RecursiveASTVisitor} template provides member functions with names starting with \code{Traverse*}\footnote{* represents a type of an AST node such as \code{TraverseStmt} for a statement or \code{TraverseCallExpr} for a call expression.}, which are responsible for a traversal of the internal graph structure. Actually, these functions are responsible for traversing the structure kept internally in Clang as if it was AST. Those member functions can be \textit{overridden} using CRTP.
 
-Figures \ref{prefetch-example-cfg} and \ref{prefetch-example-ast} show an example of a traversal of the same code in CFG and AST structures. Figure \ref{prefetch-example-cfg} shows CFG of code with a single \code{if} statement with non-empty then and else branches followed by a non-empty block. B represents the condition expression block, B1 and B2 represent then and else branches of the \code{if} statement, and C is the last non-empty empty block on all paths from \emph{Entry} to \emph{Exit} blocks. Figure \ref{prefetch-example-ast} shows the AST representation of the same code combined with nodes and edges from the figure \ref{prefetch-example-cfg} with the simplification that \code{IfStmt} is followed by the block C in \code{CompoundStmt}. \emph{Entry} and \emph{Exit} nodes and thicker dashed edges do not exist in AST. The only shared edges between CFG and AST are edges from B to B1 and from B to B2. For example, if the analyser searches for a value on the path passing through block B1 in AST, assuming it starts in \code{CompoundStmt}, it visits node by node \code{CompoundStmt}, \code{IfStmt}, block B, returns to \code{IfStmt}, block B1, returns to \code{IfStmt}, returns to \code{CompoundStmt}, block C, returns to \code{CompoundStmt} and finishes. The exactly same sequence of blocks that would be searched in CFG.
+Figures \ref{prefetch-example-cfg} and \ref{prefetch-example-ast} show an example of a traversal of the same code in CFG and AST structures. Figure \ref{prefetch-example-cfg} shows CFG of code with a single \code{if} statement with non-empty then and else branches followed by a non-empty block. B represents the condition expression block, B1 and B2 represent then and else branches of the \code{if} statement, and C is the last non-empty empty block on both paths from \emph{Entry} to \emph{Exit} blocks. Figure \ref{prefetch-example-ast} shows the AST representation of same code combined with nodes and edges from the figure \ref{prefetch-example-cfg} with the simplification that \code{IfStmt} is followed by the block C in the \code{CompoundStmt} node. \emph{Entry} and \emph{Exit} nodes and dashed edges do not exist in AST. The only shared edges between CFG and AST are dashed-dotted edges from B to B1 and from B to B2. For example, if the analyser searches for a value on the path passing through block B1, assuming it starts in \code{CompoundStmt}, it visits node by node in the graph depth-first search algorithm:
+
+\begin{enumerate}
+\item \code{CompoundStmt}
+\item \code{IfStmt}
+\item Block B
+\item Returns to \code{IfStmt}
+\item Block B1
+\item Returns to \code{IfStmt}
+\item Returns to \code{CompoundStmt}
+\item Block C
+\item Returns to \code{CompoundStmt} and finishes
+\end{enumerate}
+
+The exactly same sequence of code blocks that would be searched in CFG: block B, block B1 and block C. \emph{Entry} and \emph{Exit} blocks are empty thus not interesting for the optimization process.
 
 \begin{figure}[h!]
-\caption{CFG representation of code with a single \code{if} statement.}
-\label{prefetch-example-cfg}
 \vspace{.5cm}
 \centering
 \begin{tikzpicture}[node distance=2.0cm]
@@ -119,6 +131,8 @@ Figures \ref{prefetch-example-cfg} and \ref{prefetch-example-ast} show an exampl
                (b2) 	edge node {} (c)
                (c) 		edge node {} (exit);
 \end{tikzpicture}
+\caption{The CFG representation of code with a single \code{if} statement.}
+\label{prefetch-example-cfg}
 \end{figure}
 
 \begin{figure}[h!]
@@ -141,10 +155,10 @@ Figures \ref{prefetch-example-cfg} and \ref{prefetch-example-ast} show an exampl
     \node[right of= b1, xshift=-0.5cm](b2){B2};
     
     % edges
-    \path[pil,dashed] (ifstmt)	edge node {} (b1)
+    \path[pil,dashdotted] (ifstmt)	edge node {} (b1)
                       (ifstmt)   edge node {} (b2);
      
-    \path[pil,very thin,dashed] (entry) 		edge node {} (ifstmt)
+    \path[pil,dashed,thin] (entry) 		edge node {} (ifstmt)
                                 (b1)			edge node {} (c)
                                 (b2)			edge node {} (c)
                                 (c) 			edge node {} (exit);
@@ -161,9 +175,9 @@ Figures \ref{prefetch-example-cfg} and \ref{prefetch-example-ast} show an exampl
 \subsection{Divide and conquer}
 When searching a value in CFG, it would be necessary to either traverse the same path multiple times or remember which nodes and paths were already processed. On the other hand, divide and conquer algorithm design paradigm fits perfectly to the described custom AST traversal.
 
-The implementation of the search algorithm enhances \code{RecursiveASTVisitor} functionality as it has already the well-established interface using the widely known pattern. The problematic part is to identify which AST nodes can affect a control flow of a program and handle their traversal in the implemented template. There are relatively many classes for AST nodes. However, sections \textbf{5 Expressions} and \textbf{6 Statements} in C++ standard \cite{standard} cover all constructs that can affect a control flow. Statements and expressions that affect a control flow are listed in figure \ref{control-stmt-expr}. Both sections from C++ standard can be relatively precisely mapped to Clang AST nodes in the \code{Stmt} class hierarchy and its \code{Expr} sub-hierarchy.
+The implementation of the search algorithm enhances \code{RecursiveASTVisitor} functionality as it has already the well-established interface using the widely known pattern. The problematic part is to identify which AST nodes can affect a control flow of a program and handle their traversal in the implemented template. There are relatively many classes for AST nodes. However, sections \textbf{5 Expressions} and \textbf{6 Statements} in C++ standard \cite{standard} cover all constructs that can affect a control flow. Statements and expressions that affect a control flow are listed in figure \ref{control-stmt-expr}. Both sections from the C++ standard can be relatively precisely mapped to Clang AST nodes in the \code{Stmt} class hierarchy and its \code{Expr} sub-hierarchy.
 
-Searching for a value in a linear program flow is straightforward. The algorithm visits node by node testing whether it contains a searched value. If the search algorithm encounters a selection statement, it runs itself on every branch, and if a searched value is found in all of them, it is found for a current selection statement. If it encounters an iteration statement, it can continue searching in a loop body based on the tool configuration. Jump statements stop searching. A value is searched only in a left-hand side expression of logical expressions because of a short-circuit evaluation.
+Searching for a value in a linear program flow is straightforward. The algorithm visits node by node testing whether it contains a searched value. If the search algorithm encounters a selection statement, it runs itself on every branch. If a searched value is found in all branches, it is found for a current selection statement. If it encounters an iteration statement, it can continue searching in a loop body based on a tool configuration. Jump statements stop searching. A value is searched only in the left-hand side expression of logical expressions because of a short-circuit evaluation.
 
 \begin{figure}[t!]
 \begin{itemize}
@@ -197,23 +211,23 @@ Searching for a value in a linear program flow is straightforward. The algorithm
 	\item{\textit{try-block}}
 	\end{itemize}
 \end{itemize}
-\caption{Expression and statements that affect control flow.}
+\caption{Expressions and statements that affect a control flow.}
 \label{control-stmt-expr}
 \end{figure}
 
-\subsection{For loop with fixed number of iterations}
+\subsection{A for loop with a fixed number of iterations}
 \label{prefetch-for}
-It was already mentioned that loop bodies are searched for values by default since they will likely be executed. But this option is configurable in the optimizer tool. An user can choose to disable search in loop bodies that cannot be proven to be executed at least once.
+It was already mentioned that loop bodies are searched for values by default since they will likely be executed. But this option is configurable in the optimizer tool. A user can choose to disable search in loop bodies that cannot be proven to be executed at least once.
 
-A simple case of a loop where it can be proven that its body is executed at least once is \code{for} loop with a fixed number of iterations which was widely used in old C code, see listing \ref{prefetch-for}.
+The simple case of a loop where it can be proven that its body is executed at least once is a \code{for} loop with a fixed number of iterations which was widely used in old C code, see listing \ref{prefetch-for}.
 
-\begin{lstlisting}[caption={\code{for} loop with constant number of iterations.}, label={prefetch-for}]
+\begin{lstlisting}[caption={A \code{for} loop with a constant number of iterations.}, label={prefetch-for}]
 for (int i = INIT_CONSTANT; i < COUNT_CONSTANT; ++i) {...}
 \end{lstlisting}
 
-If the analyser can prove that \code{i} is not modified in an initialization statement and condition expression, it can evaluate a condition as a constant expression. The tool is implemented on top of the compiler, which already has facilities necessary for operations such as the constant expression evaluation or constant unfolding optimization. Clang exposes functions related to the constant expression evaluation in the \code{Expr} class. For example, it can evaluate an expression as a boolean condition, but it succeeds only if an expression is really constant for the compiler, which is not in this case. The tool can trick the compiler by setting temporarily the variable initialization declaration to be a constant expression. The same trick can be used to analyse more complex loops, see listing \ref{prefetch-while}.
+If the analyser can prove that \code{i} is not modified in the initialization statement and condition expression, it can evaluate the condition as constant expression. The tool is implemented on top of the compiler, which already has facilities necessary for operations such as constant expression evaluation or constant unfolding optimization. Clang exposes functions related to the constant expression evaluation in the \code{Expr} class. For example, it can evaluate an expression as a boolean condition, but it succeeds only if an expression is really constant for the compiler, which is not in this case. The tool can trick the compiler by setting temporarily the variable initialization declaration to be a constant expression. The same trick can be used to analyse even more complex loops, see listing \ref{prefetch-while}.
 
-\begin{lstlisting}[caption={Example of more complex loop with at least one body execution.}, label={prefetch-while}]
+\begin{lstlisting}[caption={An example of a more complex loop with at least one body execution.}, label={prefetch-while}]
 bool loop = true;
 ...
 while(loop)
@@ -225,18 +239,18 @@ while(loop)
 \end{lstlisting}
 
 \subsection{Exceptions}
-Looking on the figure \ref{control-stmt-expr}, specifically the \emph{try-block} statement deserves a more detailed description. Exceptions are a powerful language mechanism which can change a control flow at almost any time. The algorithm for searching values in code recognizes them to very little extent. It searches in a try-block statement and ignores catch statements. Catch statements represent handles of a program in an erroneous state, a state which is not expected to happen, and its transition to the normal state. The throw expression represents entering into an erroneous state. If algorithm searched in catch statements, it would automatically discard its own search in try-block since it does not know which statement from this try-block caused an exception.
+Looking on figure \ref{control-stmt-expr}, specifically the \emph{try-block} statement deserves a more detailed description. Exceptions are a powerful language mechanism which can change a control flow at almost any time. The algorithm for searching values in code recognizes them to very little extent. It searches in a try-block statement and ignores catch statements. Catch statements represent handles of a program in an erroneous state, a state which is not expected to happen, and its transition to the normal state. The throw expression represents entering into an erroneous state. If algorithm searched in catch statements, it would automatically discard its own search in try-block since it does not know which statement from this try-block caused an exception.
 
 \section{Searched values}
-The previous section describes how values, what is a bit abstract notion, are searched on all paths in code CFG. This section describes what values are searched and reveals abstract notions from the restrictions section (\ref{prefetch-restrictions}) such as \textit{input is likely to be used}.
+The previous section describes how values, what is a bit abstract notion, are searched on all paths in code CFG. This section describes what values are searched and reveals other abstract notions from the restrictions section (\ref{prefetch-restrictions}) such as \textit{"input is likely to be used"}.
 
 \subsection{Available inputs}
-Inputs in box member functions are referred using \code{input\_index\_type} which is constructed with an index of an input, or \code{inarc\_index\_type} which can be gathered from \code{input\_index\_type} using the specific \code{basic\_box} member function. The Bobox framework also provides the macro for an assignment of names to inputs, see section \ref{bobox-usage}.
+Inputs in box member functions are referred using \code{input\_index\_type} which is constructed with an index of an input, or \code{inarc\_index\_type} which can be gathered from \code{input\_index\_type} using the specific \code{basic\_box} member function. The Bobox framework also provides a helper macro for the assignment of names to inputs, see section \ref{bobox-usage}.
 
 Currently, the optimizer works only with names of static member functions generated by the helper macro and identifies inputs by these names. In a future implementation, it can identify inputs by indices, but it requires a much more complex implementation with an extensive usage of the constant expressions evaluation.
 
 \subsection{Prefetched inputs}
-For already prefetched inputs, the overridden \code{init\_impl} function is searched. The optimizer searches for \code{prefetch\_envelope} member function calls. It checks function calls whether a callee is the one from \code{basic\_box}\footnote{A function with the same name but a different signature can be implemented. Such function hides the base implementation.} and collects input names that could be resolved from the first parameter. The first parameter is expected to be a call to the related static member function generated by the helper macro. Actually, it looks exactly as the injected prefetch call by the optimizer, see listing \ref{prefetch-prefetch}.
+For already prefetched inputs, the overridden \code{init\_impl} function is searched. The optimizer searches for \code{prefetch\_envelope} member function calls. It checks function calls whether a callee is the one from \code{basic\_box}\footnote{A function with the same name but a different signature can be implemented. Such function hides the base implementation.} and collects input names that could be resolved from the first parameter. The first parameter is expected to be a call to the related static member function generated by the helper macro. Actually, it looks exactly as injected prefetch call by the optimizer, see listing \ref{prefetch-prefetch}.
 
 \begin{lstlisting}[caption={An injected prefetch call for an input called \emph{left}.},label={prefetch-prefetch}]
 prefetch_envelope(inputs::left());
@@ -244,16 +258,16 @@ prefetch_envelope(inputs::left());
 
 \subsection{Used inputs}
 \label{prefetch-used-inputs}
-Two member functions on a box are searched for an usage of inputs, \code{sync\_body} and \code{synch\_mach\_etwas}. These member functions represent the action step. When a member function with such name is found, it is tested whether it overrides \code{basic\_box} member function.
+Two member functions on a box are searched for a usage of inputs, \code{sync\_body} and \code{synch\_mach\_etwas}. These member functions represent the action step. When a member function with such name is found, it is tested whether it overrides the \code{basic\_box} member function.
 
 There are two cases when data from input is considered to be necessary:
 
 \begin{enumerate}
-\item If there is call to \code{pop\_envelope} function on the \code{basic\_box} class. The name of an input is resolved from the first parameter.
+\item If there is a call to the \code{pop\_envelope} function on the \code{basic\_box} class. The name of an input is resolved from the first parameter.
 \item If there is a helper variable of the type \code{input\_stream<>} for working with a box input and there is a call to any member function on this variable. A small snippet of code with the described situation is in listing \ref{prefetch-used}.
 \end{enumerate}
 
-\begin{lstlisting}[caption={An example of an \textit{used} input.}, label={prefetch-used}]
+\begin{lstlisting}[caption={An example of a \textit{used} input.}, label={prefetch-used}]
 input_stream<> left(this, input_to_inarc(inputs::left()));
 ...
 if (left.eof())
@@ -265,6 +279,6 @@ if (left.eof())
 \section{Summary}
 Actually, the analysis does not traverse whole bodies of functions for every input. Instead of that, it traverses a function body only once, collecting values and using set intersection and join operations on selection statements. For example, on the \code{if} selection statement it traverses then and else branches collecting values (i.e. names of inputs) and creates the intersection of both sets of names found in these branches.
 
-Therefore, the analysis is very fast. Even though the set intersection operation itself creates a complexity of $n*m^2$, where $n$ is the number of branches created by selection statements and $m$ is the number of box inputs\footnote{A set of collected values from a single code branch is sorted before an intersection is created.}, neither of values is expected to be high. The rest of the search algorithm has the linear complexity to the number of nodes in AST.
+Therefore, the analysis is very fast. Even though the set intersection operation itself creates a complexity of $n*m^2$, where $n$ is the number of branches created by selection statements and $m$ is the number of box inputs\footnote{A set of collected values from a single code branch is sorted before the intersection is created.}, neither of values is expected to be high. The rest of the search algorithm has the linear complexity to the number of nodes in AST.
 
 The only concern about achieved results is the possible big number of false positives when assuming data from an input is necessary as it is described in the second case in the subsection \ref{prefetch-used-inputs}. An example in listing \ref{prefetch-used} shows the situation when input is \emph{probably} necessary only in the single branch of code, which is not a strong assumption. It was necessary to make such soft assumption in order to make the optimization get the expected result on some tested scenarios. The analysis can be vastly enhanced in this particular part in the future.

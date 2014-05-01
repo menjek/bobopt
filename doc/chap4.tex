@@ -1,12 +1,13 @@
 \chapter{Optimizer}
-The tool is implemented on top of Clang using LibTooling API combined with AST matchers API, see section \ref{clang-optimizer}. The current implementation provides two different methods for an optimization of code using the Bobox framework. However, the tool design allows an easy implementation and integration of new optimization methods.
+\label{chapter-design}
+The tool is implemented on top of Clang using LibTooling combined with AST matchers, see section \ref{clang-optimizer}. The current implementation provides two different methods for the optimization of code using the Bobox framework. However, the tool design allows an easy implementation and integration of new optimization methods.
 
 The optimizer is able to perform source-to-source transformations only on the text level. It is designed to be used for a diagnostic or in a build process.
 
 \section{Design}
-User code of a Bobox task is placed in a class derived from \code{basic\_box}. At first, before the optimization starts, the optimizer looks up all boxes defined in source code. The AST matchers interface fits this purpose the best. The central \code{optimizer} class is callback from the AST matchers library. It also serves as the gateway to information for optimization methods. The next step is to distribute handles to boxes to all optimization methods and providing them with tool runtime data by providing a handle to the \code{optimizer} object.
+User code of a Bobox task is placed in a class derived from the \code{basic\_box} class. At first, before the optimization starts, the optimizer looks up all boxes defined in source code. The AST matchers interface fits this purpose the best. The central \code{optimizer} class is the callback from the AST matchers library. It also serves as gateway to information for all optimization methods. The next step is to distribute handles to boxes to all optimization methods and providing them with tool runtime data by providing a handle to the \code{optimizer} object.
 
-Based on the command line parameter that defines the optimization level\footnote{Similar to what modern C++ compilers support, e.g., \emph{GCC} and \emph{Clang/LLVM} -Ox command line option and \emph{Microsoft Visual C++} /Ox command line option.}, the \code{optimizer} object allocates objects representing optimization strategies. The object is responsible for their lifetime. Optimization methods have to implement a simple interface, which accepts handle to  AST node representing a box and handle to \code{Replacements} object provided by the AST matchers library, see figure \ref{class-optimizer}. The \code{optimizer} object also injects handle to itself into every instantiated method so the method can access tool runtime data.
+Based on the command line parameter that defines the optimization level\footnote{Similar to what modern C++ compilers support, e.g., \emph{GCC} and \emph{Clang/LLVM} \code{-Ox} command line option and \emph{Microsoft Visual C++} \code{/Ox} command line option.}, the \code{optimizer} object allocates objects representing optimization methods. The \code{optimizer} object is responsible for their lifetime. Optimization methods have to implement a simple interface, which accepts handle to the AST node representing a box and handle to the \code{Replacements} object provided by the AST matchers library, see figure \ref{class-optimizer}. The \code{optimizer} object also injects handle to itself into every instantiated method, thus methods can access tool runtime data.
 
 \begin{figure}[h!]
 \caption{The class diagram for the optimizer core.}
@@ -16,13 +17,13 @@ Based on the command line parameter that defines the optimization level\footnote
 \includegraphics{cd_core.1}
 \end{figure}
 
-An implementation and integration of a new optimization method consists from two steps:
+The implementation and integration of a new optimization method consists from two steps:
 \begin{enumerate}
 \item Implement the \code{basic\_method} interface, which consists from the single member function to invoke a box optimization.
-\item Register a method factory function in the \code{method\_factory} class. A method factory function has to create an optimization method object giving up its ownership.
+\item Register a method factory function in the \code{method\_factory} class. A method factory function has to create the optimization method object giving up its ownership.
 \end{enumerate}
 
-The AST matchers interface does not provide an access to the Clang compiler internals. It provides a developer with a handle to the matched node, \code{ASTContext} and \code{SourceManager}. It was necessary to implement own wrappers for a front-end action and AST consumer to catch handle to the compiler main object of the \code{CompilerInstance} type, see figure \ref{class-interface}. The other approach to get an access to compiler internals would be to directly change Clang source code. But, this approach would introduce significant problems. Tool source code would need to be distributed together with the changed Clang source code. Also, resolving potential changes in the Clang tooling interface semantic is easier in separate code base rather than merging or updating Clang code base.
+The AST matchers interface does not provide the access to Clang compiler internals. It provides a developer with a handle to the matched node, \code{ASTContext} and \code{SourceManager}. It was necessary to implement own wrappers for the front-end action and AST consumer to catch handle to the compiler main object of the \code{CompilerInstance} type, see figure \ref{class-interface}. The other approach to get the access to compiler internals would be to directly change Clang source code. This approach would introduce significant problems. Tool source code would need to be distributed together with the changed Clang source code. Also, resolving potential changes in the Clang tooling interface semantic is easier in separate code base rather than merging or updating Clang code base.
 
 \begin{figure}[h!]
 \caption{The class diagram for wrapping of Clang tooling API.}
@@ -33,9 +34,9 @@ The AST matchers interface does not provide an access to the Clang compiler inte
 \end{figure}
 
 \section{Working modes}
-The tool is primarily supposed to be used as a front-end optimizer when it is quietly executed in a build process. Yet, the optimizer can operate in another two modes, diagnostic and interactive. Both modes differ in a verbosity from the mode used in a build process. The tool in these modes outputs reasoning behind the optimization process.
+The tool is primarily supposed to be used as front-end optimizer when it is quietly executed in a build process. Yet, the optimizer can operate in another two modes, diagnostic and interactive. Both modes differ in a verbosity from the mode used in a build process. The tool in these modes outputs reasoning behind the optimization process.
 
-Totally, the tool supports three different modes. The text in bold is the command line argument used to switch to the desired mode.
+The tool supports three different modes. The text in bold is the command line argument used to switch to the desired mode.
 \begin{description}
 \item[-build]{
 The tool runs quietly, transforming source code. The only output is the Clang compiler diagnostic output. There is a rationale behind the Clang compiler diagnostic output in the tool. If there is a compile error, a user should be able to see why the optimizer does not work. Furthermore, developers should not ignore compile errors and warnings. If developers do not want the compiler diagnostic output, they can filter it out.
@@ -43,11 +44,11 @@ The tool runs quietly, transforming source code. The only output is the Clang co
 Even though it is not necessary to make transformed code look pretty for a human eye because transformed code is supposed to be immediately processed by the compiler, this mode injects code with the correct indentation and line endings.
 }
 \item[-diagnostic]{
-The diagnostic mode is a verbose mode that does not perform any code transformations. The optimizer outputs problematic parts of user code and the rationale behind suggestions. The output also contains pointers to highlight the most important part of the printed code snippet. The diagnostic output is similar to the Clang diagnostic output. However, it is implemented separately.
+The diagnostic mode is a verbose mode that does not perform any code transformations. The optimizer outputs problematic parts of user code and rationale behind suggestions. The output also contains pointers to highlight the most important part of the printed code snippet. The diagnostic output is similar to the Clang diagnostic output. However, it is implemented separately.
 
-The rationale behind implementing such mode is that programmers still hesitate to use code transformation tools for C++ apart from formatters and simple refactoring tools. Unless the optimizer output is not too verbose and a programmer can process it, it is safer to allocate human resources for the optimization process. A programmer can resolve optimizer suggestions directly in code base. Then, it is not necessary to use the optimizer in a build process, thus making the process faster.
+The rationale behind implementing such mode is that programmers still hesitate to use code transformation tools for C++ apart from formatters and simple refactoring tools. Unless the optimizer output is not too verbose and programmer can process it, it is safer to allocate human resources for the optimization process. A programmer can resolve optimizer suggestions directly in code base. Then, it is not necessary to use the optimizer in a build process, thus making the process faster.
 
-The another reason for this mode is that the tool can be used in environments where source code is read-only. The \emph{Perforce} \cite{perforce} revision control system is such an example. Perforce does not allow a programmer to edit source code until he marks it as \emph{checked-out}. Checking-out whole code base for editing a couple of files is performance demanding for the server side of the revision control system.
+Another reason for this mode is that the tool can be used in environments where source code is read-only. The \emph{Perforce} \cite{perforce} revision control system is such an example. Perforce does not allow a programmer to edit source code until he marks it as \emph{checked-out}. Checking-out whole code base for editing a couple of files is performance demanding for the server side of the revision control system.
 }
 \item[-interactive]{
 This mode is equivalent to the diagnostic mode with one additional feature. Each optimizer suggestion comes with yes/no type of a question. A programmer answers whether he desires to apply the transformation on code immediately.
@@ -84,11 +85,11 @@ The optimizer injects new code the way it tries to follow a coding style as much
 
 The coding style detection algorithm runs over a class definition. Information from a whole memory buffer that represents a whole translation unit would be misleading since a translation unit can consist of many files from different libraries. A class definition is the big enough example to detect the coding style. The tool also detects the style of line endings, whether it is \emph{line feed (LF)} only, or it is paired with \emph{carriage return (CR)}.
 
-The algorithm to detect an indentation processes the memory buffer of a box definition from the start location of class to its end location.
+The algorithm to detect the indentation processes the memory buffer of a box definition from the start location of a class to its end location.
 
 \begin{enumerate}
 \item{Set the empty indentation as the last line indentation.}
-\item{If the algorithm has not reached the end location of a class, continue in the next step, otherwise continue in the step 7.}
+\item{If the algorithm has not yet reached the end location of a class, continue in the next step, otherwise continue in the step 7.}
 \item{Find the first non-whitespace character.}
 \item{If the current line contains only whitespace characters or it is a comment, move to the next line and continue in the step 2.}
 \item{Increase occurrences count for the difference between the last remembered indentation and the current line indentation.}
@@ -100,19 +101,19 @@ The similar algorithm is used to detect an indentation of member function declar
 
 \section{Configuration}
 \label{opt-configuration}
-The \emph{yield complex} optimization method tightly depends on multiple constants. Their values affect the quality of the result. At the beginning of the tool development, these constants were hard-coded. Changing hard-coded values causes recompile on dependencies and link against Clang/LLVM libraries. It was a significant overhead in the development iteration step. Furthermore, a user can use the configuration to tune up a quality of a result on different systems.
+The \emph{yield complex} optimization method tightly depends on multiple constants. Their values affect the quality of the result. At the beginning of the tool development, these constants were hard-coded. Changing hard-coded values causes recompile on dependencies and link against Clang/LLVM libraries. It was a significant overhead in the development iteration step. Furthermore, a user can use the configuration to tune up the quality of a result on different systems.
 
-Clang/LLVM code base does not provide any configuration facilities. It was necessary to write it from scratch\footnote{LLVM CommandLine 2.0 library served as an inspiration for design because of similarities with the goal of the configuration library.}. Thus, requirements are accordingly low. At minimum, it is necessary to store values of different types paired with a name used as a key. Names must be unique in some scope. Every configuration \emph{variable} has to be assigned to a configuration \emph{group}. Every configuration group has a name unique in the global scope.
+Clang/LLVM code base does not provide any configuration facilities. It was necessary to write it from scratch\footnote{LLVM CommandLine 2.0 library served as the inspiration for the design because of similarities with the goal of the configuration library.}. Thus, requirements are accordingly low. At minimum, it is necessary to store values of different types paired with a name used as the key. Names must be unique in some scope. Every configuration \emph{variable} has to be assigned to a configuration \emph{group}. Every configuration group has a name unique in the global scope.
 
 \begin{figure}[h!]
-\caption{A class diagram for configuration code.}
+\caption{The class diagram for configuration code.}
 \label{cd-configuration}
 \vspace{0.5cm}
 \centering
 \includegraphics{cd_config.1}
 \end{figure}
 
-The class diagram on figure \ref{cd-configuration} shows the hierarchy of classes in configuration code. The class hierarchy also defines the scope of uniqueness for configuration elements, i.e., a configuration variable has to have a unique name in the configuration group scope. The \code{config\_map} class uses Meyers\footnote{Drawbacks of the Meyers singleton are not present in this usage.} singleton \emph{anti}-pattern. The class is used as a gateway to all configuration groups and variables.
+The class diagram on figure \ref{cd-configuration} shows the hierarchy of classes in configuration code. The class hierarchy also defines the scope of uniqueness for configuration elements, i.e., a configuration variable has to have a unique name in the configuration group scope. The \code{config\_map} class uses the Meyers\footnote{Drawbacks of the Meyers singleton are not present in this usage.} singleton pattern. The class is used as the gateway to all configuration groups and variables.
 
 Four types of a line can appear in the configuration file. Every type of a line is defined by a regular expression.
 
