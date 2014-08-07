@@ -821,7 +821,7 @@ namespace bobopt
                 }
                 else
                 {
-                    prefetch_source += endl_ + body_indent + prefetch_source;
+                    prefetch_source += endl_ + body_indent + prefetch_call_source;
                 }
             }
 
