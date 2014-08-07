@@ -5,15 +5,13 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (MSVC)
-	add_definitions(/W4)
-	add_definitions(/wd4068)
-	add_definitions(/D "_SCL_SECURE_NO_WARNINGS")
+	set(bobopt_SHARED_FLAGS "/W4 /wd4068 /D_SCL_SECURE_NO_WARNINGS")
+	set(bobopt_CXX_FLAGS ${BOBOPT_SHARED_FLAGS})
 endif ()
 
 if (UNIX)
-	add_definitions(-Wall -Wextra -Wno-unknown-pragmas)
-	add_definitions(-std=c++0x -fno-rtti)
-	add_definitions(-D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS)
+	set(bobopt_SHARED_FLAGS "-Wall -Wextra -Wno-unknown-pragmas -std=c++0x")
+	set(bobopt_CXX_FLAGS "${bobopt_SHARED_FLAGS} -fno-rtti -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS")
 endif ()
 
 # Find Clang/LLVM headers + libraries.
@@ -222,11 +220,14 @@ if (UNIX)
 endif ()
 
 add_library(bobopt_core ${bobopt_root_SOURCES} ${bobopt_clang_SOURCES})
+set_target_properties(bobopt_core PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
 target_link_libraries(bobopt_core ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
 add_library(bobopt_methods ${bobopt_methods_SOURCES})
-target_link_libraries(bobopt_methods ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
+set_target_properties(bobopt_methods PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
+target_link_libraries(bobopt_methods bobopt_core ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
 
 add_executable(bobopt main.cpp)
+set_target_properties(bobopt PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
 
 if (BOBOPT_FOLDERS)
 	source_group("clang" FILES ${bobopt_clang_SOURCES})

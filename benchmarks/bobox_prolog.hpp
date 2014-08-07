@@ -1,6 +1,8 @@
 /// \file bobox_prolog.hpp Prolog for any bobox inclusions.
 
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wreorder"
 
 #pragma clang diagnostic push
 
