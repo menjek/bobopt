@@ -5,8 +5,8 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (MSVC)
-	set(bobopt_SHARED_FLAGS "/W4 /wd4068 /D_SCL_SECURE_NO_WARNINGS")
-	set(bobopt_CXX_FLAGS ${BOBOPT_SHARED_FLAGS})
+	set(bobopt_SHARED_FLAGS "/W4 /wd4068 /D_SCL_SECURE_NO_WARNINGS /EHsc")
+	set(bobopt_CXX_FLAGS "${bobopt_SHARED_FLAGS}")
 endif ()
 
 if (UNIX)
