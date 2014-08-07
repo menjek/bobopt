@@ -108,7 +108,7 @@ macro(add_optimized_program name)
 	
 	# generate target for optimized build
 	add_custom_target(${name}_generate)
-	add_dependencies(${name}_generate bobopt)
+	add_dependencies(${name}_generate ${name} bobopt)
 	
 	set(optimized_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}_optimized/)
 	
