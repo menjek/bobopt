@@ -140,7 +140,7 @@ macro(add_optimized_program name)
 	get_property(bobopt_executable TARGET bobopt PROPERTY LOCATION)
 	
 	foreach (source ${sources_only})
-		add_custom_command(TARGET ${name}_generate COMMAND ${bobopt_executable} ${source})
+		add_custom_command(TARGET ${name}_generate COMMAND ${bobopt_executable} -build ${source})
 	endforeach ()
 	
 	# optimized build
