@@ -54,7 +54,7 @@ namespace bobopt
         /// \brief Name of bobox box body virtual member function to be overriden.
         const std::string prefetch::BOX_BODY_FUNCTION_NAME("sync_body");
         /// \brief Name of parent overriden functions for body. Just to check if it is not overloaded virtual.
-        const std::string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox:basic_box");
+        const std::string prefetch::BOX_BODY_OVERRIDEN_PARENT_NAME("bobox::basic_box");
 
         namespace detail
         {
@@ -791,7 +791,7 @@ namespace bobopt
                 std::string arg2;
                 convertor >> arg2;
 
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "(), " + arg2  + ");";
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
                 if (verbose)
                 {
                     emit_input_declaration(input_decl);
@@ -872,7 +872,7 @@ namespace bobopt
                 std::string arg2;
                 convertor >> arg2;
 
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "(), " + arg2 + ");";
+                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
                 if (verbose)
                 {
                     emit_input_declaration(input_decl);
