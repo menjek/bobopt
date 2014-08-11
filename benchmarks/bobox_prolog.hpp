@@ -7,4 +7,4 @@
 #pragma clang diagnostic push
 
 #pragma warning(push)
-#pragma warning(disable : 4100 4127 4245 4512)
+#pragma warning(disable : 4100 4127 4245 4512 4702)

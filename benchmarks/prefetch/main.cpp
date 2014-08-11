@@ -1,5 +1,178 @@
 #include "bench_prefetch.hpp"
 
+#include <benchmarks/bobox_prolog.hpp>
+#include <bobox_basic_object_factory.hpp>
+#include <bobox_bobolang.hpp>
+#include <bobox_manager.hpp>
+#include <bobox_request.hpp>
+#include <bobox_results.hpp>
+#include <bobox_runtime.hpp>
+#include <benchmarks/bobox_epilog.hpp>
+
+#include <iostream>
+
+namespace bobopt
+{
+
+    class test_runtime : public bobox::runtime, public bobox::basic_object_factory
+    {
+    private:
+        virtual void init_impl() BOBOX_OVERRIDE
+        {
+            register_box<control_box::model>(bobox::box_model_tid_type("Control"));
+            register_box<distribute_box::model>(bobox::box_model_tid_type("Distribute"));
+            register_box<last_distribute_box::model>(bobox::box_model_tid_type("LastDistribute"));
+            register_box<collect_box::model>(bobox::box_model_tid_type("Collect"));
+            register_box<sink_box::model>(bobox::box_model_tid_type("Sink"));
+
+            register_type<unsigned>(bobox::type_tid_type("unsigned"));
+        }
+
+        virtual bobox::runtime* get_runtime() BOBOX_OVERRIDE
+        {
+            return this;
+        }
+    };
+
+} // bobopt
+
 int main()
 {
+    auto manager_params = new bobox::basic_parameters;
+    manager_params->add_parameter("SchedulingStrategy", bobox::SS_SINGLE_THREADED);
+    manager_params->add_parameter("OptimalPlevel", bobox::plevel_type(1));
+    manager_params->add_parameter("BackupThreads", 0u);
+
+    bobox::manager mng((bobox::parameters_ptr_type(manager_params)));
+
+    bobopt::test_runtime rt;
+    rt.init();
+
+    std::string str("model main<()><()> { "
+                    "	Control<()><(unsigned)> control; "
+                    "	Distribute <(unsigned)><(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned)> dis0, dis1, dis2, dis3, dis4, dis5, dis6; "
+                    "	LastDistribute <(unsigned)><(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned)> last_dis; "
+                    "	Collect <(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned)><(unsigned)> col0, col1, col2, col3, col4, col5, col6, col7; "
+                    "   Sink<(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned),(unsigned)><()> sink; "
+                    "	"
+                    "	input -> control; "
+                    "	control[0] -> dis0; "
+                    "	dis0[0] -> [in0]col0; "
+                    "	dis0[1] -> [in0]col1; "
+                    "	dis0[2] -> [in0]col2; "
+                    "	dis0[3] -> [in0]col3; "
+                    "	dis0[4] -> [in0]col4; "
+                    "	dis0[5] -> [in0]col5; "
+                    "	dis0[6] -> [in0]col6; "
+                    "	dis0[7] -> [in0]col7; "
+                    "	dis0[8] -> dis1; "
+                    "	dis1[0] -> [in1]col0; "
+                    "	dis1[1] -> [in1]col1; "
+                    "	dis1[2] -> [in1]col2; "
+                    "	dis1[3] -> [in1]col3; "
+                    "	dis1[4] -> [in1]col4; "
+                    "	dis1[5] -> [in1]col5; "
+                    "	dis1[6] -> [in1]col6; "
+                    "	dis1[7] -> [in1]col7; "
+                    "	dis1[8] -> dis2; "
+                    "	dis2[0] -> [in2]col0; "
+                    "	dis2[1] -> [in2]col1; "
+                    "	dis2[2] -> [in2]col2; "
+                    "	dis2[3] -> [in2]col3; "
+                    "	dis2[4] -> [in2]col4; "
+                    "	dis2[5] -> [in2]col5; "
+                    "	dis2[6] -> [in2]col6; "
+                    "	dis2[7] -> [in2]col7; "
+                    "	dis2[8] -> dis3; "
+                    "	dis3[0] -> [in3]col0; "
+                    "	dis3[1] -> [in3]col1; "
+                    "	dis3[2] -> [in3]col2; "
+                    "	dis3[3] -> [in3]col3; "
+                    "	dis3[4] -> [in3]col4; "
+                    "	dis3[5] -> [in3]col5; "
+                    "	dis3[6] -> [in3]col6; "
+                    "	dis3[7] -> [in3]col7; "
+                    "	dis3[8] -> dis4; "
+                    "	dis4[0] -> [in4]col0; "
+                    "	dis4[1] -> [in4]col1; "
+                    "	dis4[2] -> [in4]col2; "
+                    "	dis4[3] -> [in4]col3; "
+                    "	dis4[4] -> [in4]col4; "
+                    "	dis4[5] -> [in4]col5; "
+                    "	dis4[6] -> [in4]col6; "
+                    "	dis4[7] -> [in4]col7; "
+                    "	dis4[8] -> dis5; "
+                    "	dis5[0] -> [in5]col0; "
+                    "	dis5[1] -> [in5]col1; "
+                    "	dis5[2] -> [in5]col2; "
+                    "	dis5[3] -> [in5]col3; "
+                    "	dis5[4] -> [in5]col4; "
+                    "	dis5[5] -> [in5]col5; "
+                    "	dis5[6] -> [in5]col6; "
+                    "	dis5[7] -> [in5]col7; "
+                    "	dis5[8] -> dis6; "
+                    "	dis6[0] -> [in6]col0; "
+                    "	dis6[1] -> [in6]col1; "
+                    "	dis6[2] -> [in6]col2; "
+                    "	dis6[3] -> [in6]col3; "
+                    "	dis6[4] -> [in6]col4; "
+                    "	dis6[5] -> [in6]col5; "
+                    "	dis6[6] -> [in6]col6; "
+                    "	dis6[7] -> [in6]col7; "
+                    "	dis6[8] -> last_dis; "
+                    "	last_dis[0] -> [in7]col0; "
+                    "	last_dis[1] -> [in7]col1; "
+                    "	last_dis[2] -> [in7]col2; "
+                    "	last_dis[3] -> [in7]col3; "
+                    "	last_dis[4] -> [in7]col4; "
+                    "	last_dis[5] -> [in7]col5; "
+                    "	last_dis[6] -> [in7]col6; "
+                    "	last_dis[7] -> [in7]col7; "
+                    "	col0 -> [in0]sink; "
+                    "	col1 -> [in1]sink; "
+                    "	col2 -> [in2]sink; "
+                    "	col3 -> [in3]sink; "
+                    "	col4 -> [in4]sink; "
+                    "	col5 -> [in5]sink; "
+                    "	col6 -> [in6]sink; "
+                    "	col7 -> [in7]sink; "
+                    "   sink -> output; "
+                    "}");
+    std::istringstream in(str);
+
+    bobox::request_id_type rqid = mng.create_request(bobox::bobolang::compile(in, &rt));
+
+    mng.run_request(rqid);
+    mng.wait_on_request(rqid);
+
+    switch (mng.get_result(rqid))
+    {
+    case bobox::RRT_ERROR:
+        std::cout << "Error" << std::endl;
+        break;
+    case bobox::RRT_CANCELED:
+        std::cout << "Canceled" << std::endl;
+        break;
+    case bobox::RRT_DEADLOCK:
+        std::cout << "Deadlock" << std::endl;
+        break;
+    case bobox::RRT_MEMORY:
+        std::cout << "Memory" << std::endl;
+        break;
+    case bobox::RRT_OK:
+        std::cout << "OK" << std::endl;
+        break;
+    case bobox::RRT_TIMEOUT:
+        std::cout << "Timeout" << std::endl;
+        break;
+    default:
+        BOBOX_ASSERT(false);
+        break;
+    }
+
+    std::cout << rqid;
+
+    mng.destroy_request(rqid);
+
+    return 0;
 }

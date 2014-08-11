@@ -10,13 +10,13 @@ else ()
 endif ()
 
 if (MSVC)
-	set(CMAKE_CXX_FLAGS "${bobopt_SHARED_FLAGS}")
-	set(CMAKE_CXX_FLAGS_DEBUG "/MTd /DBOBOX_DEBUG /D_DEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "${bobopt_SHARED_FLAGS} /MT")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${bobopt_SHARED_FLAGS}")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd /DBOBOX_DEBUG /D_DEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 elseif (UNIX)
-	set(CMAKE_CXX_FLAGS "${bobopt_SHARED_FLAGS}")
-	set(CMAKE_CXX_FLAGS_DEBUG "-DBOBOX_DEBUG -D_DEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${bobopt_SHARED_FLAGS}")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DBOBOX_DEBUG -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 else ()
 	message(WARNING "Unsupported platform, not setting any compilation flags.")
 endif ()
@@ -66,29 +66,42 @@ endif ()
 
 set(ulibpp_INCLUDE_DIRS ${ulibpp_ROOT_DIR}/h)
 
-#if (BUILD_PLATFORM EQUAL 64)
-#	file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*x64.*.md.lib")
-#	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*x64.*.mr.lib")
-#else ()
-#	file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*ia32.*.md.lib")
-#	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*ia32.*.mr.lib")
-#endif ()
-#
-#if ((NOT ulibpp_LIBRARY_DEBUG) AND (NOT ulibpp_LIBRARY_RELEASE))
-#	message(FATAL_ERROR "No ulibpp library found in: ${ulibpp_ROOT_DIR}/lib/")
-#endif ()
-#
-#if (NOT ulibpp_LIBRARY_DEBUG)
-#	set(ulibpp_LIBRARY_DEBUG ${ulibpp_LIBRARY_RELEASE})
-#endif ()
-#
-#if (NOT ulibpp_LIBRARY_RELEASE)
-#	set(ulibpp_LIBRARY_RELEASE ${ulibpp_LIBRARY_DEBUG})
-#endif ()
-#
-#set(ulibpp_LIBRARY optimized ${ulibpp_LIBRARY_RELEASE} debug ${ulibpp_LIBRARY_DEBUG})
+if (BUILD_PLATFORM EQUAL 64)
+	file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*x64.*.md.lib")
+	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*x64.*.mr.lib")
+else ()
+	file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*ia32.*.md.lib")
+	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*ia32.*.mr.lib")
+endif ()
+
+if ((NOT ulibpp_LIBRARY_DEBUG) AND (NOT ulibpp_LIBRARY_RELEASE))
+	message(FATAL_ERROR "No ulibpp library found in: ${ulibpp_ROOT_DIR}/lib/")
+endif ()
+
+if (NOT ulibpp_LIBRARY_DEBUG)
+	set(ulibpp_LIBRARY_DEBUG ${ulibpp_LIBRARY_RELEASE})
+endif ()
+
+if (NOT ulibpp_LIBRARY_RELEASE)
+	set(ulibpp_LIBRARY_RELEASE ${ulibpp_LIBRARY_DEBUG})
+endif ()
+
+set(ulibpp_LIBRARY optimized ${ulibpp_LIBRARY_RELEASE} debug ${ulibpp_LIBRARY_DEBUG})
 
 include_directories(${bobox_INCLUDE_DIRS} ${ulibpp_INCLUDE_DIRS})
+
+# bench utils library
+set(bench_utils_SOURCES
+	bobox_prolog.hpp
+	bobox_epilog.hpp
+	bench_utils.hpp
+	bench_utils.cpp
+	)
+	
+add_library(bench_utils ${bench_utils_SOURCES})
+if (BOBOPT_FOLDERS)
+	set_property(TARGET bench_utils PROPERTY FOLDER ${BENCHMARKS_FOLDER})
+endif ()
 
 macro(exclude_headers out)
 	foreach (source ${ARGN})
@@ -104,7 +117,7 @@ macro(add_optimized_program name)
 	
 	# unoptimized version
 	add_executable(${name} ${sources})
-	target_link_libraries(${name} ${bobox_LIBRARY})
+	target_link_libraries(${name} bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
 	
 	# generate target for optimized build
 	add_custom_target(${name}_generate)
@@ -146,7 +159,7 @@ macro(add_optimized_program name)
 	# optimized build
 	set_source_files_properties(${optimized_sources} PROPERTIES GENERATED true)
 	add_executable(${name}_optimized ${optimized_sources})
-	target_link_libraries(${name}_optimized ${bobox_LIBRARY})
+	target_link_libraries(${name}_optimized bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
 	add_dependencies(${name}_optimized ${name}_generate)
 	
 	if (BOBOPT_FOLDERS)
@@ -159,7 +172,6 @@ endmacro()
 # prefetch optimization method benchmarks.
 set(bobopt_benchmarks_prefetch_SOURCES
 	prefetch/bench_prefetch.hpp
-	prefetch/bench_prefetch.cpp
 	prefetch/main.cpp
 	)
 
