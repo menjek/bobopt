@@ -49,6 +49,29 @@ namespace bobopt
         box->send_envelope(out, bench_make_envelope(box, out, value));
     }
 
+    //
+    // Debug
+    //
+
+#ifndef BENCH_DEBUG
+#define BENCH_DEBUG
+#undef BENCH_DEBUG
+#endif
+
+#ifdef BENCH_DEBUG
+#define BENCH_LOG_MEMFUNC \
+    std::cout << this << ':' << __FUNCTION__ << '@' << __LINE__ << std::endl
+#else
+#define BENCH_LOG_MEMFUNC
+#endif // BENCH_DEBUG
+
+#ifdef BENCH_DEBUG
+#define BENCH_LOG_MEMFUNC_MSG(msg) \
+    std::cout << this << ':' << __FUNCTION__ << '@' << __LINE__ << ' ' << msg << std::endl
+#else
+#define BENCH_LOG_MEMFUNC_MSG(msg)
+#endif // BENCH_DEBUG
+
 } // bobopt
 
 #include <benchmarks/bobox_epilog.hpp>

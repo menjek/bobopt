@@ -26,11 +26,14 @@ namespace bobopt
 
         virtual void init_impl() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             prefetch_envelope(inputs::main());
         }
 
         virtual void sync_body() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
+
             BOBOX_ASSERT(pop_envelope(inputs::main())->is_poisoned());
 
             for (unsigned i = 0u; i <= TEST_SIZE; ++i)
@@ -57,11 +60,13 @@ namespace bobopt
 
         virtual void init_impl() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             prefetch_envelope(inputs::main());
         }
 
         virtual void sync_body() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             auto env_in = pop_envelope(inputs::main());
             if (env_in->is_poisoned())
             {
@@ -78,6 +83,8 @@ namespace bobopt
             }
 
             auto in = *(env_in->get_column(column_index_type(0)).get_data<unsigned>());
+
+            BENCH_LOG_MEMFUNC_MSG("distributing data.");
 
             bench_send_envelope(this, outputs::out0(), in);
             bench_send_envelope(this, outputs::out1(), in);
@@ -106,11 +113,13 @@ namespace bobopt
 
         virtual void init_impl() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             prefetch_envelope(inputs::main());
         }
 
         virtual void sync_body() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             auto env_in = pop_envelope(inputs::main());
             if (env_in->is_poisoned())
             {
@@ -126,6 +135,8 @@ namespace bobopt
             }
 
             auto in = *(env_in->get_column(column_index_type(0)).get_data<unsigned>());
+
+            BENCH_LOG_MEMFUNC_MSG("the last data distribution.");
 
             bench_send_envelope(this, outputs::out0(), in);
             bench_send_envelope(this, outputs::out1(), in);
@@ -153,11 +164,13 @@ namespace bobopt
 
         virtual void init_impl() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             prefetch_envelope(inputs::in0());
         }
 
         virtual void sync_body() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             auto env_in0 = pop_envelope(inputs::in0());
             auto env_in1 = pop_envelope(inputs::in1());
             auto env_in2 = pop_envelope(inputs::in2());
@@ -173,6 +186,8 @@ namespace bobopt
                 send_poisoned(outputs::main());
                 return;
             }
+
+            BENCH_LOG_MEMFUNC_MSG("data collected.");
 
             auto in0 = *(env_in0->get_column(column_index_type(0)).get_data<unsigned>());
             auto in1 = *(env_in0->get_column(column_index_type(0)).get_data<unsigned>());
@@ -202,11 +217,14 @@ namespace bobopt
 
         virtual void init_impl() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
             prefetch_envelope(inputs::in0());
         }
 
         virtual void sync_body() BOBOX_OVERRIDE
         {
+            BENCH_LOG_MEMFUNC;
+
             auto env_in0 = pop_envelope(inputs::in0());
             auto env_in1 = pop_envelope(inputs::in1());
             auto env_in2 = pop_envelope(inputs::in2());
@@ -215,6 +233,8 @@ namespace bobopt
             auto env_in5 = pop_envelope(inputs::in5());
             auto env_in6 = pop_envelope(inputs::in6());
             auto env_in7 = pop_envelope(inputs::in7());
+
+            BENCH_LOG_MEMFUNC_MSG("data in the sink.");
 
             if (env_in0->is_poisoned() || env_in1->is_poisoned() || env_in2->is_poisoned() || env_in3->is_poisoned() || env_in4->is_poisoned() ||
                 env_in5->is_poisoned() || env_in6->is_poisoned() || env_in7->is_poisoned())
