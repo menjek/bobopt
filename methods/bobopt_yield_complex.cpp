@@ -714,7 +714,8 @@ namespace bobopt
         const yield_complex::method_override yield_complex::BOX_EXEC_METHOD_OVERRIDES[] = { { { "sync_mach_etwas" }, { "bobox::basic_box" } },
                                                                                             { { "async_mach_etwas" }, { "bobox::basic_box" } },
                                                                                             { { "body_mach_etwas" }, { "bobox::basic_box" } },
-                                                                                            { { "push_envelope_impl" }, { "bobox::box" } } };
+                                                                                            { { "push_envelope_impl" }, { "bobox::box" } },
+                                                                                            { { "sync_body" }, { "bobox::basic_box" } } };
 
         /// \brief Create default constructed unusable object.
         yield_complex::yield_complex()

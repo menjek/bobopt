@@ -127,18 +127,18 @@ macro(add_optimized_program name)
 	target_link_libraries(${name} bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
 	
 	# generate target for optimized build
-	add_custom_target(${name}_generate)
-	add_dependencies(${name}_generate ${name} bobopt)
+	add_custom_target(${name}_optimize)
+	add_dependencies(${name}_optimize ${name} bobopt)
 	
 	set(optimized_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}_optimized/)
 	
 	# copy files to new directory
-	add_custom_command(TARGET ${name}_generate COMMAND ${CMAKE_COMMAND} -E make_directory ${optimized_DIR})
+	add_custom_command(TARGET ${name}_optimize COMMAND ${CMAKE_COMMAND} -E make_directory ${optimized_DIR})
 	
 	set(optimized_sources)
 	foreach (source_file ${sources})
 		get_filename_component(file_name ${source_file} NAME)
-		add_custom_command(TARGET ${name}_generate COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${source_file} ${optimized_DIR})
+		add_custom_command(TARGET ${name}_optimize COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${source_file} ${optimized_DIR})
 		list(APPEND optimized_sources ${optimized_DIR}/${file_name})
 	endforeach ()
 	
@@ -147,7 +147,7 @@ macro(add_optimized_program name)
 	
 	exclude_headers(sources_only ${optimized_sources})
 	set(compilation_database ${optimized_DIR}/compile_commands.json)
-	add_custom_command(TARGET ${name}_generate
+	add_custom_command(TARGET ${name}_optimize
 		COMMAND ${CMAKE_COMMAND}
 		-DINCLUDE_DIRS="${include_dirs}"
 		-DOPTIMIZED_DIR="${optimized_DIR}"
@@ -160,26 +160,34 @@ macro(add_optimized_program name)
 	get_property(bobopt_executable TARGET bobopt PROPERTY LOCATION)
 	
 	foreach (source ${sources_only})
-		add_custom_command(TARGET ${name}_generate COMMAND ${bobopt_executable} -build ${source})
+		add_custom_command(TARGET ${name}_optimize COMMAND ${bobopt_executable} -build ${source})
 	endforeach ()
 	
 	# optimized build
 	set_source_files_properties(${optimized_sources} PROPERTIES GENERATED true)
 	add_executable(${name}_optimized ${optimized_sources})
 	target_link_libraries(${name}_optimized bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
-	add_dependencies(${name}_optimized ${name}_generate)
+	add_dependencies(${name}_optimized ${name}_optimize)
 	
 	if (BOBOPT_FOLDERS)
 		set_property(TARGET ${name} PROPERTY FOLDER ${BENCHMARKS_FOLDER})
-		set_property(TARGET ${name}_generate PROPERTY FOLDER ${BENCHMARKS_FOLDER})
+		set_property(TARGET ${name}_optimize PROPERTY FOLDER ${BENCHMARKS_FOLDER})
 		set_property(TARGET ${name}_optimized PROPERTY FOLDER ${BENCHMARKS_FOLDER})
 	endif ()
 endmacro()
 
-# prefetch optimization method benchmarks.
+# prefetch optimization method benchmark.
 set(bobopt_benchmarks_prefetch_SOURCES
 	prefetch/bench_prefetch.hpp
 	prefetch/main.cpp
 	)
 
 add_optimized_program(bench_prefetch ${bobopt_benchmarks_prefetch_SOURCES})
+
+# yield optimization method benchmark.
+set(bobopt_benchmarks_yield_SOURCES
+	yield/bench_yield.hpp
+	yield/main.cpp
+	)
+
+add_optimized_program(bench_yield ${bobopt_benchmarks_yield_SOURCES})
