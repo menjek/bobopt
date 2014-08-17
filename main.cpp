@@ -132,12 +132,29 @@ opt_mode(llvm::cl::desc("Optimizer mode:"),
 
 int main(int argc, const char* argv[])
 {
+    // Simple parsing only '-g' parameter as CommonOptionsParser needs also
+    // at least one position argument as source file and of course its compilation
+    // database.
+    if ((argc == 3) && (std::string("-g") == argv[1]))
+    {
+        const std::string file_name = argv[2];
+
+        bobopt::config_parser parser;
+        if (!parser.save(file_name))
+        {
+            llvm::errs() << "Failed to save default configuration file to: " << file_name << '\n';
+            return 1;
+        }
+
+        return 0;
+    }
+
     llvm::cl::OptionCategory category("Tooling options");
     CommonOptionsParser options(argc, argv, category);
 
     if (opt_gen_config_file.getNumOccurrences() > 0)
     {
-        std::string file_name = opt_gen_config_file.c_str();
+        const std::string file_name = opt_gen_config_file.c_str();
 
         bobopt::config_parser parser;
         if (!parser.save(file_name))
