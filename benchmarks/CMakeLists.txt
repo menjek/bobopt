@@ -170,9 +170,9 @@ function(add_optimized_program name)
 	add_dependencies(${name}_optimized ${name}_optimize)
 	
 	if (BOBOPT_FOLDERS)
-		set_property(TARGET ${name} PROPERTY FOLDER ${BENCHMARKS_FOLDER})
-		set_property(TARGET ${name}_optimize PROPERTY FOLDER ${BENCHMARKS_FOLDER})
-		set_property(TARGET ${name}_optimized PROPERTY FOLDER ${BENCHMARKS_FOLDER})
+		set_property(TARGET ${name} PROPERTY FOLDER ${BENCHMARKS_FOLDER}/${name})
+		set_property(TARGET ${name}_optimize PROPERTY FOLDER ${BENCHMARKS_FOLDER}/${name})
+		set_property(TARGET ${name}_optimized PROPERTY FOLDER ${BENCHMARKS_FOLDER}/${name})
 	endif ()
 endfunction()
 
