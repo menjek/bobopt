@@ -171,15 +171,15 @@ namespace bobopt
             ///
             /// It looks for \c prefetched_envelope() calls in code that will be surely
             /// visited and collects input names that are prefetched.
-            class init_collector : public control_flow_search<init_collector, std::string>
+            class prefetch_collector : public control_flow_search<prefetch_collector, std::string>
             {
             public:
 
                 /// \brief Type of base class.
-                typedef control_flow_search<init_collector, std::string> base_type;
+                typedef control_flow_search<prefetch_collector, std::string> base_type;
 
                 /// \brief Construct using AST context.
-                explicit init_collector(ASTContext* context = nullptr) : base_type(context)
+                explicit prefetch_collector(ASTContext* context = nullptr) : base_type(context)
                 {
                 }
 
@@ -187,9 +187,9 @@ namespace bobopt
                 /// \brief Function member required by base class used to prototype current object.
                 ///
                 /// Object doesn't hold any state so prototyped object is just default constructed one.
-                init_collector prototype() const
+                prefetch_collector prototype() const
                 {
-                    return init_collector(base_type::context_);
+                    return prefetch_collector(base_type::context_);
                 }
 
                 /// \brief Function handles member call expressions.
@@ -296,10 +296,10 @@ namespace bobopt
             //==================================================================
 
             /// \brief Name of bobox box member to prefetch envelope of input.
-            const std::string init_collector::PREFETCH_NAME("prefetch_envelope");
+            const std::string prefetch_collector::PREFETCH_NAME("prefetch_envelope");
 
             /// \brief Name of bobox box input type name and argument of prefetch member function.
-            const std::string init_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
+            const std::string prefetch_collector::PREFETCH_ARG_TYPE_NAME("input_index_type");
 
             // body_collector definition.
             //==================================================================
@@ -310,17 +310,17 @@ namespace bobopt
             ///
             /// It looks for all input streams objects and expects input to be prefetched
             /// if \b any member function is called on input stream object.
-            class body_collector : public control_flow_search<body_collector, std::string>
+            class used_collector : public control_flow_search<used_collector, std::string>
             {
             public:
                 /// \brief Type of class base.
-                typedef control_flow_search<body_collector, std::string> base_type;
+                typedef control_flow_search<used_collector, std::string> base_type;
 
                 /// \brief Type of container for holding values. Inherited from base class.
                 typedef base_type::values_type values_type;
 
                 /// \brief Collector needs to be created with AST context.
-                explicit body_collector(ASTContext* context = nullptr, std::map<VarDecl*, CallExpr*> input = std::map<VarDecl*, CallExpr*>())
+                explicit used_collector(ASTContext* context = nullptr, std::map<VarDecl*, CallExpr*> input = std::map<VarDecl*, CallExpr*>())
                     : base_type(context)
                     , input_streams_(input)
                 {
@@ -328,9 +328,9 @@ namespace bobopt
 
                 /// \relates control_flow_search
                 /// \brief New object should inherite list of defined input streams and associated inputs.
-                BOBOPT_INLINE body_collector prototype() const
+                BOBOPT_INLINE used_collector prototype() const
                 {
-                    return body_collector(base_type::context_, input_streams_);
+                    return used_collector(base_type::context_, input_streams_);
                 }
 
                 /// \brief Looking up bobox::input_stream<> variables definitions.
@@ -507,10 +507,10 @@ namespace bobopt
             //==================================================================
 
             /// \brief Name of input stream variable type.
-            const std::string body_collector::INPUT_STREAM_TYPE_NAME("bobox::input_stream<>");
+            const std::string used_collector::INPUT_STREAM_TYPE_NAME("bobox::input_stream<>");
 
             /// \brief Matcher for call to static inputs::name() function.
-            const StatementMatcher body_collector::INPUT_INDEX_TYPE_CALL_MATCHER = callExpr(hasType(asString("input_index_type"))).bind("call_expr");
+            const StatementMatcher used_collector::INPUT_INDEX_TYPE_CALL_MATCHER = callExpr(hasType(asString("input_index_type"))).bind("call_expr");
 
         } // namespace detail
 
@@ -576,13 +576,13 @@ namespace bobopt
             }
 
             auto& context = get_optimizer().get_compiler().getASTContext();
-            detail::init_collector prefetched(&context);
+            detail::prefetch_collector prefetched(&context);
             if (!analyze_init(prefetched))
             {
                 return;
             }
 
-            detail::body_collector used(&context);
+            detail::used_collector used(&context);
             analyze_sync(used);
             analyze_body(used);
 
@@ -712,7 +712,7 @@ namespace bobopt
         ///
         /// \param prefetched Reference to detail \link detail::init_collector init_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        bool prefetch::analyze_init(detail::init_collector& prefetched)
+        bool prefetch::analyze_init(detail::prefetch_collector& prefetched)
         {
             if (init_ == nullptr)
             {
@@ -743,7 +743,7 @@ namespace bobopt
         ///
         /// \param used Reference to detail \link detail::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        void prefetch::analyze_sync(detail::body_collector& used) const
+        void prefetch::analyze_sync(detail::used_collector& used) const
         {
             if (sync_ == nullptr)
             {
@@ -762,7 +762,7 @@ namespace bobopt
         ///
         /// \param used Reference to detail \link intenral::body_collector body_collector \endlink object.
         /// \return Returns whether optimization process should continue.
-        void prefetch::analyze_body(detail::body_collector& used) const
+        void prefetch::analyze_body(detail::used_collector& used) const
         {
             if (body_ == nullptr)
             {
@@ -795,7 +795,7 @@ namespace bobopt
         }
 
         /// \brief Filter inputs based on interaction with tool user.
-        prefetch::names_type prefetch::filter_names(const names_type& names, const detail::body_collector& used)
+        prefetch::names_type prefetch::filter_names(const names_type& names, const detail::used_collector& used)
         {
             if (!get_optimizer().verbose())
             {
@@ -847,7 +847,7 @@ namespace bobopt
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
         /// \param should_prefetch Holder of source locations for reasoning why inputs should be prefetched.
-        void prefetch::insert_into_body(const names_type& to_prefetch, const detail::body_collector& used)
+        void prefetch::insert_into_body(const names_type& to_prefetch, const detail::used_collector& used)
         {
             BOBOPT_ASSERT(init_ != nullptr);
             BOBOPT_ASSERT(init_->hasBody());
@@ -886,7 +886,7 @@ namespace bobopt
         }
 
         /// \brief Create overriden \c init_impl() implementation, calling base and prefetching input.
-        void prefetch::insert_init_impl(const names_type& to_prefetch, const detail::body_collector& used)
+        void prefetch::insert_init_impl(const names_type& to_prefetch, const detail::used_collector& used)
         {
             BOBOPT_ASSERT(init_ == nullptr);
 
@@ -937,7 +937,7 @@ namespace bobopt
             BOBOPT_ASSERT(body != nullptr);
             BOBOPT_ASSERT(!body->body_empty());
                         
-            detail::init_collector collector(&get_optimizer().get_compiler().getASTContext());
+            detail::prefetch_collector collector(&get_optimizer().get_compiler().getASTContext());
             collector.TraverseStmt(body);
             names_type used = collector.get_values();
 
