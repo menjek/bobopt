@@ -119,7 +119,7 @@ macro(exclude_headers out)
 	set(${out} ${result})
 endmacro()
 
-macro(add_optimized_program name)
+function(add_optimized_program name)
 	set(sources ${ARGN})
 	
 	# unoptimized version
@@ -160,7 +160,7 @@ macro(add_optimized_program name)
 	get_property(bobopt_executable TARGET bobopt PROPERTY LOCATION)
 	
 	foreach (source ${sources_only})
-		add_custom_command(TARGET ${name}_optimize COMMAND ${bobopt_executable} -build ${source})
+		add_custom_command(TARGET ${name}_optimize COMMAND ${bobopt_executable} ${bobotp_ADDITIONAL_ARGUMENTS} -build ${source})
 	endforeach ()
 	
 	# optimized build
@@ -174,7 +174,7 @@ macro(add_optimized_program name)
 		set_property(TARGET ${name}_optimize PROPERTY FOLDER ${BENCHMARKS_FOLDER})
 		set_property(TARGET ${name}_optimized PROPERTY FOLDER ${BENCHMARKS_FOLDER})
 	endif ()
-endmacro()
+endfunction()
 
 # prefetch optimization method benchmark.
 set(bobopt_benchmarks_prefetch_SOURCES
