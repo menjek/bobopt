@@ -970,15 +970,17 @@ namespace bobopt
         /// \brief Access input member function declaration to access input by name.
         CXXMethodDecl* prefetch::get_input(const std::string& name) const
         {
-            for (auto input : inputs_)
+            auto it = std::find_if(inputs_.begin(),
+                                   inputs_.end(),
+                                   [&](const CXXMethodDecl* decl)
+                                   { return decl->getNameAsString() == name; });
+
+            if (it == inputs_.end())
             {
-                if (input->getNameAsString() == name)
-                {
-                    return input;
-                }
+                return nullptr;
             }
 
-            return nullptr;
+            return *it;
         }
 
         /// \brief Emit header of box optimization.
