@@ -51,6 +51,7 @@
 // forward declarations:
 namespace clang
 {
+    class CompoundStmt;
     class CXXRecordDecl;
     class CXXMethodDecl;
 }
@@ -116,8 +117,11 @@ namespace bobopt
             bool analyze_init(detail::init_collector& prefetched);
             void analyze_sync(detail::body_collector& used) const;
             void analyze_body(detail::body_collector& used) const;
+
+            names_type filter_names(const names_type& names, const detail::body_collector& used);
             void insert_into_body(const names_type& to_prefetch, const detail::body_collector& used);
             void insert_init_impl(const names_type& to_prefetch, const detail::body_collector& used);
+            void attach_to_body(const names_type& to_prefetch, clang::CompoundStmt* body);
 
             clang::CXXMethodDecl* get_input(const std::string& name) const;
 

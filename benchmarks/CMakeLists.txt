@@ -160,7 +160,7 @@ function(add_optimized_program name)
 	get_property(bobopt_executable TARGET bobopt PROPERTY LOCATION)
 	
 	foreach (source ${sources_only})
-		add_custom_command(TARGET ${name}_optimize COMMAND ${bobopt_executable} ${bobotp_ADDITIONAL_ARGUMENTS} -build ${source})
+		add_custom_command(TARGET ${name}_optimize COMMAND ${bobopt_executable} ${bobopt_ADDITIONAL_ARGUMENTS} -build ${source})
 	endforeach ()
 	
 	# optimized build
@@ -183,6 +183,16 @@ set(bobopt_benchmarks_prefetch_SOURCES
 	)
 
 add_optimized_program(bench_prefetch ${bobopt_benchmarks_prefetch_SOURCES})
+
+# prefetch optimization method with attachment to the end of bodies.
+set(bobopt_benchmarks_prefetch_attach_SOURCES
+	prefetch/bench_prefetch.hpp
+	prefetch/main.cpp
+	)
+
+set(bobopt_ADDITIONAL_ARGUMENTS -c ${CMAKE_CURRENT_SOURCE_DIR}/prefetch/attach.cfg)
+add_optimized_program(bench_prefetch_attach ${bobopt_benchmarks_prefetch_attach_SOURCES})
+set(bobopt_ADDITIONAL_ARGUMENTS)
 
 # yield optimization method benchmark.
 set(bobopt_benchmarks_yield_SOURCES

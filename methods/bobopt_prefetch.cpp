@@ -38,6 +38,13 @@ namespace bobopt
 
     namespace methods
     {
+        // Config.
+
+        /// \brief Configuration group name.
+        static config_group config("prefetch");
+        /// \brief Add prefetch calls to the end of box body execution. Helpful with stateless boxes.
+        static config_variable<bool> config_after_execution(config, "call_after_execution", false);
+
         // Constants.
         //======================================================================
 
@@ -611,6 +618,32 @@ namespace bobopt
                     insert_init_impl(to_prefetch_names, used);
                 }
             }
+
+            if (config_after_execution.get() && !used_names.empty())
+            {
+                const auto filtered = filter_names(to_prefetch_names, used);
+                used_names.insert(used_names.end(), filtered.begin(), filtered.end());
+                std::sort(used_names.begin(), used_names.end());
+                used_names.erase(std::unique(used_names.begin(), used_names.end()), used_names.end());
+
+                if ((sync_ != nullptr) && sync_->hasBody())
+                {
+                    CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(sync_->getBody());
+                    if ((body != nullptr) && !body->body_empty())
+                    {
+                        attach_to_body(used_names, body);
+                    }
+                }
+
+                if ((body_ != nullptr) && body_->hasBody())
+                {
+                    CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(body_->getBody());
+                    if ((body != nullptr) && !body->body_empty())
+                    {
+                        attach_to_body(used_names, body);
+                    }
+                }
+            }
         }
 
         /// \brief Prepare object to optimization.
@@ -744,6 +777,72 @@ namespace bobopt
             used.TraverseStmt(body_->getBody());
         }
 
+        /// \brief Create source code text with prefetch calls.
+        static std::string make_prefetch_code(const std::vector<std::string>& to_prefetch, const std::string& indentation, const std::string& endl)
+        {
+            static const std::string name_prolog = "prefetch_envelope(inputs::";
+            static const std::string name_epilog = "());";
+
+            std::string code;
+            code.reserve(to_prefetch.size() * (name_prolog.size() + name_epilog.size() + indentation.size() + endl.size()));
+
+            for (auto name : to_prefetch)
+            {
+                code += indentation + name_prolog + name + name_epilog + endl;
+            }
+
+            return code;
+        }
+
+        /// \brief Filter inputs based on interaction with tool user.
+        prefetch::names_type prefetch::filter_names(const names_type& names, const detail::body_collector& used)
+        {
+            if (!get_optimizer().verbose())
+            {
+                return names;
+            }
+
+            names_type filtered;
+            filtered.reserve(names.size());
+
+            auto& diag = get_optimizer().get_diagnostic();
+            for (const auto& name : names)
+            {
+                CXXMethodDecl* decl = get_input(name);
+                BOBOPT_ASSERT(decl != nullptr);
+
+                emit_input_declaration(decl);
+
+                auto locations = used.get_locations(name);
+                for (const auto& location : locations)
+                {
+                    BOBOPT_ASSERT(location.get<CallExpr>() != nullptr);
+                    diag.emit(diag.get_message_stmt(diagnostic_message::info, location.get<CallExpr>(), "used here:"));
+                }
+                llvm::outs() << endl_;
+
+                if (init_ != nullptr)
+                {
+                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, init_, "prefetch input in init:"));
+                }
+                else
+                {
+                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, box_, "override init_impl() in box with prefetch call(s):"));
+                }
+
+                if (get_optimizer().get_mode() == MODE_INTERACTIVE)
+                {
+                    if (ask_yesno("Do you wish to prefetch this input?"))
+                    {
+                        filtered.emplace_back(name);
+                    }
+                    llvm::outs() << endl_ << endl_;
+                }
+            }
+
+            return filtered;
+        }
+
         /// \brief Insert prefetch calls to overriden \c init_impl() member function.
         ///
         /// \param to_prefetch Names of inputs to be prefetched.
@@ -756,166 +855,116 @@ namespace bobopt
             CompoundStmt* body = llvm::dyn_cast_or_null<CompoundStmt>(init_->getBody());
             BOBOPT_ASSERT(body != nullptr);
 
+            if (get_optimizer().verbose())
+            {
+                emit_header();
+                emit_box_declaration();
+            }
+
+            const auto filtered = filter_names(to_prefetch, used);
+            if (filtered.empty())
+            {
+                return;
+            }
+
             std::string body_indent;
             SourceManager& sm = get_optimizer().get_compiler().getSourceManager();
+            endl_ = detect_line_end(sm, box_);
             if (body->body_empty())
             {
-                line_indent_ = detect_line_indent(sm, box_);
-                body_indent = decl_indent(sm, init_) + line_indent_;
+                body_indent = decl_indent(sm, init_) + detect_line_indent(sm, box_);
             }
             else
             {
                 body_indent = stmt_indent(sm, body->body_back());
             }
 
-            const bool verbose = get_optimizer().verbose();
-            if (verbose)
-            {
-                emit_header();
-                emit_box_declaration();
-            }
-
-            bool update_source = false;
-
-            endl_ = detect_line_end(sm, box_);
-
-            std::string prefetch_source;
-            const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
-            for (auto named_input : to_prefetch)
-            {
-                CXXMethodDecl* input_decl = get_input(named_input);
-                BOBOPT_ASSERT(input_decl != nullptr);
-
-                std::stringstream convertor;
-                convertor << used.get_min_max(named_input).first;
-                std::string arg2;
-                convertor >> arg2;
-
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
-                if (verbose)
-                {
-                    emit_input_declaration(input_decl);
-
-                    auto locations = used.get_locations(named_input);
-                    for (auto location : locations)
-                    {
-                        const CallExpr* call_expr = location.get<CallExpr>();
-                        BOBOPT_ASSERT(call_expr != nullptr);
-
-                        diag.emit(diag.get_message_stmt(diagnostic_message::info, call_expr, "used here:"));
-                    }
-                    llvm::outs() << endl_;
-
-                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, init_, "prefetch input in init:"));
-
-                    if (get_optimizer().get_mode() == MODE_INTERACTIVE)
-                    {
-                        if (ask_yesno("Do you wish to add call?"))
-                        {
-                            update_source = true;
-                            prefetch_source += endl_ + body_indent + prefetch_call_source;
-                        }
-
-                        llvm::outs() << endl_ << endl_;
-                    }
-                }
-                else
-                {
-                    prefetch_source += endl_ + body_indent + prefetch_call_source;
-                }
-            }
-
-            if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
-            {
-                if (!body->body_empty())
-                {
-                    prefetch_source += endl_;
-                }
-
-                SourceLocation location = Lexer::getLocForEndOfToken(body->getLBracLoc(), 0, sm, get_optimizer().get_compiler().getLangOpts());
-                replacements_->insert(Replacement(sm, location, 0, prefetch_source));
-            }
+            std::string code = endl_;
+            code += make_prefetch_code(filtered, body_indent, endl_);
+            const SourceLocation location = Lexer::getLocForEndOfToken(body->getLBracLoc(), 0, sm, get_optimizer().get_compiler().getLangOpts());
+            replacements_->insert(Replacement(sm, location, 0, code));
         }
 
         /// \brief Create overriden \c init_impl() implementation, calling base and prefetching input.
         void prefetch::insert_init_impl(const names_type& to_prefetch, const detail::body_collector& used)
         {
-            auto& sm = get_optimizer().get_compiler().getSourceManager();
+            BOBOPT_ASSERT(init_ == nullptr);
 
-            const std::string declaration = "virtual void init_impl()";
-            line_indent_ = detect_line_indent(sm, box_);
-            decl_indent_ = detect_method_decl_indent(sm, box_);
-            endl_ = detect_line_end(sm, box_);
-
-            const bool verbose = get_optimizer().verbose();
-
-            if (verbose)
+            if (get_optimizer().verbose())
             {
                 emit_header();
                 emit_box_declaration();
             }
 
-            const std::string box_indent_ = decl_indent(sm, box_);
+            const auto filtered = filter_names(to_prefetch, used);
+            if (filtered.empty())
+            {
+                return;
+            }
+
+            static const std::string declaration = "virtual void init_impl()";
+
+            auto& sm = get_optimizer().get_compiler().getSourceManager();
+            decl_indent_ = detect_method_decl_indent(sm, box_);
+            line_indent_ = detect_line_indent(sm, box_);
+            endl_ = detect_line_end(sm, box_);
+
+            const std::string box_indent = decl_indent(sm, box_);
             const std::string body_indent = decl_indent_ + line_indent_;
-            std::string implementation = box_indent_ + "protected:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
 
-            bool update_source = false;
+            auto implementation = box_indent + "protected:" + endl_ + decl_indent_ + declaration + endl_ + decl_indent_ + '{' + endl_;
+            implementation += make_prefetch_code(filtered, body_indent, endl_);
 
-            const diagnostic& diag = basic_method::get_optimizer().get_diagnostic();
-            for (const auto& named_input : to_prefetch)
+            BOBOPT_ASSERT(base_init_ != nullptr);
+            if (base_init_->getParent() != get_optimizer().get_bobox_box())
             {
-                CXXMethodDecl* input_decl = get_input(named_input);
-                BOBOPT_ASSERT(input_decl != nullptr);
-
-                std::stringstream convertor;
-                convertor << used.get_min_max(named_input).first;
-                std::string arg2;
-                convertor >> arg2;
-
-                const std::string prefetch_call_source = "prefetch_envelope(inputs::" + named_input + "());";
-                if (verbose)
-                {
-                    emit_input_declaration(input_decl);
-
-                    auto locations = used.get_locations(named_input);
-                    for (auto location : locations)
-                    {
-                        const CallExpr* call_expr = location.get<CallExpr>();
-                        BOBOPT_ASSERT(call_expr != nullptr);
-
-                        diag.emit(diag.get_message_stmt(diagnostic_message::info, call_expr, "used here:"));
-                    }
-                    llvm::outs() << endl_;
-                    diag.emit(diag.get_message_decl(diagnostic_message::suggestion, box_, "override init_impl() in box with prefetch call(s):"));
-
-                    if (get_optimizer().get_mode() == MODE_INTERACTIVE)
-                    {
-                        if (ask_yesno("Do you wish to add call to newly created init_impl()?"))
-                        {
-                            update_source = true;
-                            implementation += body_indent + prefetch_call_source + endl_;
-                        }
-                    }
-                }
-                else
-                {
-                    implementation += body_indent + prefetch_call_source + endl_;
-                }
+                implementation += body_indent + base_init_->getParent()->getQualifiedNameAsString() + "::init_impl();" + endl_;
             }
 
-            if (update_source || (get_optimizer().get_mode() == MODE_BUILD))
+            implementation += decl_indent_ + "}" + endl_;
+            replacements_->insert(Replacement(sm, box_->getRBraceLoc(), 0, implementation));
+        }
+
+        /// \brief In case of stateless boxes, objects are reused but init_impl is not called
+        /// Thus, it is efficient to prefetch inputs at the end of body calls.
+        void prefetch::attach_to_body(const names_type& to_prefetch, CompoundStmt* body)
+        {
+            if (to_prefetch.empty())
             {
-                BOBOPT_ASSERT(base_init_ != nullptr);
-                if (base_init_->getParent() != get_optimizer().get_bobox_box())
-                {
-                    implementation += body_indent + base_init_->getParent()->getQualifiedNameAsString() + "::init_impl();" + endl_;
-                }
-
-                implementation += decl_indent_ + "}" + endl_;
-
-                SourceLocation location = box_->getRBraceLoc();
-                replacements_->insert(Replacement(sm, location, 0, implementation));
+                return;
             }
+
+            BOBOPT_ASSERT(body != nullptr);
+            BOBOPT_ASSERT(!body->body_empty());
+                        
+            detail::init_collector collector(&get_optimizer().get_compiler().getASTContext());
+            collector.TraverseStmt(body);
+            names_type used = collector.get_values();
+
+            names_type result;
+            result.reserve(to_prefetch.size());
+
+            std::set_difference(std::begin(to_prefetch),
+                                std::end(to_prefetch), // A
+                                std::begin(used),
+                                std::end(used),            // B
+                                std::back_inserter(result) // A - B
+                                );
+
+            if (result.empty())
+            {
+                return;
+            }
+
+            SourceManager& sm = get_optimizer().get_compiler().getSourceManager();
+            endl_ = detect_line_end(sm, box_);
+            const std::string body_indent = stmt_indent(sm, body->body_back());
+            const std::string rbrac_indent = location_indent(sm, body->getRBracLoc());
+
+            std::string code = endl_;
+            code += make_prefetch_code(result, body_indent, endl_);
+            code += rbrac_indent;
+            replacements_->insert(Replacement(sm, body->getRBracLoc(), 0, code));
         }
 
         /// \brief Access input member function declaration to access input by name.
