@@ -38,7 +38,7 @@ namespace bobopt
 
             BOBOX_ASSERT(pop_envelope(inputs::main())->is_poisoned());
 
-            for (unsigned i = 0u; i <= TEST_SIZE; ++i)
+            for (unsigned i = 0u; i < TEST_SIZE; ++i)
             {
                 BENCH_LOG_MEMFUNC_MSG("Started to work.");
 
@@ -60,6 +60,8 @@ namespace bobopt
                 bench_send_envelope(this, outputs::out5(), i);
                 bench_send_envelope(this, outputs::out6(), i);
                 bench_send_envelope(this, outputs::out7(), i);
+
+                do_little_work();
 
                 // let others calculate.
                 yield();
@@ -103,6 +105,11 @@ namespace bobopt
 
             auto env = pop_envelope(inputs::main());
             BOBOPT_UNUSED_EXPRESSION(env);
+
+            if (env->is_poisoned())
+            {
+                return;
+            }
 
             // Simulate hard work for the first sequential task.
             for (unsigned int i = 0; i < 1; ++i)
