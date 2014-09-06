@@ -8,12 +8,12 @@
 
 #include <clang/bobopt_clang_prolog.hpp>
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/type_traits.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <string>
 #include <vector>
+#include <type_traits>
 
 namespace clang
 {
@@ -188,9 +188,9 @@ namespace bobopt
     template <typename NodeT>
     class nodes_collector<
         NodeT,
-        typename llvm::enable_if<llvm::is_base_of<clang::Decl, NodeT> >::
+        typename std::enable_if<std::is_base_of<clang::Decl, NodeT>::value >::
             type> : public detail::basic_nodes_collector<NodeT>,
-                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Decl, NodeT> >::type> >
+                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename std::enable_if<std::is_base_of<clang::Decl, NodeT>::value >::type> >
     {
     public:
         typedef detail::basic_nodes_collector<NodeT> base_class;
@@ -210,9 +210,9 @@ namespace bobopt
     template <typename NodeT>
     class nodes_collector<
         NodeT,
-        typename llvm::enable_if<llvm::is_base_of<clang::Stmt, NodeT> >::
+        typename std::enable_if<std::is_base_of<clang::Stmt, NodeT>::value >::
             type> : public detail::basic_nodes_collector<NodeT>,
-                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Stmt, NodeT> >::type> >
+                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename std::enable_if<std::is_base_of<clang::Stmt, NodeT>::value >::type> >
     {
     public:
         typedef detail::basic_nodes_collector<NodeT> base_class;
@@ -232,9 +232,9 @@ namespace bobopt
     template <typename NodeT>
     class nodes_collector<
         NodeT,
-        typename llvm::enable_if<llvm::is_base_of<clang::Type, NodeT> >::
+        typename std::enable_if<std::is_base_of<clang::Type, NodeT>::value >::
             type> : public detail::basic_nodes_collector<NodeT>,
-                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename llvm::enable_if<llvm::is_base_of<clang::Type, NodeT> >::type> >
+                    public clang::RecursiveASTVisitor<nodes_collector<NodeT, typename std::enable_if<std::is_base_of<clang::Type, NodeT>::value >::type> >
     {
     public:
         typedef detail::basic_nodes_collector<NodeT> base_class;
