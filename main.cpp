@@ -10,6 +10,7 @@
 #include <clang/bobopt_clang_epilog.hpp>
 
 #include <cstdarg>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -51,7 +52,7 @@ namespace bobopt
             virtual ~optimizer_frontend_action() BOBOPT_OVERRIDE;
 
             // inherited overriden members:
-            virtual ASTConsumer* CreateASTConsumer(clang::CompilerInstance& compiler_instance, StringRef) BOBOPT_OVERRIDE;
+            virtual std::unique_ptr<ASTConsumer> CreateASTConsumer(clang::CompilerInstance& compiler_instance, StringRef) BOBOPT_OVERRIDE;
 
         private:
             FactoryT* factory_;
@@ -81,7 +82,7 @@ namespace bobopt
 
     /// \brief Immediately pass pointer to \c clang::CompilerInstance to optimizer object and create consumer using factory object.
     template <typename FactoryT>
-    ASTConsumer* optimizer_frontend_action_factory<FactoryT>::optimizer_frontend_action::CreateASTConsumer(clang::CompilerInstance& compiler_instance,
+    std::unique_ptr<ASTConsumer> optimizer_frontend_action_factory<FactoryT>::optimizer_frontend_action::CreateASTConsumer(clang::CompilerInstance& compiler_instance,
                                                                                                            StringRef)
     {
         optimizer_->set_compiler(&compiler_instance);

@@ -140,8 +140,8 @@ find_libraries(clang_LIBRARIES clang
 	clangSema
 	clangStaticAnalyzerFrontend
 	clangStaticAnalyzerCore
+	clangRewrite
 	clangRewriteFrontend
-	clangRewriteCore
 	clangAnalysis
 	clangEdit
 	clangAST
