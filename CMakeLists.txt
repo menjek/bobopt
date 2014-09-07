@@ -37,18 +37,18 @@ endif ()
 # Clang
 set(clang_SUFFIX_PATH tools/clang/include)
 set(clang_HEADER ${clang_SUFFIX_PATH}/clang/Frontend/CompilerInstance.h)
-find_path(clang_INCLUDE_DIRS ${clang_HEADER})
-if (NOT clang_INCLUDE_DIRS)
+find_path(clang_SOURCE_DIRECTORY ${clang_HEADER})
+if (NOT clang_SOURCE_DIRECTORY)
 	message(FATAL_ERROR "Failed to find ${clang_HEADER}. Add path to CMAKE_PREFIX_PATH.")
 endif ()
-set(clang_INCLUDE_DIRS ${clang_INCLUDE_DIRS}/${clang_SUFFIX_PATH})
+set(clang_INCLUDE_DIRS ${clang_SOURCE_DIRECTORY}/${clang_SUFFIX_PATH})
 
 set(clang_BUILD_HEADER ${clang_SUFFIX_PATH}/clang/Config/config.h)
-find_path(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_HEADER})
-if (NOT clang_BUILD_INCLUDE_DIRS)
+find_path(clang_BUILD_DIRECTORY ${clang_BUILD_HEADER})
+if (NOT clang_BUILD_DIRECTORY)
 	message(FATAL_ERROR "Failed to find ${clang_BUILD_HEADER}. Add path to CMAKE_PREFIX_PATH.")
 endif ()
-set(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_INCLUDE_DIRS}/${clang_SUFFIX_PATH})
+set(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_DIRECTORY}/${clang_SUFFIX_PATH})
 
 #
 # Libraries

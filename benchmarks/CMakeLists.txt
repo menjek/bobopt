@@ -119,6 +119,18 @@ macro(exclude_headers out)
 	set(${out} ${result})
 endmacro()
 
+set(clang_VERSIONS
+	3.6.0
+	)
+
+foreach (v ${clang_VERSIONS})
+	find_path(clang_BUILD_DIRECTORY lib/clang/${v}/include/stddef.h)
+	if (NOT ${clang_BUILD_DIRECTORY} STREQUAL clang_BUILD_DIRECTORY-NOTFOUND)
+		set(clang_BUILD_INCLUDE_DIRS "${clang_BUILD_DIRECTORY}/lib/clang/${v}/include")
+		break()
+	endif ()
+endforeach ()
+
 function(add_optimized_program name)
 	set(sources ${ARGN})
 	
@@ -130,7 +142,7 @@ function(add_optimized_program name)
 	add_custom_target(${name}_optimize)
 	add_dependencies(${name}_optimize ${name} bobopt)
 	
-	set(optimized_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}_optimized/)
+	set(optimized_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}_optimized_sources/)
 	
 	# copy files to new directory
 	add_custom_command(TARGET ${name}_optimize COMMAND ${CMAKE_COMMAND} -E make_directory ${optimized_DIR})
@@ -144,6 +156,7 @@ function(add_optimized_program name)
 	
 	# generate compilation database
 	get_directory_property(include_dirs INCLUDE_DIRECTORIES)
+	list(APPEND include_dirs ${clang_BUILD_INCLUDE_DIRS})	
 	
 	exclude_headers(sources_only ${optimized_sources})
 	set(compilation_database ${optimized_DIR}/compile_commands.json)
