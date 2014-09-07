@@ -1,6 +1,8 @@
 project(bobopt)
 cmake_minimum_required(VERSION 2.6)
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/make/modules)
+
 set(CMAKE_SUPPRESS_REGENERATION true)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -14,123 +16,10 @@ if (UNIX)
 	set(bobopt_CXX_FLAGS "${bobopt_SHARED_FLAGS} -fno-rtti -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS")
 endif ()
 
-# Find Clang/LLVM headers + libraries.
-# It's up to CMake user to setup basic path to project (e.g using CMAKE_PREFIX_PATH)
-
-#
-# Headers.
-#
-
-# LLVM
-set(llvm_HEADER llvm/Support/raw_ostream.h)
-find_path(llvm_INCLUDE_DIRS ${llvm_HEADER})
-if (NOT llvm_INCLUDE_DIRS)
-	message(FATAL_ERROR "Failed to find ${llvm_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
-
-set(llvm_BUILD_HEADER llvm/Support/DataTypes.h)
-find_path(llvm_BUILD_INCLUDE_DIRS ${llvm_BUILD_HEADER})
-if (NOT llvm_BUILD_INCLUDE_DIRS)
-	message(FATAL_ERROR "Failed to find ${llvm_BUILD_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
-
 # Clang
-set(clang_SUFFIX_PATH tools/clang/include)
-set(clang_HEADER ${clang_SUFFIX_PATH}/clang/Frontend/CompilerInstance.h)
-find_path(clang_SOURCE_DIRECTORY ${clang_HEADER})
-if (NOT clang_SOURCE_DIRECTORY)
-	message(FATAL_ERROR "Failed to find ${clang_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
-set(clang_INCLUDE_DIRS ${clang_SOURCE_DIRECTORY}/${clang_SUFFIX_PATH})
+find_package(Clang REQUIRED)
 
-set(clang_BUILD_HEADER ${clang_SUFFIX_PATH}/clang/Config/config.h)
-find_path(clang_BUILD_DIRECTORY ${clang_BUILD_HEADER})
-if (NOT clang_BUILD_DIRECTORY)
-	message(FATAL_ERROR "Failed to find ${clang_BUILD_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
-set(clang_BUILD_INCLUDE_DIRS ${clang_BUILD_DIRECTORY}/${clang_SUFFIX_PATH})
-
-#
-# Libraries
-#
-
-# Helpers
-macro(find_libraries libs target)
-	if (MSVC)
-		set(prefix "")
-		set(extension ".lib")
-	endif ()
-
-	if (UNIX)
-		set(prefix "lib")
-		set(extension ".a")    
-	endif ()
-
-	set(debug_DIRS "Debug+Asserts/lib" "Debug/lib")
-	set(release_DIRS "Release+Asserts/lib" "Release/lib")
-
-	foreach (lib ${ARGN})
-	set(fullname ${prefix}${lib}${extension})
-
-	#
-	# Debug
-	#
-
-	# CMAKE_PREFIX_PATH based
-	foreach (dir ${debug_DIRS})
-		find_library(${target}_${lib}_DEBUG_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
-		if (${target}_${lib}_DEBUG_LIBRARY)
-			break()
-		endif ()
-	endforeach ()
-
-	# System based
-	if (NOT ${target}_${lib}_DEBUG_LIBRARY)
-		find_library(${target}_${lib}_DEBUG_LIBRARY ${fullname})
-	endif ()
-
-	#
-	# Release
-	#
-
-	# CMAKE_PREFIX_PATH based
-	foreach (dir ${release_DIRS})
-		find_library(${target}_${lib}_RELEASE_LIBRARY ${dir}/${fullname} NO_CMAKE_SYSTEM_PATH)
-		if (${target}_${lib}_RELEASE_LIBRARY)
-			break()
-		endif ()
-	endforeach ()
-
-	# System based
-	if (NOT ${target}_${lib}_RELEASE_LIBRARY)
-		find_library(${target}_${lib}_RELEASE_LIBRARY ${fullname})
-	endif ()
-
-	#
-	# Finish
-	#
-
-	if ((NOT ${target}_${lib}_DEBUG_LIBRARY) AND (NOT ${target}_${lib}_RELEASE_LIBRARY))
-		message(FATAL_ERROR "Clang/LLVM library ${lib} wasn't found. Add Clang/LLVM build dir to CMAKE_PREFIX_PATH.")
-	endif ()
-
-	# If there's no debug library, set debug library to release
-	if (NOT ${target}_${lib}_DEBUG_LIBRARY)
-		set(${target}_${lib}_DEBUG_LIBRARY ${${target}_${lib}_RELEASE_LIBRARY})
-	endif ()
-
-	# If there's no release library, set release library to debug
-	if (NOT ${target}_${lib}_RELEASE_LIBRARY)
-		set(${target}_${lib}_RELEASE_LIBRARY ${${target}_${lib}_DEBUG_LIBRARY})
-	endif ()
-
-	set(${target}_${lib}_LIBRARY optimized ${${target}_${lib}_RELEASE_LIBRARY} debug ${${target}_${lib}_DEBUG_LIBRARY})
-	list(APPEND ${libs} ${${target}_${lib}_LIBRARY})
-	endforeach ()
-endmacro(find_libraries)
-
-# Clang/LLVM
-find_libraries(clang_LIBRARIES clang
+set(clang_LIBRARIES
 	clangTooling
 	clangFrontendTool
 	clangFrontend
@@ -150,7 +39,7 @@ find_libraries(clang_LIBRARIES clang
 	clangBasic
 	)
   
-find_libraries(llvm_LIBRARIES llvm
+set(llvm_LIBRARIES
 	LLVMBitWriter
 	LLVMOption
 	LLVMMCParser
@@ -161,7 +50,7 @@ find_libraries(llvm_LIBRARIES llvm
 	LLVMSupport
 	)
 
-# Setup sources.
+# Sources
 set(bobopt_clang_SOURCES
 	clang/bobopt_clang_utils.cpp
 	clang/bobopt_clang_epilog.hpp
@@ -212,29 +101,32 @@ set(bobopt_SOURCES
 	)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${llvm_INCLUDE_DIRS} ${llvm_BUILD_INCLUDE_DIRS})
-include_directories(${clang_INCLUDE_DIRS} ${clang_BUILD_INCLUDE_DIRS})
+include_directories(${llvm_INCLUDE_DIRS})
+include_directories(${clang_INCLUDE_DIRS})
 
 if (UNIX)
 	set(llvm_SYSTEM_LIBRARIES -lz -lpthread -lffi -lcurses -ldl -lm)
 endif ()
 
+# Targets
 add_library(bobopt_core ${bobopt_root_SOURCES} ${bobopt_clang_SOURCES})
 set_target_properties(bobopt_core PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
-target_link_libraries(bobopt_core ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
+
 add_library(bobopt_methods ${bobopt_methods_SOURCES})
 set_target_properties(bobopt_methods PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
-target_link_libraries(bobopt_methods bobopt_core ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
 
 add_executable(bobopt main.cpp)
 set_target_properties(bobopt PROPERTIES COMPILE_FLAGS ${bobopt_CXX_FLAGS})
+target_link_libraries(bobopt bobopt_core bobopt_methods ${llvm_SYSTEM_LIBRARIES})
+target_link_llvm(bobopt ${llvm_LIBRARIES})
+target_link_clang(bobopt ${clang_LIBRARIES})
 
 if (BOBOPT_FOLDERS)
 	source_group("clang" FILES ${bobopt_clang_SOURCES})
 	source_group("" FILES ${bobopt_root_SOURCES})
 endif ()
 
-target_link_libraries(bobopt bobopt_core bobopt_methods ${llvm_SYSTEM_LIBRARIES} ${clang_LIBRARIES} ${llvm_LIBRARIES})
+# Benchmarks
 
 set(BUILD_BENCHMARKS true CACHE BOOL "Build unit tests for optimization methods.")
 

@@ -1,14 +1,5 @@
 set(BENCHMARKS_FOLDER "benchmarks")
 
-# 32 vs 64
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(BUILD_PLATFORM 64)
-    set(BUILD_PLATFORM_NAME "x64")
-else ()
-    set(BUILD_PLATFORM 32)
-    set(BUILD_PLATFORM_NAME "x86")
-endif ()
-
 if (MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${bobopt_SHARED_FLAGS}")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd /DBOBOX_DEBUG /D_DEBUG")
@@ -24,77 +15,9 @@ else ()
 endif ()
 
 # bobox
-set(bobox_HEADER boback/h/bobox_basic_box.hpp)
-find_path(bobox_ROOT_DIR NAMES ${bobox_HEADER})
-if (NOT bobox_ROOT_DIR)
-	message(FATAL_ERROR "Failed to find ${bobox_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../make/modules)
 
-set(bobox_INCLUDE_DIRS ${bobox_ROOT_DIR}/boback/h)
-
-if (MSVC)
-	if (BUILD_PLATFORM EQUAL 64)
-		file(GLOB bobox_LIBRARY_DEBUG "${bobox_ROOT_DIR}/boback/lib/*x64.*.md.lib")
-		file(GLOB bobox_LIBRARY_RELEASE "${bobox_ROOT_DIR}/boback/lib/*x64.*.mr.lib")
-	else ()
-		file(GLOB bobox_LIBRARY_DEBUG "${bobox_ROOT_DIR}/boback/lib/*ia32.*.md.lib")
-		file(GLOB bobox_LIBRARY_RELEASE "${bobox_ROOT_DIR}/boback/lib/*ia32.*.mr.lib")
-	endif ()
-elseif (UNIX)
-	find_file(bobox_LIBRARY_DEBUG "boback/lib/debug/boback.a")
-	find_file(bobox_LIBRARY_RELEASE "boback/lib/release/boback.a")
-endif ()
-
-if ((NOT bobox_LIBRARY_DEBUG) AND (NOT bobox_LIBRARY_RELEASE))
-	message(FATAL_ERROR "No Bobox library found in: ${bobox_ROOT_DIR}/boback/lib/")
-endif ()
-
-if (NOT bobox_LIBRARY_DEBUG)
-	set(bobox_LIBRARY_DEBUG ${bobox_LIBRARY_RELEASE})
-endif ()
-
-if (NOT bobox_LIBRARY_RELEASE)
-	set(bobox_LIBRARY_RELEASE ${bobox_LIBRARY_DEBUG})
-endif ()
-
-set(bobox_LIBRARY optimized ${bobox_LIBRARY_RELEASE} debug ${bobox_LIBRARY_DEBUG})
-
-# ulibpp
-set(ulibpp_HEADER h/upp_fiber.hpp)
-find_path(ulibpp_ROOT_DIR NAMES ${ulibpp_HEADER})
-if (NOT ulibpp_ROOT_DIR)
-	message(FATAL_ERROR "Failed to find ${ulibpp_HEADER}. Add path to CMAKE_PREFIX_PATH.")
-endif ()
-
-set(ulibpp_INCLUDE_DIRS ${ulibpp_ROOT_DIR}/h)
-
-if (MSVC)
-    if (BUILD_PLATFORM EQUAL 64)
-        file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*x64.*.md.lib")
-	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*x64.*.mr.lib")
-    else ()
-	file(GLOB ulibpp_LIBRARY_DEBUG "${ulibpp_ROOT_DIR}/lib/*ia32.*.md.lib")
-	file(GLOB ulibpp_LIBRARY_RELEASE "${ulibpp_ROOT_DIR}/lib/*ia32.*.mr.lib")
-    endif ()
-elseif (UNIX)
-    find_file(ulibpp_LIBRARY_DEBUG "/lib/debug/ulibpp.a")
-    find_file(ulibpp_LIBRARY_RELEASE "/lib/release/ulibpp.a")
-endif ()
-
-if ((NOT ulibpp_LIBRARY_DEBUG) AND (NOT ulibpp_LIBRARY_RELEASE))
-	message(FATAL_ERROR "No ulibpp library found in: ${ulibpp_ROOT_DIR}/lib/")
-endif ()
-
-if (NOT ulibpp_LIBRARY_DEBUG)
-	set(ulibpp_LIBRARY_DEBUG ${ulibpp_LIBRARY_RELEASE})
-endif ()
-
-if (NOT ulibpp_LIBRARY_RELEASE)
-	set(ulibpp_LIBRARY_RELEASE ${ulibpp_LIBRARY_DEBUG})
-endif ()
-
-set(ulibpp_LIBRARY optimized ${ulibpp_LIBRARY_RELEASE} debug ${ulibpp_LIBRARY_DEBUG})
-
+find_package(Bobox REQUIRED)
 include_directories(${bobox_INCLUDE_DIRS} ${ulibpp_INCLUDE_DIRS})
 
 # bench utils library
@@ -136,7 +59,7 @@ function(add_optimized_program name)
 	
 	# unoptimized version
 	add_executable(${name} ${sources})
-	target_link_libraries(${name} bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
+	target_link_libraries(${name} bench_utils ${bobox_LIBRARIES} ${ulibpp_LIBRARIES})
 	
 	# generate target for optimized build
 	add_custom_target(${name}_optimize)
@@ -179,7 +102,7 @@ function(add_optimized_program name)
 	# optimized build
 	set_source_files_properties(${optimized_sources} PROPERTIES GENERATED true)
 	add_executable(${name}_optimized ${optimized_sources})
-	target_link_libraries(${name}_optimized bench_utils ${bobox_LIBRARY} ${ulibpp_LIBRARY})
+	target_link_libraries(${name}_optimized bench_utils ${bobox_LIBRARIES} ${ulibpp_LIBRARIES})
 	add_dependencies(${name}_optimized ${name}_optimize)
 	
 	if (BOBOPT_FOLDERS)
