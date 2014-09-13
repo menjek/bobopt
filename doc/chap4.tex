@@ -78,7 +78,7 @@ BOBOX_BOX_INPUTS_LIST(left,0, right,1);
 \end{verbatim}
 \end{figure}
 
-The tool diagnostic is aware of macro expansions, see figure \ref{modes-output}. Yet, it does not show the whole stack of a macro expansion as the Clang diagnostic does. It outputs spelling locations only.
+The tool diagnostic is aware of macro expansions, see figure \ref{modes-output}. Yet, it does not show the whole stack of a macro expansion as the Clang diagnostic does. It outputs spelling locations only. The output specific for the prefetch optimization methods is described in details in the appendix \ref{output-prefetch}. The output specific for the yield complex optimization method is described in the appendix \ref{output-yield}.
 
 \section{The coding style detection}
 The optimizer injects new code the way it tries to follow a coding style as much as possible. An indentation is probably the most visible property of a coding style. Many indent styles have evolved over time. The currently implemented optimization methods try to follow the style of whitespace characters on the beginning of a line only.

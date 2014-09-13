@@ -53,17 +53,17 @@ The implementation of a task is straightforward for the C++ programmer using onl
 
 \begin{lstlisting}[caption={An example of the Bobolang usage.}, label={bobox-bobolang}]
 model main<()><()> {
-	bobox::broadcast<()><(),()> broadcast;
-	Source<()><(int)> source1(odd=true), source2(odd=false);
-	Merge <(int),(int)><(int)> merge;
-	Sink <(int)><()> sink;
+    bobox::broadcast<()><(),()> broadcast;
+    Source<()><(int)> source1(odd=true), source2(odd=false);
+    Merge <(int),(int)><(int)> merge;
+    Sink <(int)><()> sink;
 	
-	input -> broadcast;
-	broadcast[0] -> source1;
-	broadcast[1] -> source2;
-	source1 -> [left]merge;
-	source2 -> [right]merge;
-	merge -> sink -> output;
+    input -> broadcast;
+    broadcast[0] -> source1;
+    broadcast[1] -> source2;
+    source1 -> [left]merge;
+    source2 -> [right]merge;
+    merge -> sink -> output;
 }
 \end{lstlisting}
 
