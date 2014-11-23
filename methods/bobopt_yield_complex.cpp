@@ -56,7 +56,7 @@ namespace bobopt
         /// \brief Multiplier for body complexity of for loop.
         static config_variable<unsigned> config_multiplier_for(config, "multiplier_for", 5u);
         /// \brief Multiplier for body complexity of while and do/while loops.
-        static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 10u);
+        static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 15u);
 
         /// \brief Optimal complexity for box execution.
         /// It is equivalent of 2 inner for loops with 2 calls to not inlined non trivial function rounded up in tens of thousands.
