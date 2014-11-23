@@ -45,22 +45,22 @@ namespace bobopt
         /// \brief Configuration group name.
         static config_group config("yield complex");
         /// \brief Complexity of not inlined non trivial call. Call defined probably in different TU.
-        static config_variable<unsigned> config_call_default_complexity(config, "call_default_complexity", 25u);
+        static config_variable<unsigned> config_call_default_complexity(config, "call_default_complexity", 40u);
         /// \brief Complexity of trivial call. Trivial function is function that doesn't require code generation, i.e., body is empty.
-        static config_variable<unsigned> config_call_trivial_complexity(config, "call_trivial_complexity", 1u);
+        static config_variable<unsigned> config_call_trivial_complexity(config, "call_trivial_complexity", 0u);
         /// \brief Complexity of function defined as inline. User should be carefull with inline keyword.
-        static config_variable<unsigned> config_call_inline_complexity(config, "call_inline_complexity", 5u);
+        static config_variable<unsigned> config_call_inline_complexity(config, "call_inline_complexity", 10u);
         /// \brief Complexity of contexpr function call. Call is resolved at compile time.
-        static config_variable<unsigned> config_call_constexpr_complexity(config, "call_constexpr_complexity", 1u);
+        static config_variable<unsigned> config_call_constexpr_complexity(config, "call_constexpr_complexity", 0u);
 
         /// \brief Multiplier for body complexity of for loop.
-        static config_variable<unsigned> config_multiplier_for(config, "multiplier_for", 20u);
+        static config_variable<unsigned> config_multiplier_for(config, "multiplier_for", 5u);
         /// \brief Multiplier for body complexity of while and do/while loops.
-        static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 25u);
+        static config_variable<unsigned> config_multiplier_while(config, "multiplier_while", 10u);
 
         /// \brief Optimal complexity for box execution.
-        /// It is equivalent of 2 inner for loops with 2 calls to not inlined non trivial function (20*20*2*25 = 50000).
-        static config_variable<unsigned> config_threshold(config, "threshold", 20000u);
+        /// It is equivalent of 2 inner for loops with 2 calls to not inlined non trivial function rounded up in tens of thousands.
+        static config_variable<unsigned> config_threshold(config, "threshold", 2000u);
 
         /// \brief Enable insertion of yield before all function calls from predefined set of functions.
         static config_variable<bool> config_yield_predefined(config, "yield_predefined", false);
