@@ -18,9 +18,9 @@ Class.OptimizerAction("optimizer_frontend_action")
 	("-factory : FactoryT", "-optimizer : optimizer")
 	();
 	
-Note.A("This is private", "local class.");
+Note.A("This is a private", "local class.");
 
-Note.B("Place where", "CompilerInstance", "is caught");
+Note.B("The place where the", "CompilerInstance", "object is caught");
 	
 topToBottom(30)(FrontendActionFactory, OptimizerFactory, OptimizerAction, FrontendAction);
 

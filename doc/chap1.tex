@@ -1,55 +1,57 @@
 \chapter{Bobox}
-Nowadays, an increasing performance comes with an increasing number of computational units due to reaching to physical limits of current technologies. Parallel programming becomes more and more essential in a development of performance expensive software to use all the silicon hardware provides. The thread-based approach to achieve parallelism creates a lot of complexity for a programmer to maintain and it is also not well scalable. It becomes important to abstract the underlying parallel environment to a programmer. The Bobox framework \cite{bobox} addresses this issue by providing an interface for task-based parallel programming. Such approach relieves a programmer of handling thread-based programming problems such as synchronization, the most technical details (e.g. cache hierarchy, CPU architecture) and communication. Apart from that, task-based programming also allows better hardware utilization.
+Nowadays, an increasing performance comes with an increasing number of computational units due to reaching to physical limits of current technologies. Parallel programming becomes more and more essential in a development of performance expensive software to use all the silicon hardware provides. The thread-based approach to achieve parallelism creates a lot of complexity for a programmer to maintain and it is also not well scalable. It becomes important to abstract the underlying parallel environment to a programmer. The Bobox framework~\cite{bobox-4, bobox} addresses this issue by providing an interface for task-based parallel programming. Such approach relieves a programmer of handling thread-based programming problems such as synchronization, most technical details (e.g., cache hierarchy, CPU architecture) and communication. Apart from that, task-based programming also allows a better hardware utilization.
 
-The implementation of the Bobox framework sacrifices generality to a better performance in a certain class of problems, particularly data processing problems. Without further details, under the hood, it is implemented with a fixed number of worker threads, each one with own scheduler, two task queues for every computational unit for a better utilization of CPU caches, using the task stealing mechanism. Communication between tasks uses a column-based data model, the most significant implementation detail that favour data processing problems. Each task has zero or more inputs and zero or more outputs. A single output can be connected to zero or more inputs. A task is scheduled to be executed when it has an unprocessed input.
+According to Bednárek et al.~\cite{bobox-1}, the Bobox framework is \textit{"more useful for data processing scenarios, like database query evaluation or stream processing"}. Without further details, under the hood, the framework is implemented with a fixed number of worker threads, each one with own scheduler, two task queues for every computational unit for a better utilization of CPU caches, using the task stealing mechanism. Communication between tasks uses a column-based data model, the most significant implementation detail that favors data processing problems. Each task has zero or more inputs and zero or more outputs. A single output can be connected to zero or more inputs. A task is scheduled to be executed when it has an unprocessed input.
 
-The Bobox framework provides a C++ library as interface to its runtime environment. A task granularity is represented by classes derived from the Bobox base class for a task, called \emph{box}.
+The Bobox framework provides a C++ library as the interface to its runtime environment. A task granularity is represented by classes derived from the Bobox base class for a task called \emph{box}.
 
-\section{Design and Terminology}
-The runtime environment handles implementation details of the task-based parallel environment such as scheduling and parallel execution of tasks, data transport and control flow. A programmer uses declarative way to provide the environment \emph{model} which defines the way individual tasks are interconnected. Model is used to create \emph{model instance} which is the base for the creation of \emph{user request}. User request contains only a very little additional information to model instance.
+\section{Design and terminology}
+\label{bobox-terminology}
+The runtime environment handles implementation details of the task-based parallel environment such as scheduling and the parallel execution of tasks, data transport and the control flow. A programmer uses a declarative way to provide the environment with \emph{model} which defines the way individual tasks are interconnected. Model is used to create \emph{model instance} which is the base for a creation of \emph{user request}. User request contains only very little additional information to model instance.
 
 After a programmer provides user request to the environment, he has no longer control over its execution. The framework provides only information whether it has finished an execution of the request. Provided user request is divided into individual tasks. When a task is ready to be executed, it is added to the task pool. A worker thread then retrieves a task from the task pool and invokes it.
 
-The basic element of model instance is an element representing a task called \emph{box}.  As already mentioned, every box has zero or more inputs and zero or more outputs. In every model instance, there is a special box called \emph{initialization box}. This box is responsible for the creation of initialization input data of other boxes in model. It is executed at the beginning of a request evaluation and its only goal is to send data to its only output.
+The basic element of model instance is an element representing a task, called \emph{box}. In every model instance, there is a special box called \emph{initialization box}. This box is responsible for the creation of initialization input data of other boxes in model. The framework executes this task at the beginning of a request evaluation and its only goal is to send data to its only output.
 
-Data is sent using \emph{envelope}, a column-based data structure. An empty envelope is a special type of envelope called \emph{poisoned pill}. When box receives poisoned pill on its input, it means there will be no more data sent to this input. All paths of model instances are required to end in another special type of box called \emph{termination box}. When this box receives poisoned pill, the execution is finished and the pipeline is deallocated.
+Data is sent using \emph{envelope}, a column-based data structure. An empty envelope is a special type of envelope called \emph{poisoned pill}. When box receives poisoned pill on its input, there will be no more data sent to this input. All paths of model instances are required to end in another special type of box called \emph{termination box}. When this box receives poisoned pill, the execution is finished and the pipeline is deallocated.
 
 \section{Boxes}
+\label{bobox-boxes}
 Boxes, as the representation of Bobox framework tasks, are executed in three steps.
 
 \begin{enumerate}
-\item The first step is \emph{prologue}, when box creates a snapshot of its inputs and stores it in member variables so user code can access it. Prologue communicates with the runtime environment and synchronization is necessary.
-\item The second step, called \emph{action}, is the main place for a user code execution. User code can communicate with the runtime environment using only specific member functions, e.g., it can send envelope to its output. This creates a transparent parallel environment to a programmer relieving him from issues related to a parallel execution.
-\item The last step is \emph{epilogue}. It handles scheduling of the next task based on two criteria. A task is scheduled again,
+\item The first step is \emph{prologue}, when box creates a snapshot of its inputs and stores this snapshot in member variables so user code can access it. Prologue communicates with the runtime environment and the synchronization is necessary.
+\item The second step called \emph{action} is the main place for a user code execution. User code can communicate with the runtime environment using only specific member functions, e.g., it can send envelope to its output. This approach creates a transparent parallel environment to a programmer, relieving him from issues related to the parallel execution.
+\item The last step is \emph{epilogue}. The step handles scheduling of the next task based on two criteria. A task is scheduled again,
 
 \begin{enumerate}
-\item if it has got unprocessed input and it has processed some input in the action step.
+\item if it has got an unprocessed input and it has processed some input in the action step.
 \item if it requested to be scheduled again.
 \end{enumerate}
 
-There is the reason why box is not scheduled again if it has got unprocessed input and it has not processed any input during the execution. It very likely waits for another input, e.g., join operation in a database when a task does not execute until it has data on both inputs. The possibility to explicitly request another scheduling is there for cases when single box creates a big output. A task should not be running a long time. It can create a big output thus congest internal buffers used for communication. A task running for a long time on a single worker thread can also create the bottleneck for a parallel execution when many other tasks wait for the input from this task.
+There is a reason why box is not scheduled again if it has got unprocessed input and it has not processed any input during the execution. It very likely waits for another input, e.g., the join operation in a database when a task does not execute until it has data on both inputs. The possibility to explicitly request another scheduling is there for cases when single box creates a big output. A task should not be running for a long time. It can create a big output thus congest internal buffers used for communication. A task running for a long time on a single worker thread can also create the bottleneck for a parallel execution when many other tasks wait for the input from this task.
 
 \end{enumerate}
 
-Boxes are the main object of the interest for optimizations, because they are the main place for user code. Based on a static analysis of the action step, additional code can be injected to hint Bobox internal facilities with information.
+Boxes are main objects of the interest for optimization, because they are the main place for user code. Based on a static analysis of the action step, additional code can be injected to provide Bobox internal facilities with information about the task.
 
 \section{Usage}
 \label{bobox-usage}
-To implement the Bobox task, a programmer has to inherit from the \code{basic\_box} base class. The action step is represented by one of virtual member functions from listing \ref{bobox-action-step}. A programmer is expected to override one of them.
+To implement a Bobox task, a programmer has to inherit from the \code{basic\_box} base class. The action step is represented by one of virtual member functions from Listing~\ref{bobox-action-step}. A programmer is expected to override one of them. The synchronous version is called when all prefetched envelopes are available. The asynchronous version is called when envelope on the input which is being listened is available.
 
-\begin{lstlisting}[caption={The code representation of the box action step.},label={bobox-action-step}]
+\begin{lstlisting}[caption={The code representations of the box action step.},label={bobox-action-step}]
 virtual void sync_body();
 virtual bool async_body(inarc_index_type inarc);
 \end{lstlisting}
 
-A programmer can also associate names to particular inputs and outputs using helper macros from the Bobox library, see listing \ref{bobox-macros}. One of implemented optimization methods identifies inputs by names.
+A programmer can also associate names to particular inputs and outputs using helper macros from the Bobox library, see Listing~\ref{bobox-macros}. Code is easier to comprehend and maintain when box inputs or outputs are referred by names instead of using indexes.
 
 \begin{lstlisting}[caption={Helper macros for mapping of names to inputs and outputs.},label={bobox-macros}]
 #define BOBOX_BOX_INPUTS_LIST(...)
 #define BOBOX_BOX_OUTPUTS_LIST(...)
 \end{lstlisting}
 
-The implementation of a task is straightforward for the C++ programmer using only C++ core language features. Unfortunately, C++ syntax is not handy to express a definition of whole execution model. It is definitely possible, but any approach using C++ syntax could be considered inferior to the approach using a different language and syntax in ease of definition and readability. The language developed to such purpose is called \emph{Bobolang} \cite{bobolang}. An example of a model definition is shown in listing \ref{bobox-bobolang}.
+The implementation of a task is straightforward for a C++ programmer using only C++ core language features. Unfortunately, C++ syntax is not handy to express a definition of the whole execution model. The language developed to such purpose is called \emph{Bobolang}~\cite{bobolang}. Listing~\ref{bobox-bobolang} shows an example of a model definition in the Bobolang language.
 
 \begin{lstlisting}[caption={An example of the Bobolang usage.}, label={bobox-bobolang}]
 model main<()><()> {
@@ -67,5 +69,5 @@ model main<()><()> {
 }
 \end{lstlisting}
 
-\section{Problems}
-Due to the character of the framework scheduler, user code directly affects scheduling of tasks, thus the overall performance of an execution. The framework provides ways to manipulate with task scheduling. For example, a task can give up its execution before it finishes normally. A task can also inform the scheduler that it should not be executed before all input data are available. Based on a user code analysis, such manipulation with the framework scheduler can be injected into code instead of a programmer.
+\section{Cooperative scheduling}
+Due to the character of the framework scheduler, user code directly affects scheduling of tasks, thus the overall performance of an execution. The framework provides ways to manipulate with task scheduling. For example, a task can give up its execution before it finishes normally. A task can also inform the scheduler that it should not be executed before all input data are available. Based on the static code analysis of user code, the optimizer tool can inject function calls into user code to affect framework scheduling.

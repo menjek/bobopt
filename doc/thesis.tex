@@ -29,6 +29,8 @@
 \usepackage[utf8]{inputenc}
 
 %% Ostatní balíčky
+\usepackage{hhline}
+\usepackage{booktabs}
 \usepackage{inconsolata}
 \usepackage{paralist}
 \usepackage{array}
@@ -42,7 +44,12 @@
 \usepackage{url}
 \usepackage[T1]{fontenc}
 \usepackage{listings}
+\usepackage{caption}
+\usepackage{colortbl}
+\usepackage{amsmath}
 \usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{dirtree}
 \usepackage{ifpdf}
 \ifpdf
   \DeclareGraphicsRule{*}{mps}{*}{}
@@ -53,10 +60,10 @@
 \lstset {
 	frame=bt,
     language=C++,
-%    backgroundcolor=\color{black!5},
+%   backgroundcolor=\color{black!5},
 	backgroundcolor=\color{white},
-%    numbers=left,
-%    numbersep=5pt,
+%   numbers=left,
+%   numbersep=5pt,
 %	numberstyle=\tiny,
 	xleftmargin=10pt,
 	xrightmargin=10pt,
@@ -243,7 +250,7 @@ RNDr. Filip Zavoral, Ph.D.
 % dle Organizační struktury MFF UK, případně plný název pracoviště mimo MFF UK
 
 Abstrakt:
-Cílem této diplomové práce je vytvořit nástroj na optimalizaci kódu pro paralelní prostředí Bobox. Nástroj redukuje počet krátce a dlouze běžících úloh na základě statické analýzy kódu. Některé případy krátce běžících úloh způsobují zbytečné přeplánování. Pokud plánovač nemá dostatek informací o dané úloze, plánovač může úlohu naplánovat, i když tato úloha nemá všechny potřebné vstupní data. Pro odstranění krátce běžící úlohy, nástroj analyzuje použití vstupních dat a informuje plánovač. Dlouze běžící úlohy můžou v některých případech potlačit paralelismus. Větší granularita úloh může znatelně vylepšit časy běhu v paralelním prostředí. Pro odstranění dlouze běžících úloh, nástroj musí byt schopen vyhodnotit složitost kódu a vložit příkaz pro přeplánování na vhodné místo.
+Cílem této diplomové práce je vytvořit nástroj na optimalizaci kódu pro paralelní prostředí Bobox. Nástroj redukuje počet krátce a dlouze běžících úloh na základě statické analýzy kódu. Některé případy krátce běžících úloh způsobují zbytečné přeplánování. Pokud plánovač nemá dostatek informací o dané úloze, plánovač může úlohu naplánovat, i když tato úloha nemá všechna potřebná vstupní data. Pro odstranění krátce běžící úlohy nástroj analyzuje použití vstupních dat a informuje plánovač. Dlouze běžící úlohy můžou v některých případech potlačit paralelismus. Větší granularita úloh může znatelně vylepšit časy běhu v paralelním prostředí. Pro odstranění dlouze běžících úloh nástroj musí byt schopen vyhodnotit složitost kódu a vložit příkaz pro přeplánování na vhodné místo.
 % abstrakt v rozsahu 80-200 slov; nejedná se však o opis zadání diplomové práce
 
 Klíčová slova:
@@ -343,9 +350,23 @@ bobox, static code analysis, optimization, code complexity, clang
 %%% Přílohy k diplomové práci, existují-li (různé dodatky jako výpisy programů,
 %%% diagramy apod.). Každá příloha musí být alespoň jednou odkazována z vlastního
 %%% textu práce. Přílohy se číslují.
-\chapwithtoc{Appendix}
-\section{Output of the prefetch method}
-\label{output-prefetch}
+\chapwithtoc{Appendix A}
+\label{appendix-cd}
+\section*{Content of attached media}
+\DTsetlength{8pt}{8pt}{2pt}{0.5pt}{0pt}
+\renewcommand*\DTstylecomment{\rmfamily}
+\renewcommand*\DTstyle{\sffamily\footnotesize}
+\dirtree{%
+.1 \emph{$<$Optical medium$>$}.
+.2 doc\DTcomment{Documentation}.
+.3 thesis\DTcomment{Thesis \TeX\ files and pdf}.
+.3 doxygen\DTcomment{Doxygen generated documentation}.
+.2 src\DTcomment{Optimizer source code}.
+}
+
+\chapwithtoc{Appendix B}
+\label{appendix-output}
+\section*{Output of prefetch method}
 The diagnostic of the prefetch optimization method outputs information only if there is anything to optimize and the optimizer is not in the \emph{build} mode. Firstly, the method introduce itself and points out to a box definition in source code.
 
 \begin{lstlisting}[emph={prefetch,merge\_box,boxes,hpp},emphstyle={\textbf}]
@@ -388,8 +409,8 @@ class merge_box : public bobox::basic_box {
 
 The output described above is common for \emph{diagnostic} and \emph{interactive} modes. The interactive mode additionally asks a user with the \emph{yes/no} type of a question whether he wants the optimizer to execute the proposed suggestion and transform code. In the \emph{build} mode there are no questions and a code transformation is always applied.
 
-\section{Output of the yield complex method}
-\label{output-yield}
+\newpage
+\section*{Output of yield complex method}
 Diagnostic and interactive modes are verbose modes with the same diagnostic output. The problematic part is the diagnostic output itself. Unfortunately, it is very hard to express the reasoning of the optimization algorithm in the text format. The result is that the diagnostic shows only suggestions with information where to put the yield member call expression.
 
 \begin{lstlisting}[emph={yield,complex,merge\_box,sync\_mach\_etwas,boxes,hpp},emphstyle={\textbf}]
@@ -405,6 +426,177 @@ for (int l = 0; l < 100; ++l)
 \end{lstlisting}
 
 It is up to a programmer to lookup the place in code and investigate why previous code is complex and why it is worth to yield an execution. In the interactive mode, there is also the \emph{yes/no} type of a question whether a user wants to let the optimizer to update code. The chosen answer obviously does not affect the next algorithm work since it only allows a user to select suggestions from the already pre-calculated result. The algorithm has already finished its work.
+
+\chapwithtoc{Appendix C}
+\label{appendix-statistics}
+\section*{Optimizer loop execution statistics}
+
+{ \centering
+
+\pgfplotstabletypeset[
+	font=\footnotesize,
+	column type=l,
+	every head row/.style={
+		before row={%
+			\toprule
+			& \multicolumn{3}{c}{\code{for}} & \multicolumn{3}{c}{\code{while}}\\
+		},
+		after row=\midrule,
+	},
+	every last row/.style={
+		before row=\midrule,
+		after row=\bottomrule},
+	columns/forBody/.style  ={column name=Body},
+	columns/whileBody/.style={column name=Body},
+	columns/forExec/.style  ={column name=Executions},
+	columns/whileExec/.style={column name=Executions},
+	columns/forAvg/.style  ={column name=Average, column type/.add={>{\columncolor[gray]{.9}}}{}},
+	columns/whileAvg/.style={column name=Average, column type/.add={>{\columncolor[gray]{.9}}}{}},
+	col sep=&,row sep=\\,
+	string type,
+]{
+ID & forExec  & forBody & forAvg & whileExec  & whileBody & whileAvg\\
+0	& 87	& 84	& 0.97	& 0	& 0	& 0.00\\
+1	& 28	& 54	& 1.93	& 0	& 0	& 0.00\\
+2	& 25	& 0	& 0.00	& 0	& 0	& 0.00\\
+3	& 13	& 0	& 0.00	& 0	& 0	& 0.00\\
+4	& 13	& 0	& 0.00	& 13	& 153	& 11.77\\
+5	& 13	& 0	& 0.00	& 0	& 0	& 0.00\\
+6	& 0	& 0	& 0.00	& 1	& 18	& 18.00\\
+7	& 0	& 0	& 0.00	& 	& 	&\\
+8	& 0	& 0	& 0.00	& 	& 	&\\
+9	& 0	& 0	& 0.00	& 	& 	&\\
+10	& 0	& 0	& 0.00	& 	& 	&\\
+11	& 39	& 78	& 2.00	& 	& 	&\\
+12	& 0	& 0	& 0.00	& 	& 	&\\
+13	& 39	& 468	& 12.00	& 	& 	&\\
+14	& 8	& 58	& 7.25	& 	& 	&\\
+15	& 0	& 0	& 0.00	& 	& 	&\\
+16	& 0	& 0	& 0.00	& 	& 	&\\
+17	& 2178	& 2033	& 0.93	& 	& 	&\\
+18	& 21	& 22	& 1.05	& 	& 	&\\
+19	& 25	& 287	& 11.48	& 	& 	&\\
+20	& 287	& 690	& 2.40	& 	& 	&\\
+21	& 690	& 106	& 0.15	& 	& 	&\\
+22	& 25	& 287	& 11.48	& 	& 	&\\
+23	& 287	& 690	& 2.40	& 	& 	&\\
+24	& 680	& 2178	& 3.20	& 	& 	&\\
+25	& 491	& 67	& 0.14	& 	& 	&\\
+26	& 68	& 137	& 2.01	& 	& 	&\\
+27	& 22	& 242	& 11.00	& 	& 	&\\
+28	& 22	& 242	& 11.00	& 	& 	&\\
+29	& 218	& 518	& 2.38	& 	& 	&\\
+30	& 8	& 8	& 1.00	& 	& 	&\\
+31	& 8	& 22	& 2.75	& 	& 	&\\
+32	& 22	& 22	& 1.00	& 	& 	&\\
+33	& 25	& 92	& 3.68	& 	& 	&\\
+34	& 25	& 287	& 11.48	& 	& 	&\\
+35	& 5	& 11	& 2.20	& 	& 	&\\
+36	& 39	& 468	& 12.00	& 	& 	&\\
+37	& 468	& 2340	& 5.00	& 	& 	&\\
+38	& 18	& 22	& 1.22	& 	& 	&\\
+39	& 1	& 18	& 18.00	& 	& 	&\\
+40	& 1	& 1	& 1.00	& 	& 	&\\
+41	& 0	& 0	& 0.00	& 	& 	&\\
+42	& 0	& 0	& 0.00	& 	& 	&\\
+43	& 0	& 0	& 0.00	& 	& 	&\\
+44	& 0	& 0	& 0.00	& 	& 	&\\
+45	& 1	& 6	& 6.00	& 	& 	&\\
+46	& 1	& 1	& 1.00	& 	& 	&\\
+47	& 1	& 1	& 1.00	& 	& 	&\\
+\textbf{Average1} & &    & \textbf{4.19}   &   &           & \textbf{14.88}\\
+}
+
+} % centering
+
+\newpage
+\section*{Optimizer functions complexities statistics}
+
+\subsection*{Inlined functions}
+
+\vspace{0.5cm}
+
+{ \centering
+\small
+
+\renewcommand{\arraystretch}{1.1}
+\arrayrulewidth=0.8pt
+\begin{tabular}{ p{7.5cm} r }
+  \hhline{--}
+  \cellcolor[gray]{0.9}Functions & \cellcolor[gray]{0.9}4456 \\ \hhline{--}
+  Minimal complexity & 1 \\ \hhline{--}
+  Maximal complexity & 473 \\ \hhline{--}
+  \cellcolor[gray]{0.75}Average complexity & \cellcolor[gray]{0.75}11.457 \\ \hhline{--}
+\end{tabular}
+
+\vspace{1cm}
+
+\begin{tikzpicture}
+\begin{axis}[
+ extra x ticks={10},
+ extra tick style={
+   major grid style={dashed,black},
+   tick align=outside,
+   tick style=black
+  },
+  major grid style=dotted,
+  font=\small,
+  height=7cm,
+  width=13cm,
+  ybar interval,
+  xtick=,% reset from ybar interval
+  xticklabel={$\pgfmathprintnumber\nexttick$}
+]
+
+\addplot+[hist={bins=85,data=x},black,fill=gray!40!white] file {inline.dat};
+	
+\end{axis}
+\end{tikzpicture}
+
+} % centering
+
+\subsection*{Non-inlined functions}
+
+\vspace{0.5cm}
+
+{ \centering
+\small
+
+\renewcommand{\arraystretch}{1.1}
+\arrayrulewidth=0.8pt
+\begin{tabular}{ p{7.5cm} r }
+  \hhline{--}
+  \cellcolor[gray]{0.9}Functions & \cellcolor[gray]{0.9}978 \\ \hhline{--}
+  Minimal complexity & 3 \\ \hhline{--}
+  Maximal complexity & 369 \\ \hhline{--}
+  \cellcolor[gray]{0.75}Average complexity & \cellcolor[gray]{0.75}41.4141 \\ \hhline{--}
+\end{tabular}
+
+\vspace{1cm}
+
+\begin{tikzpicture}
+\begin{axis}[
+ extra x ticks={40},
+ extra tick style={
+   major grid style={dashed,black},
+   tick align=outside,
+   tick style=black
+  },
+  major grid style=dotted,
+  font=\small,
+  height=7cm,
+  width=13cm,
+  ybar interval,
+  xtick=,% reset from ybar interval
+  xticklabel={$\pgfmathprintnumber\nexttick$}
+]
+
+\addplot+[hist={bins=85,data=x},black,fill=gray!40!white] file {normal.dat};
+	
+\end{axis}
+\end{tikzpicture}
+
+} % centering
 
 \openright
 \end{document}

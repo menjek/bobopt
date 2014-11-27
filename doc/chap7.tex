@@ -1,27 +1,38 @@
 \chapter{Results}
-Both optimization methods are completely described in previous chapters and according to the described Bobox behavior, both methods should optimize code for the Bobox framework to some extent. But, the description of the framework is very vague. Many details about the internal framework implementation is missing. The question is whether a speedup, if any, will be any relevant. The best practice to answer this kind of questions is a measurement.
-
-This chapter covers measurements for both methods. However, the chapter covers them separately. There is a specific use case for each method, when it should stand out. Since there is a lack of actual code for the Bobox framework and code which is already written is greatly optimized, measuring optimization of this particular code would be misleading.
+\label{results}
+Both optimization methods described in previous chapters should optimize code for the Bobox framework to some extent. This chapter covers performance evaluation of optimized and unoptimized code for both methods. However, each method is evaluated separately. There is a specific use case for each method, when it should stand out.
 
 \section{Prefetch method}
 \label{results-prefetch}
 The goal of this optimization method is to reduce a number of short-running tasks. Specifically, tasks that are scheduled even though they do not have all input data for a meaningful execution. The gain in a speedup with this optimization method is the scheduling overhead. It only matters how often this situation occurs in user code.
 
-\subsection{Measurements}
 In order to measure the scheduling overhead, it is necessary to maximize the number of wrongly scheduled tasks. A wrongly scheduled task has to have at least two inputs and there has to be some delay between getting data to its inputs. A bigger delay increases the possibility of the task being scheduled without all necessary data.
 
 Furthermore, a parallel environment is not necessary in order to measure the scheduling overhead. It is harder to achieve the situation when a wrong scheduling matters with more logical threads. Wrong scheduling on free logical threads does not affect the overall performance. Thus, measurements are done on a single thread.
 
-\subsubsection{The model}
-There has to be a box with more than one input for the wrong scheduling. There can be more such boxes for a bigger effect. Now, it is necessary to create some mechanism to maximize the number of situations when a box is scheduled wrongly. This mechanism can consist from a chain of boxes where each one creates input data for one specific input on all of mentioned boxes. It can cause their wrong scheduling. This box then triggers scheduling of another box that will create data for a different input on those boxes.
+\subsection{Model}
+There has to be a box with more than one input for the wrong scheduling and there can be more such boxes for a bigger effect. Now, it is necessary to create some mechanism to maximize the number of situations when a box is scheduled wrongly. This mechanism consist from a chain of boxes where each one creates input data for one specific input on all boxes that are supposed to be scheduled wrongly. All boxes from this chain, apart from the last box, then trigger scheduling of the next box in the chain that will create data for a different input on wrongly scheduled boxes.
 
-The figure \ref{prefetch-model} shows the model used in measurements. However, the number of distribution and collection boxes as well as the number of their inputs and outputs may vary. The figure shows only a \emph{pattern} used in the model construction.
+Figure~\ref{prefetch-model} shows the model used in measurements. However, the number of distribution and collection boxes as well as the number of their inputs and outputs may vary. The figure shows only a \emph{pattern} used in the model construction. If all collection boxes prefetch only the first input or no input at all, the expected scheduling in the execution of a model instance constructed from the model in Figure~\ref{prefetch-model} is:
+
+\begin{enumerate}
+\item{control\_box}
+\item{distribution\_box}
+\item{Three times collection\_box - pop data from the first input and wait}
+\item{distribution\_box}
+\item{Three times collection\_box - pop data from the second input and wait}
+\item{distribution\_box}
+\item{Three times collection\_box - pop data from the last input and produce an output}
+\item{sink\_box}
+\end{enumerate}
 
 \tikzset{model-node/.style={draw, rectangle, thick, rounded corners}}
 \tikzset{model-path/.style={->, draw, thick}}
 \tikzset{model-io/.style={draw, rectangle, thick, fill=black!75, inner sep=1.25pt}}
 
 \begin{figure}[h!]
+\caption{The model used in measurements of the prefetch method optimization with three distribution and three collection boxes.}
+\label{prefetch-model}
 \vspace{.5cm}
 \centering
 \begin{tikzpicture}[node distance=2.5cm]	
@@ -96,26 +107,11 @@ The figure \ref{prefetch-model} shows the model used in measurements. However, t
 	\path[model-path](coll1out) -- (sinkin1) {};
 	\path[model-path](coll2out) -- (sinkin2) {};
 \end{tikzpicture}
-\caption{The model used in measurements of the prefetch method optimization with three distribution and three collection boxes.}
-\label{prefetch-model}
 \end{figure}
-
-If all collection boxes prefetch only the first input or no input at all, the expected scheduling in the execution of a model instance constructed from the model in the figure \ref{prefetch-model} is:
-
-\begin{enumerate}
-\item{control\_box}
-\item{distribution\_box}
-\item{Three times collection\_box - pop data from the first input and wait}
-\item{distribution\_box}
-\item{Three times collection\_box - pop data from the second input and wait}
-\item{distribution\_box}
-\item{Three times collection\_box - pop data from the last input and produce an output}
-\item{sink\_box}
-\end{enumerate}
 
 If all collection boxes prefetch their all input data, step 3 and step 5 are skipped. These prefetch calls can save up to six schedules when boxes do nothing meaningful.
 
-\subsubsection{Benchmarks}
+\subsection{Benchmarks}
 There are two boxes in the model without any description. The control box repeatedly produces data for distribution boxes. It yields each time after data is produced. The sink box is there for a debugging purpose. All boxes do minimal work apart from a communication with the Bobox framework to maximize the impact of the scheduling.
 
 \begin{figure}[h!]
@@ -166,14 +162,14 @@ There are two boxes in the model without any description. The control box repeat
 \label{prefetch-bench}
 \end{figure}
 
-The figure \ref{prefetch-bench} shows results for the model with ten distribution and ten collection boxes. The dashed line shows times for not optimized code, the solid line shows times for  optimized code. X-axis represents the number of iterations in the control box. Y-axis represents execution times.
+Figure~\ref{prefetch-bench} shows results for the model with ten distribution and ten collection boxes. The dashed line shows times for not optimized code, the solid line shows times for  optimized code. X-axis represents the number of iterations in the control box. Y-axis represents execution times.
 
 Even though the graph does not show it well, optimized code is very slightly faster in  most measurements. However, the gain in a speedup is negligible even for a bigger number of iterations or a bigger number of collection and distribution boxes. Furthermore, the gain in a speedup is approximately the same for a bigger number of iterations as for a lower number of iterations. The speedup appears to be constant for measured results. These results do not correspond with the expected behavior.
 
-\subsubsection{The optimizer tweak}
-It is necessary to look more into details of the presented model in the figure \ref{prefetch-model} and the Bobox framework implementation. Both distribution and collection types of boxes are stateless. The Bobox framework allocates some objects of stateless boxes, initializes them by calling the \code{init\_impl} member function and reuses those allocated objects all over again. But, \code{init\_impl} is not called again when object is reused. Thus, prefetch calls added by this optimization method do not help anymore when the framework reuses boxes.
+\subsection{Optimizer tweak}
+It is necessary to look more into details of the presented model in Figure~\ref{prefetch-model} and the Bobox framework implementation to understand why there is a negligible speedup from unoptimized to optimized code. Both distribution and collection types of boxes are stateless. The Bobox framework allocates some objects of stateless boxes, initializes them by calling the \code{init\_impl} member function and reuses those allocated objects all over again. But, \code{init\_impl} is not called again when object is reused. Thus, prefetch calls added by this optimization method do not help anymore when the framework reuses boxes.
 
-The prefetch optimization method is enhanced to add all prefetch calls for all used inputs to the end of the box execution member function body. This option is configurable and turned off by default. The figure \ref{prefetch-bench-attach} shows results with this optimization tweak turned on compared to not optimized code. The improvement in a speedup is clearly visible.
+The prefetch optimization method is enhanced to add all prefetch calls for all used inputs to the end of the box execution member function body. This option is configurable and turned off by default. Figure~\ref{prefetch-bench-attach} shows results with this optimization tweak turned on compared to not optimized code. The improvement in a speedup is clearly visible.
 
 \begin{figure}[h!]
 \vspace{.5cm}
@@ -231,10 +227,10 @@ However, there is still one factor that is not tested well in the presented scen
 \section{Yield complex method}
 The goal of this optimization method is to reduce a number of long-running tasks. Such tasks can inhibit a parallel execution, thus vastly increase execution times. On the other hand, long-running tasks are more cache friendly, but the speedup from a parallelism should be much bigger than the one from a better cache usage.
 
-\subsection{The model}
-Measurements are done on a model with a one important task. This task is essential for a parallel execution and it should run as often as possible. But, there are also long-running tasks which prevent scheduling of this essential task, thus they inhibit parallelism.
+\subsection{Model}
+Measurements are done on a model with one important task. This task is essential for a parallel execution and it should run as often as possible. But, there are also long-running tasks which prevent scheduling of this essential task, thus they inhibit parallelism.
 
-The figure \ref{yield-model} shows an example of a model with a one important task. The source box is a box that computes data for a parallel processing and distributes this data to worker boxes. Worker boxes process data in parallel. If there is the same number of worker boxes as the number of logical threads, there is a big possibility that the scheduler immediately schedules all worker boxes to all logical threads. Now, the worker box is the long-running task. All worker boxes now keep the source box out of execution. This source box creates the bottleneck for a parallel execution.
+Figure~\ref{yield-model} shows an example of a model with one important task. The source box is a box that computes data for a parallel processing and distributes this data to worker boxes. Worker boxes process data in parallel. If there is the same number of worker boxes as the number of logical threads, there is a big possibility that the scheduler immediately schedules all worker boxes to all logical threads. The worker box is the long-running task. Thus, all worker boxes keep the source box out of an execution. This source box creates the bottleneck for a parallel execution.
 
 \begin{figure}[h!]
 \vspace{.5cm}
@@ -283,9 +279,9 @@ The figure \ref{yield-model} shows an example of a model with a one important ta
 If worker boxes finish approximately at the same time, the source box is scheduled and until it finishes, nothing runs in parallel. But, if one worker box yields its execution and let the source box to run, data for the next bunch of parallel worker boxes is ready sooner. Even thought the particular worker box ends later, it does not inhibit parallelism as there are always data for other workers. A bigger task granularity greatly helps in this particular model example.
 
 \subsection{Benchmarks}
-Measurements were done on a parallel environment with eight logical threads. Therefore, the model consists of eight stateless worker boxes and single source box. The worker box \textit{calculates} for ten seconds and the source box \textit{calculates} for five seconds. This optimization method causes the worker box to yield after five seconds. The figure \ref{yield-bench} shows measured results.
+Measurements were done on a parallel environment with eight logical threads. Therefore, the model consists of eight stateless worker boxes and single source box. The worker box \textit{calculates} for ten seconds and the source box \textit{calculates} for five seconds. There would be different overall times measured for different times of a boxes execution, but the ratio between optimized and unoptimized code is expected to be the same. This optimization method causes the worker box to yield after five seconds. Figure~\ref{yield-bench} shows measured results.
 
-But, measured results in the figure \ref{yield-bench} are a bit different from the expected outcome. If the source box is the bottleneck of an execution, it should inhibit the parallel execution for five seconds each iteration. So the speedup for ten iterations should be approximately fifty seconds. The measured result is approximately twenty seconds.
+But, measured results in Figure~\ref{yield-bench} are a bit different from the expected outcome. If the source box is the bottleneck of an execution, it should inhibit the parallel execution for five seconds each iteration. So the speedup for ten iterations should be approximately fifty seconds. The measured result is approximately twenty seconds.
 
 \begin{figure}[h!]
 \vspace{.5cm}
@@ -337,7 +333,7 @@ But, measured results in the figure \ref{yield-bench} are a bit different from t
 
 The problem is the implementation of the source box for these particular measurements. The source box calculates something for five seconds, then it sends envelopes to all worker boxes and it yields immediately. But, the Bobox scheduler does not schedule all worker boxes immediately after the source box yields. The source box is often scheduled with the bunch of worker boxes and delays an execution of one of them. However, there is still a significant speedup in the execution.
 
-The source box has to do some additional work before it yields to achieve the described behavior. It gives time to the Bobox scheduler to schedule seven worker boxes and the yield in the source box schedules the last worker box. The figure \ref{yield-bench-better} shows measured results with this described implementation and the speedup approximately matches expected numbers.
+The source box has to do some additional work before it yields to achieve the described behavior. It gives time to the Bobox scheduler to schedule seven worker boxes and the yield in the source box schedules the last worker box. Figure~\ref{yield-bench-better} shows measured results with this described implementation and the speedup approximately matches expected numbers.
 
 \begin{figure}[h!]
 \vspace{.5cm}
