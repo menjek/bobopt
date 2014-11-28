@@ -1,11 +1,11 @@
 /// \file bobopt_prefetch.hpp Definition of bobox prefetch optimization method.
 ///
 /// Prefetch optimization method looks at box inputs, analyze box \c init_impl()
-/// overriden member function checking for prefetch of inputs, analyze box
+/// overriden member function checking for prefetch of inputs, analyzes box
 /// \c sync_mach_etwas() overriden member function if some inputs need to be
-/// prefetched and add their prefetch into \c init_impl() function.
+/// prefetched and adds their prefetch into \c init_impl() function.
 ///
-/// Expected layout of bobox box class:
+/// Expected layout of a Bobox box class:
 /// \code
 /// class some_box : public bobox::basic_box {
 /// public:
@@ -84,13 +84,16 @@ namespace bobopt
         ///   Rationale: No input is used in known functions.
         /// - (global.2) There are no inputs.
         ///   Rationale: Nothing to optimize.
-        /// - (global.3) Optimizer can't access definition of overriden \c init_impl() function.
+        /// - (global.3) There is no mapping from names to inputs.
+        ///   Rationale: For code its the same as (global.2).
+        /// - (global.4) Optimizer can't access definition of overriden \c init_impl() function.
         ///   Rationale: There's definition somewhere, but optimizer won't be able to put anything there + ODR.
-        /// - (global.4) Corresponding method is not the one from bobox::box and is private.
+        /// - (global.5) Corresponding method is not the one from bobox::box and is private.
         ///   Rationale: It's not possible to call such method and that would change code semantic.
         ///
         /// Method doesn't optimize \b single input if:
-        /// - (single.1) ...
+        /// - (single.1) There is already the prefetch call for an input.
+        /// - (single.2) The optimizer cannot detect whether data from an input is likely to be necessary.
         class prefetch : public basic_method
         {
         public:

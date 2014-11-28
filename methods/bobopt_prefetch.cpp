@@ -725,13 +725,13 @@ namespace bobopt
                 base_init_ = (*found_it)->getCorrespondingMethodInClass(box_);
                 BOBOPT_ASSERT(base_init_ != nullptr);
 
-                // (global.4) Corresponding method is not the one from bobox::box and is private.
+                // (global.5) Corresponding method is not the one from bobox::box and is private.
                 return ((base_init_->getParent() == bobox_box) || (base_init_->getAccess() != AS_private));
             }
 
             if (!init_->hasBody())
             {
-                // (global.3) Method can't access definition of init_impl().
+                // (global.4) Method can't access definition of init_impl().
                 return false;
             }
 
