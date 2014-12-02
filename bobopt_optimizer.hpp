@@ -1,4 +1,4 @@
-/// \file bobopt_optimizer.hpp Contains base class for bobox optimizations.
+/// \file bobopt_optimizer.hpp File contains base class for bobox optimizations.
 
 #ifndef BOBOPT_OPTIMIZER_HPP_GUARD_
 #define BOBOPT_OPTIMIZER_HPP_GUARD_

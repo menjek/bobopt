@@ -1,5 +1,5 @@
-/// \file bobopt_diagnostic.hpp Definition of class handling diagnostic
-/// messages.
+/// \file bobopt_diagnostic.hpp File contains definition of class handling
+/// diagnostic messages.
 
 #ifndef BOBOPT_DIAGNOSTIC_HPP_GUARD_
 #define BOBOPT_DIAGNOSTIC_HPP_GUARD_

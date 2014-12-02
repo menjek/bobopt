@@ -1,4 +1,5 @@
-/// \file bobopt_prefetch.hpp Definition of bobox prefetch optimization method.
+/// \file bobopt_prefetch.hpp File contains definition of the prefetch
+/// optimization method.
 ///
 /// Prefetch optimization method looks at box inputs, analyze box \c init_impl()
 /// overriden member function checking for prefetch of inputs, analyzes box

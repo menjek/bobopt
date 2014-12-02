@@ -1,4 +1,4 @@
-/// \file bobopt_clang_utils.hpp The file contains definitions of various utils
+/// \file bobopt_clang_utils.hpp File contains definitions of various utils
 /// extending the Clang tooling functionality.
 
 #ifndef BOBOPT_CLANG_BOBOPT_CLANG_UTILS_HPP_GUARD_

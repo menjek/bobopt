@@ -1,4 +1,5 @@
-/// \file bobopt_method_factory.hpp Contains definition of factory methods and their mapping to method_type enumeration.
+/// \file bobopt_method_factory.hpp File contains definition of factory methods
+/// and their mapping to method_type enumeration.
 
 #ifndef BOBOPT_METHOD_FACTORY_HPP_GUARD_
 #define BOBOPT_METHOD_FACTORY_HPP_GUARD_

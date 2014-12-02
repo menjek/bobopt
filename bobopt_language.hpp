@@ -1,4 +1,5 @@
-/// \file bobopt_language.hpp Contains definition of macros dependent on language support.
+/// \file bobopt_language.hpp File contains definition of macros dependent on
+/// language support.
 
 #ifndef BOBOPT_LANGUAGE_HPP_GUARD_
 #define BOBOPT_LANGUAGE_HPP_GUARD_
@@ -51,6 +52,10 @@
 // clang
 #elif defined(__clang__)
 #	define BOBOPT_OVERRIDE override
+
+// other
+#else
+#   define BOBOPT_OVERRIDE
 #endif
 
 // final specifier.
@@ -70,6 +75,10 @@
 // clang
 #elif defined(__clang__)
 #	define BOBOPT_FINAL final
+
+// other
+#else
+#   define BOBOPT_FINAL
 #endif
 
 

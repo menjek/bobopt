@@ -1,5 +1,5 @@
-/// \file bobopt_yield_complex.hpp Definition of optimizing bobox complex member
-/// functions execution.
+/// \file bobopt_yield_complex.hpp File contains definition of the yield complex
+/// optimization method.
 ///
 /// Complex member functions can hold execution of single bobox pipeline and
 /// block execution of other boxes that block execution of other boxes and so

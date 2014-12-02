@@ -1,3 +1,6 @@
+/// \file bobopt_text_utils.hpp File contains definitions of various functions
+/// for working with text.
+
 #ifndef BOBOPT_TEXT_UTILS_HPP_GUARD_
 #define BOBOPT_TEXT_UTILS_HPP_GUARD_
 

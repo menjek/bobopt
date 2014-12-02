@@ -1,4 +1,4 @@
-/// \file bobopt_clang_prolog.hpp Prolog for any Clang/LLVM inludes. It stores
+/// \file bobopt_clang_prolog.hpp Prolog for any Clang/LLVM includes. It stores
 /// the current warnings state and disable some of warnings.
 
 #pragma GCC diagnostic push

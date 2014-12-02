@@ -1,3 +1,5 @@
+/// \file bobopt_utils.hpp File contains commonly used utils used in code base.
+
 #ifndef BOBOPT_UTILS_HPP_GUARD_
 #define BOBOPT_UTILS_HPP_GUARD_
 

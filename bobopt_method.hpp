@@ -1,4 +1,5 @@
-/// \brief bobopt_method.hpp Contains definition of interface for optimization method.
+/// \file bobopt_method.hpp File contains definition of interface for
+/// an optimization method.
 
 #ifndef BOBOPT_METHOD_HPP_GUARD_
 #define BOBOPT_METHOD_HPP_GUARD_
@@ -21,15 +22,25 @@ namespace bobopt
     // forward declarations:
     class optimizer;
 
+    /// \brief Interface for any optimization method in the optimizer.
+    /// Class also provides a method to access the optimizer main object.
     class basic_method
     {
     public:
         basic_method();
         virtual ~basic_method();
 
+        /// \brief Pure virtual member function to handle optimization of a
+        /// single box
+        ///
+        /// \param box_declaration Pointer to the AST node representing the box
+        /// declaration
+        /// \param replacements Pointer to the set of \code Replacemen objects
+        /// used in \code RefactoringTool.
         virtual void optimize(clang::CXXRecordDecl* box_declaration, clang::tooling::Replacements* replacements) = 0;
 
     protected:
+        /// \brief Acess to the optimizer main object.
         const optimizer& get_optimizer() const;
 
     private:
