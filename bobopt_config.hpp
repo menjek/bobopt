@@ -88,7 +88,7 @@ namespace bobopt
     {
     public:
         /// \brief Register variable in selected group.
-        config_variable(config_group& group, std::string name, ValueT def_value)
+        config_variable(config_group& group, std::string name, const ValueT& def_value)
             : name_(std::move(name))
             , value_(def_value)
             , default_value_(def_value)
@@ -125,7 +125,7 @@ namespace bobopt
         std::string name_;
 
         ValueT value_;
-        ValueT const default_value_;
+        const ValueT default_value_;
 
         ParserT parser_;
     };

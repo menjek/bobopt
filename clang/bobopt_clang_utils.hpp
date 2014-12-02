@@ -1,5 +1,5 @@
-/// \file bobopt_clang_utils.hpp Contains definitions of various utils extending
-/// clang functionality.
+/// \file bobopt_clang_utils.hpp The file contains definitions of various utils
+/// extending the Clang tooling functionality.
 
 #ifndef BOBOPT_CLANG_BOBOPT_CLANG_UTILS_HPP_GUARD_
 #define BOBOPT_CLANG_BOBOPT_CLANG_UTILS_HPP_GUARD_
@@ -37,25 +37,25 @@ namespace bobopt
     //==========================================================================
 
     /// \brief Tests whether member function overrides virtual member function
-    /// of parent class with specific name.
+    /// of some parent class with the specific name.
     ///
-    /// \param method_decl Member function tested for override.
-    /// \param parent_name Fully qualified name of base class.
+    /// \param method_decl The member function tested for override.
+    /// \param parent_name The fully-qualified name of the base class.
     bool overrides(const clang::CXXMethodDecl* method_decl, const std::string& parent_name);
 
     // ast_match_finder definition.
     //==========================================================================
 
-    /// \brief Class handles AST traversal and match finding.
+    /// \brief Class handles AST traversal and matching nodes.
     ///
-    /// Clang API defines matchers so they can be used only once on whole
-    /// translation unit and user can use matcher callback and provided
-    /// \c Replacements to refactor the code.
+    /// Clang AST matchers API defines matchers so they can be used only once
+    /// on a whole translation unit and user can use matcher callback and
+    /// provided\c Replacements to refactor code.
     ///
     /// Clang AST matchers have \c match() member function that does what are
-    /// matchers supposed to do, but for single node. Class combines matchers
-    /// with \c clang::RecursiveASTVisitor so client can match nodes in specific
-    /// subtree.
+    /// matchers supposed to do, but for a single node. This class combines
+    /// matchers with \c clang::RecursiveASTVisitor so client can match nodes in
+    /// a specific subtree.
     ///
     /// \code
     /// MatchFinder finder;
@@ -86,7 +86,7 @@ namespace bobopt
         /// \brief Base for \c nodes_collector<NodeT>.
         ///
         /// Class is base for all \c nodes_collector<NodeT> template
-        /// specialization. It holds collected nodes and provides interface
+        /// specializations. It holds collected nodes and provides interface
         /// to access them.
         ///
         /// \tparam NodeT Type of the Clang AST node, e.g.,
@@ -138,14 +138,14 @@ namespace bobopt
             return std::end(nodes_);
         }
 
-        /// \brief Detects whether there's any node collected.
+        /// \brief Detects whether there is any node collected.
         template <typename NodeT>
         bool basic_nodes_collector<NodeT>::empty() const
         {
             return nodes_.empty();
         }
 
-        /// \brief Returns number of nodes stored inside.
+        /// \brief Returns the number of nodes stored inside.
         template <typename NodeT>
         typename basic_nodes_collector<NodeT>::size_type basic_nodes_collector<NodeT>::size() const
         {
@@ -167,7 +167,7 @@ namespace bobopt
     // nodes_collector definition.
     //==========================================================================
 
-    /// \brief Collect specific node classes in AST subtree.
+    /// \brief Collect specific node classes in the AST subtree.
     ///
     /// \tparam NodeT Type of the Clang AST node, e.g., \c clang::CXXRecordDecl.
     /// \tparam DistinctizerT Type to distinguish basic AST node hierarchies.
@@ -176,7 +176,7 @@ namespace bobopt
     /// \code
     /// nodes_collector<CallExpr> collector;
     /// collector.TraverseStmt(stmt);
-    /// for (const auto* call_expr : collector)
+    /// for (const CallExpr* call_expr : collector)
     /// {
     ///     ...
     /// }

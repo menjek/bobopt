@@ -1,6 +1,6 @@
-/// \file bobopt_control_flow_search.hpp File contains definition of class
+/// \file bobopt_control_flow_search.hpp File contains definition of a class
 /// responsible for search and collecting values in particular part of code on
-/// "must visit" paths and base policies definitions.
+/// "must visit" paths.
 
 #ifndef BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
 #define BOBOPT_CLANG_CONTROL_FLOW_SEARCH_HPP_GUARD
@@ -277,12 +277,13 @@ namespace bobopt
     // scoped_prototype definition.
     //==========================================================================
 
-    /// \brief Programmer/exception protection for prototype instances using policies.
+    /// \brief Programmer/exception protection for prototype instances using
+    /// policies.
     ///
-    /// Paired functions \c create_instance() and \c destroy_instance() indicates
-    /// that there are place in code when instance doesn't have owner that will
-    /// be able to release it in case of exception or programming mistake, and can
-    /// cause leaks.
+    /// Paired functions \c create_instance() and \c destroy_instance()
+    /// indicates that there are places in code when instance does not have
+    /// owner that will be able to release it in case of exception or
+    /// programming mistake, and can cause leaks.
     ///
     /// Usage:
     /// \code
@@ -419,7 +420,7 @@ namespace bobopt
     /// \tparam Value Type of value that is searched in code.
     /// \tparam PrototypePolicy Tree traversal needs to create new objects
     ///         of derived class. Policy defines how are these new objects
-    ///         created. Default they're created and passed by value.
+    ///         created. Default they are created and passed by value.
     template <typename Derived, typename Value, template <typename> class PrototypePolicy = value_policy>
     class control_flow_search : public clang::RecursiveASTVisitor<Derived>, public PrototypePolicy<Derived>
     {

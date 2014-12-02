@@ -1,4 +1,5 @@
-/// \file bobopt_clang_prolog.hpp Prolog for any clang or llvm inludes. It stores warnings state and disable some of them.
+/// \file bobopt_clang_prolog.hpp Prolog for any Clang/LLVM inludes. It stores
+/// the current warnings state and disable some of warnings.
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"

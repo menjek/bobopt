@@ -1,4 +1,4 @@
-/// \file bobopt_debug.hpp File contains definition of macros for debugging.
+/// \file bobopt_debug.hpp File contains definitions of macros for debugging.
 
 #ifndef BOBOPT_DEBUG_HPP_GUARD_
 #define BOBOPT_DEBUG_HPP_GUARD_

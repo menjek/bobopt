@@ -100,7 +100,7 @@ namespace bobopt
             }
         }
 
-        // Empty line should be the second most frequent
+        // Empty line should be the second most frequent.
         {
             if (std::regex_match(line, REGEX_EMPTY_LINE))
             {
