@@ -1,6 +1,6 @@
 \chapter{Prefetch method}
 \label{prefetch}
-Tasks in the Bobox framework are represented in form of boxes, which can have zero or more inputs. Boxes are elements of model. Based on terms defined in Section~\ref{bobox-terminology}, before an execution of model, model instance is created, later decomposed to tasks, which are then scheduled and executed. The problem is that the scheduler lacks information about a box execution, specifically about processing of its inputs. There are three cases of which input data are necessary for a meaningful task execution:
+Tasks in the Bobox framework are represented in form of boxes, which can have zero or more inputs. Boxes are elements of model. Based on terms defined in Section~\ref{bobox-terminology}, before an execution of model, model instance is created, later decomposed to tasks, which are then scheduled and executed. The problem is that the scheduler lacks information about a box execution, specifically about processing of its inputs. There are three cases of input data requirements for a meaningful task execution:
 
 \begin{enumerate}
 \item A task does not need data from any input at all.
@@ -8,7 +8,7 @@ Tasks in the Bobox framework are represented in form of boxes, which can have ze
 \item A task needs data from all inputs.
 \end{enumerate}
 
-An execution of a task from the second and the third case without necessary input data adds a significant overhead to a model instance execution. Scheduling itself does not have a negligible overhead. A synchronization is necessary before and after the task execution. If a task is executed before it has all necessary input data, it finishes its execution immediately. In such case, scheduling consumes all CPU time.
+An execution of a task from the second and the third case without necessary input data adds significant overhead to a model instance execution. Scheduling itself does not have a negligible overhead. Synchronization is necessary before and after the task execution. If a task is executed before it has all necessary input data, it finishes its execution immediately. In such case, scheduling consumes all CPU time.
 
 However, a developer can provide the scheduler with information about the necessity of data from a specific input using the \code{basic\_box} base class member function. All overloads of this member function are listed in Listing~\ref{box-prefetch}.
 
@@ -22,9 +22,9 @@ bool prefetch_envelope(inarc_index_type inarc,
                        unsigned count = 1);
 \end{lstlisting}
 
-The function informs the scheduler about a number of envelopes on a specific input necessary for a meaningful box execution. Ideally, a programmer with a good knowledge of a box design adds function calls with correct values to code.
+The function informs the scheduler about a number of envelopes on a specific input necessary for a meaningful box execution. Ideally, a programmer with good knowledge of the box design adds function calls with correct values to code.
 
-For the case where single envelope from all inputs is necessary, the good design solution is to use the class inheritance and implement a common base class that calls the prefetch member function for all its inputs. A programmer needs to remember that he implements this special case of a box and he should derive from this base class. An inheritance may not be as useful for cases where only data from specific inputs is necessary. On the contrary, using an inheritance to achieve code reuse in these cases is a bad design.
+For the case where a single envelope from all inputs is necessary, the good design solution is to use class inheritance and implement a common base class that calls the prefetch member function for all its inputs. A programmer needs to remember that he implements this special case of a box and he should derive from this base class. Class inheritance may not be as useful for cases where only data from some inputs is necessary. On the contrary, using class inheritance to achieve code reuse in these cases is a bad design.
 
 The goal of the optimizer is to search for a usage of box inputs and inject prefetch member function calls accordingly.
 

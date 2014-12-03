@@ -52,7 +52,7 @@ In order to measure complexities of paths in CFG, the optimizer must be able to 
 
 Code blocks consist of statements. Most statements generate zero or more instructions with constant execution time. Problematic statements are call expressions, because they effectively transfer an execution out of CFG. Their complexity is unknown. The used solution is to estimate their complexity and assign fixed values for different types of call expressions. A block complexity is then a sum of complexities of all statements in this block using values from Table~\ref{yield-block}. The value is searched from the top to the bottom of the table for the first matching row. Trivial, constant and inline call expressions create a subset of call expressions which create a subset of statements. The tool allows a user to change all values by providing a custom configuration. Since trivial call expressions generate no instructions, their default complexity is zero. A compiler evaluates constant call expressions during a compilation and does not generate any instructions for them, thus their default complexity is also zero. The complexity of inlined functions and the rest of call expressions cannot be stated precisely. Even though complexities of such functions vary, their values are very probably in some reasonable sized range. Values for inlined call expressions and the rest of call expressions in Table~\ref{yield-block} were calculated based on statistics gathered from a code used in benchmarks, see Chapter~\ref{results}. The function complexity is calculated simply as a number of statements in its body. Appendix~C contains complete statistics of measured functions complexities.
 
-\begin{figure}[h!]
+\begin{table}[h!]
 \caption{Complexities of statements in a block.}
 \label{yield-block}
 \vspace{0.1cm}
@@ -65,14 +65,14 @@ Code blocks consist of statements. Most statements generate zero or more instruc
   \cellcolor[gray]{0.9}\textbf{Call expression} & \cellcolor[gray]{0.9}40 \\
   \cellcolor[gray]{0.75}\textbf{Statement} & \cellcolor[gray]{0.75}1 \\
 \end{tabular}
-\end{figure}
+\end{table}
 
 \subsection{Path complexity}
 A code block is the basic construction element of a code path. With the definition of the code block complexity, it is possible to define a code path complexity as well. Every CFG constructed in Clang analyzer contains two specially designed empty blocks, i.e., \emph{Entry} and \emph{Exit} blocks. Control flow enters a graph through the \emph{Entry} block and leaves a graph through the \emph{Exit} block. However, if there are loops in CFG, there is an infinite number of paths from \emph{Entry} to \emph{Exit} blocks.
 
 Therefore, loop bodies are evaluated as independent CFG making source CFG acyclic. When a path enters a node with a loop statement as a terminator, this path creates a new path for every path in the loop body. The path that skips a loop body is omitted from the analysis. This path has a very low probability, but it affects results significantly. New paths behave as they skip a loop body, but their complexity is a sum of the source path complexity, block complexity and body path complexity multiplied by a predefined constant from Table~\ref{yield-loop-const}. The optimizer allows users to provide their custom values using a custom configuration. Values in Table~\ref{yield-loop-const} were calculated based on tool code and its execution on code used in benchmarks, see Chapter~\ref{results}. Appendix~C contains measurements of loop body executions for all \code{for} loops and all \code{while} loops. Basically, values in Table~\ref{yield-loop-const} are averages of an average number of loop body executions.
 
-\begin{figure}[h!]
+\begin{table}[h!]
 \caption{Multipliers for loop body complexities.}
 \label{yield-loop-const}
 \vspace{0.1cm}
@@ -82,7 +82,7 @@ Therefore, loop bodies are evaluated as independent CFG making source CFG acycli
   \code{for} statement & 5 \\
   \code{while} statement & 15 \\
 \end{tabular}
-\end{figure}
+\end{table}
 
 Figure~\ref{yield-loop} shows an example of a part of CFG with a \code{for} loop statement and an \code{if} selection statement in the body of this loop, see Listing~\ref{yield-loopcode} for C++ code. Numbers next to edges represent paths complexities and numbers in graph nodes represent blocks complexities. There is a single path with the complexity of 5 entering the node with the \code{for} statement terminator. The loop body itself contains two different paths with complexities of 2 and 3. Two paths leaving the block with the \code{for} statement terminator have complexities of 16 and 21. The calculation for those paths is \emph{the \code{for} loop multiplier * the body path complexity + the entering path complexity + the complexity of the block with the \code{for} statement terminator}, see Equations (\ref{equation-1}) and (\ref{equation-2}) for paths leaving the \code{for} statement from Figure~\ref{yield-loop}.
 
