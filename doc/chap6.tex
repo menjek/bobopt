@@ -1,8 +1,8 @@
 \chapter{Yield complex method}
 \label{yield-intro}
-The Bobox scheduler is a cooperative scheduler, thus it inherits its behavior. The efficiency of programs running in a parallel environment with cooperative scheduling tightly depends on user code. A task must finish or give up its execution in order to execute a different task on the same CPU. If tasks depend on each other in some way, they should keep balanced execution times as much as possible. Furthermore, too little execution times cause that scheduling exceeds the \textit{real} execution in the CPU consumption\footnote{The prefetch optimization method described in the previous chapter aims to reduce a number of such executions.}, big execution times can inhibit parallelism by keeping dependent tasks out of an execution. Big execution times of tasks producing data can also congest framework internal structures.
+The Bobox scheduler is a cooperative scheduler, thus it inherits its behavior. The efficiency of programs running in a parallel environment with cooperative scheduling tightly depends on the user code. A task must finish or give up its execution in order to execute a different task on the same CPU. If tasks depend on each other in some way, they should keep balanced execution times as much as possible. Furthermore, too little execution times cause that scheduling exceeds the \textit{real} execution in the CPU consumption\footnote{The prefetch optimization method described in the previous chapter aims to reduce a number of such executions.}, big execution times can inhibit parallelism by keeping dependent tasks out of an execution. Big execution times of tasks producing data can also congest framework internal structures.
 
-This optimization method aims to resolve big execution times. The main goal is to detect complex tasks and yield their execution in appropriate places in code. Listing~\ref{yield-signature} contains the signature of the \code{basic\_box} member functions for such purpose.
+This optimization method aims to resolve big execution times. The main goal is to detect complex tasks and yield their execution in appropriate places in the code. Listing~\ref{yield-signature} contains the signature of the \code{basic\_box} member functions for such purpose.
 
 \begin{lstlisting}[caption={The signature of the yield execution function.}, label={yield-signature}]
 void yield();
@@ -10,13 +10,13 @@ void yield();
 
 \section{Complexity}
 \label{yield-complexity}
-There are multiple ways to measure the code complexity. Ideally, if we know input data, we run a program with this data and measure its performance. This process is called \emph{profiling}. The quality of optimizations based on profiling is very high, but it requires human resources to analyse data and update code\footnote{Most popular compilers provide a feature for optimizations based on profiling data, \emph{Profile Guided Optimizations (PGO)}~\cite{pgo}, but this approach cannot replace the higher level look on algorithms used in an application provided by a programmer.}. There are various techniques used for measurements such as statistical sampling with the hardware support which is very fast, or instrumentation which is more intrusive thus affecting an application performance, but given information is more precise. Instrumentation is useful for applications with a repetitive step with a limit for minimum execution time, or to keep execution times of a step as stable as possible. It helps to find cause of spikes. Such applications are computer games, many sorts of simulations or GUI applications.
+There are multiple ways to measure the code complexity. Ideally, if we know input data, we run a program with this data and measure its performance. This process is called \emph{profiling}. The quality of optimizations based on profiling is very high, but it requires human resources to analyse data and update the code\footnote{Most popular compilers provide a feature for optimizations based on profiling data, \emph{Profile Guided Optimizations (PGO)}~\cite{pgo}, but this approach cannot replace the higher level look on algorithms used in an application provided by a programmer.}. There are various techniques used for measurements such as statistical sampling with the hardware support which is very fast, or instrumentation which is more intrusive thus affecting an application performance, but given information is more precise. Instrumentation is useful for applications with a repetitive step with a limit for minimum execution time, or to keep execution times of a step as stable as possible. It helps to find cause of spikes. Such applications are computer games, many sorts of simulations or GUI applications.
 
-Another approach for measuring the complexity is to compile code and consider the number of generated instructions as the magnitude of the complexity. This assumption is naive and imprecise. The main source of the complexity in most applications comes from loops, repeatedly executed code paths, and this information is not present in such metric. For snippets of code without a loop, this method is precise enough even if there are multiple execution paths. In bigger code samples, there is probably a bigger amount of loops, thus code is more complex, but the number of instructions reflects it less and less precise.
+Another approach for measuring the complexity is to compile the code and consider the number of generated instructions as the magnitude of the complexity. This assumption is naive and imprecise. The main source of the complexity in most applications comes from loops, repeatedly executed code paths, and this information is not present in such metric. For snippets of a code without a loop, this method is precise enough even if there are multiple execution paths. In bigger code samples, there is probably a bigger amount of loops, thus the code is more complex, but the number of instructions reflects it less and less precise.
 
-The complexity can be also measured based on an indentation in source code. A bigger maximal indentation usually means more complex code. This approach makes assumptions about a source code formatting. Its preciseness tightly depends on these assumptions and how source code follows them.
+The complexity can be also measured based on an indentation in the source code. A bigger maximal indentation usually means more complex code. This approach makes assumptions about source code formatting. Its preciseness tightly depends on these assumptions and how the source code follows them.
 
-Company programming rules often contain a rule related to the concept called \emph{cyclomatic complexity}~\cite{cyclomatic-complexity}. It measures the logical complexity, the number of linearly independent paths through code. This optimization method aims to reduce a different kind of the code complexity. More code branches decreases readability for a human, but it has almost no effect on runtime.
+Company programming rules often contain a rule related to the concept called \emph{cyclomatic complexity}~\cite{cyclomatic-complexity}. It measures the logical complexity, the number of linearly independent paths through the code. This optimization method aims to reduce a different kind of the code complexity. More code branches decreases readability for a human, but it has almost no effect on runtime.
 
 \section{Control flow graph}
 \label{yield-cfg}
@@ -58,7 +58,7 @@ Code blocks consist of statements. Most statements generate zero or more instruc
 \vspace{0.1cm}
 \renewcommand{\arraystretch}{1.1}
 \centering
-\begin{tabular}{ l | r }
+\begin{tabular}{ l r }
   \textbf{Trivial call expression}\\A function body does not generate any instruction, the body is empty. & 0 \\
   \textbf{Constant call expression}\\A function defined as a constant expression. & 0 \\
   \textbf{Inlined call expression}\\A function is decided to be inlined by the compiler. & 10 \\
@@ -78,8 +78,8 @@ Therefore, loop bodies are evaluated as independent CFG making source CFG acycli
 \vspace{0.1cm}
 \renewcommand{\arraystretch}{1.1}
 \centering
-\begin{tabular}{ m{5cm} | r }
-  \code{for} statement & 5 \\
+\begin{tabular}{ m{5cm} r }
+  \code{for} statement & 5 \\ \hline
   \code{while} statement & 15 \\
 \end{tabular}
 \end{table}
@@ -96,7 +96,6 @@ Figure~\ref{yield-loop} shows an example of a part of CFG with a \code{for} loop
 \end{equation}
 
 \begin{lstlisting}[caption={A loop statement and a selection statment in a loop body.}, label={yield-loopcode}]
-...
 for (...)
 {
     if (/* the complexity is 1 */)
@@ -108,7 +107,6 @@ for (...)
         /* the complexity is 1 */
     }
 }
-...
 \end{lstlisting}
 
 \begin{figure}[h!]
@@ -189,6 +187,7 @@ The goal of this optimization method is to reduce a number of complex paths in l
 \end{tikzpicture}
 \end{figure}
 
+\pagebreak
 When the algorithm to reduce a number of complex paths places a call to the yield function into some block, it cuts one or more paths. A new call to the yield function adds a work for the scheduler and does not remove any work from a task. Thus, a number of new calls to the yield function should be minimized. Unfortunately, there are situations when a placement of the yield function call is equally good for multiple CFG blocks. The simple situation with a single path exceeding a threshold by a single statement is an example. The algorithm can place a call to the yield function into any block passed by this path and it would minimize its penalty to zero. In some edge scenarios, the algorithm could potentially cut only the last statement of the path. It is not the desired behavior since one statement cannot inhibit parallelism significantly. The path should be cut close to its middle or not at all if the yield function call affects other paths negatively.
 
 The solution is to take also other paths than only those too complex into an account in the CFG quality evaluation. Then, the algorithm calculates a sum of distances of path complexities from a threshold value, see Figure~\ref{yield-distance}. This approach takes into an account also the disadvantage of placing the yield call expression into some block. The optimizer achieves very good results with such metric of the CFG quality.
@@ -281,12 +280,12 @@ With a metric for the CFG quality, it is possible to describe the algorithm for 
 \pagebreak[4]
 
 \subsubsection{Complexities calculation and quality evaluation}
-The optimizer uses the depth-first search algorithm to analyse CFG and calculate complexities. The analysis has to handle yield calls in blocks, which are already in code or are planned for an insertion by the optimizer. Inputs of the analysis are CFG and data structures described in Section~\ref{yield-data}. The CFG quality evaluation gets paths and their complexities as an input and calculates a value representing the CFG quality described in Section~\ref{yield-quality}.
+The optimizer uses the depth-first search algorithm to analyse CFG and calculate complexities. The analysis has to handle yield calls in blocks, which are already in the code or are planned for an insertion by the optimizer. Inputs of the analysis are CFG and data structures described in Section~\ref{yield-data}. The CFG quality evaluation gets paths and their complexities as an input and calculates a value representing the CFG quality described in Section~\ref{yield-quality}.
 
 \subsubsection{Optimization step}
 The only goal of the optimization step is to decrease the distance value representing the quality of CFG. The optimizer uses brute force to achieve the goal. Firstly, it collects all blocks where at least one path ends, i.e., the \textit{Exit} block and blocks with the \emph{Planned} or the \emph{Present} yield state. Then, it processes every block with at least one path with complexity higher than the threshold value and calculates what happens if the yield call expression is placed into that block. A block with the best outcome has its yield state set to \emph{Planned}.
 
-The complexity of such algorithm tightly depends on the complexity of user code and on the structure of its CFG. Every block is visited twice in each optimization step. All paths complexities are recalculated\footnote{A recalculation of a path complexity means one subtraction from its complexity.} for every block with at least one path with complexity higher than the threshold value. However, the next optimization step is executed only if the previous optimization step has changed the yield state of one block into the \emph{Planned} state. Thus, the optimization step has increased a number of paths, but greatly decreased a number of blocks with too complex paths.
+The complexity of such algorithm tightly depends on the complexity of the user code and on the structure of its CFG. Every block is visited twice in each optimization step. All paths complexities are recalculated\footnote{A recalculation of a path complexity means one subtraction from its complexity.} for every block with at least one path with complexity higher than the threshold value. However, the next optimization step is executed only if the previous optimization step has changed the yield state of one block into the \emph{Planned} state. Thus, the optimization step has increased a number of paths, but greatly decreased a number of blocks with too complex paths.
 
 \subsection{Default threshold}
 \label{yield-default}
@@ -302,7 +301,7 @@ Using values from Tables \ref{yield-block} and \ref{yield-loop-const}, the defau
 \subsection{Code injection}
 The last step of the optimization process is the injection of the yield call expression to blocks with the \emph{Planned} yield state. A block with such yield state can be empty, it can contain a single statement in a condition expression of a selection statement, the right-hand side expression in a binary expression, the else branch in a conditional expression, or any other language structure where the C++ language grammar does not allow to chain statements.
 
-The easy solution is to find a compound statement, where the injection of the yield call expression is as good as the injection directly to the chosen block. The injection of the yield call expression into a compound statement is then simple and safe. For reminder, the prefetch optimization method already does inject code into compound statements.
+The easy solution is to find a compound statement, where the injection of the yield call expression is as good as the injection directly to the chosen block. The injection of the yield call expression into a compound statement is then simple and safe. For reminder, the prefetch optimization method already does inject a code into compound statements.
 
 Firstly, the optimization method collects all compound statements in the function body compound statement\footnote{The function body compound statement is included in this set}. Then, the optimizer collects all blocks with the \emph{Planned} yield state. For every collected block, the optimizer checks all compound statements whether the relation of the collected block and the compound statement matches any of special cases, see Figure~\ref{yield-injection}.
 
